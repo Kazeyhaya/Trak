@@ -1,0 +1,16 @@
+{
+  "name": "trak",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "aplicativos/*",
+    "pacotes/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @trak/web",
+    "dev:api": "npm run start:dev --workspace @trak/api",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
+  }
+}
