@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "../contextos/auth-context";
+import "./globals.css";
 
 const headingFont = Space_Grotesk({
   subsets: ["latin"],
