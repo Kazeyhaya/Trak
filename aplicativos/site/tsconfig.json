@@ -20,7 +20,14 @@
         "./src/*"
       ]
     },
-    "isolatedModules": true
+    "isolatedModules": true,
+    "target": "ES2017",
+    "skipLibCheck": true,
+    "strict": false,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true
   },
   "include": [
     "**/*.ts",
