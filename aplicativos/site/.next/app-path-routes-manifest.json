@@ -1,8 +1,0 @@
-{
-  "/_not-found/page": "/_not-found",
-  "/page": "/",
-  "/catalogo/page": "/catalogo",
-  "/entrar/page": "/entrar",
-  "/itens/[slug]/page": "/itens/[slug]",
-  "/painel/page": "/painel"
-}
