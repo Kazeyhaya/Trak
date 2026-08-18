@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AuthGuard } from "../../../componentes/auth-guard";
 import { ItemShell } from "../../../componentes/item-shell";
 import { getCatalogItemById } from "../../../lib/catalogo-api";
 
@@ -23,5 +24,9 @@ export default async function ItemPage({ params }: ItemPageProps) {
   const resolvedParams = await params;
   const item = await getCatalogItemById(resolvedParams.slug);
 
-  return <ItemShell item={item} />;
+  return (
+    <AuthGuard>
+      <ItemShell item={item} />
+    </AuthGuard>
+  );
 }

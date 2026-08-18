@@ -7,23 +7,29 @@ import { supabase } from "../lib/supabase-client";
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; hasSession: boolean }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null; hasSession: boolean }>;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   session: null,
-  signIn: async () => ({ error: "AuthProvider não inicializado." }),
+  loading: true,
+  signIn: async () => ({ error: "AuthProvider não inicializado.", hasSession: false }),
+  signUp: async () => ({ error: "AuthProvider não inicializado.", hasSession: false }),
   signOut: async () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!supabase) {
+      setLoading(false);
       return;
     }
 
@@ -31,12 +37,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       persistToken(data.session);
+      setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       persistToken(nextSession);
+      setLoading(false);
     });
 
     return () => {
@@ -46,10 +54,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     if (!supabase) {
-      return { error: "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY." };
+      return {
+        error: "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        hasSession: false
+      };
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message ?? null, hasSession: Boolean(data.session) };
+  }
+
+  async function signUp(email: string, password: string) {
+    if (!supabase) {
+      return {
+        error: "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        hasSession: false
+      };
+    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    return { error: error?.message ?? null, hasSession: Boolean(data.session) };
   }
 
   async function signOut() {
@@ -60,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

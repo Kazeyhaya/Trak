@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useAuth } from "../contextos/auth-context";
-import { UiBadge } from "./ui-badge";
-
-const navItems = [
-  { label: "Início", href: "/" },
-  { label: "Catálogo", href: "/catalogo" },
-  { label: "Painel", href: "/painel" }
-];
 
 export function SiteHeader() {
   const { user, signOut } = useAuth();
+  const navItems = user
+    ? [
+        { label: "Catálogo", href: "/catalogo" },
+        { label: "Painel", href: "/painel" }
+      ]
+    : [];
 
   return (
     <header className="site-header">
@@ -19,17 +18,18 @@ export function SiteHeader() {
         <span className="brand-orb" aria-hidden="true" />
         <span className="brand-copy">
           <strong>Trak</strong>
-          <UiBadge tone="primary">alpha</UiBadge>
         </span>
       </Link>
 
-      <nav className="site-nav" aria-label="Navegação principal">
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      {navItems.length > 0 && (
+        <nav className="site-nav" aria-label="Navegação principal">
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {user ? (
         <div className="header-user">

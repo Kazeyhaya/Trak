@@ -256,6 +256,38 @@ body {
   box-shadow: var(--shadow);
 }
 
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.auth-mode-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 4px);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-mode-button.is-active {
+  background: rgba(124, 225, 199, 0.14);
+  color: var(--primary);
+}
+
+.auth-notice {
+  margin: 0;
+  color: var(--primary);
+  line-height: 1.6;
+}
+
 .auth-actions {
   display: grid;
   gap: 12px;

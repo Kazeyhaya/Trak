@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AuthGuard } from "../../componentes/auth-guard";
 import { CatalogShell } from "../../componentes/catalog-shell";
 import { getCatalogItems } from "../../lib/catalogo-api";
 
@@ -19,10 +20,12 @@ export default async function CatalogoPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
 
   return (
-    <CatalogShell
-      items={items}
-      query={resolvedSearchParams?.q ?? ""}
-      typeFilter={resolvedSearchParams?.type ?? ""}
-    />
+    <AuthGuard>
+      <CatalogShell
+        items={items}
+        query={resolvedSearchParams?.q ?? ""}
+        typeFilter={resolvedSearchParams?.type ?? ""}
+      />
+    </AuthGuard>
   );
 }

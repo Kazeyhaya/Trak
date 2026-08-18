@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AuthGuard } from "../../componentes/auth-guard";
 import { TrackingShell } from "../../componentes/tracking-shell";
 
 export const dynamic = "force-dynamic";
@@ -10,5 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default function PainelPage() {
-  return <TrackingShell />;
+  return (
+    <AuthGuard>
+      <TrackingShell />
+    </AuthGuard>
+  );
 }
