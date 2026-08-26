@@ -1,16 +1,17 @@
 {
-"name": "trak",
-"version": "0.1.0",
-"private": true,
-"workspaces": [
-"aplicativos/backend",
-"aplicativos/frontend"
-],
-"scripts": {
-"dev:web": "npm run dev -w @trak/web",
-"dev:api": "npm run start:dev -w @trak/api",
-"build:web": "npm run build -w @trak/web",
-"build:api": "npm run build -w @trak/api",
-"build": "npm run build --workspaces"
-}
+  "name": "trak",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "aplicativos/backend",
+    "aplicativos/frontend"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @trak/web",
+    "dev:api": "npm run start:dev -w @trak/api",
+    "build:web": "npm run build -w @trak/web",
+    "build:api": "npm run build -w @trak/api",
+    "build": "npm run build --workspaces",
+    "start:prod": "npm run start:prod -w @trak/api"
+  }
 }
