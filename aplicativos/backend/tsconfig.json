@@ -8,7 +8,7 @@
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
-    "outDir": "./dist",
+    "rootDir": "./src",
     "incremental": true,
     "strictPropertyInitialization": false,
     "skipLibCheck": true
