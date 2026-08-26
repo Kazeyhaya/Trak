@@ -1,0 +1,7 @@
+.home-shell,
+.auth-shell,
+.content-shell {
+  width: min(calc(100% - 32px), var(--max-content));
+  margin: 0 auto;
+  padding: 40px 0 56px;
+}

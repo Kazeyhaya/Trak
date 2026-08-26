@@ -1,0 +1,49 @@
+.tracking-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.tracking-grid .ui-card {
+  padding: 18px;
+}
+
+.tracking-grid span,
+.timeline-item span {
+  display: inline-flex;
+  color: var(--accent);
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracking-grid strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.timeline-item {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.timeline-item h3 {
+  margin: 8px 0 8px;
+  font-size: 1.2rem;
+}
+
+.timeline-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}

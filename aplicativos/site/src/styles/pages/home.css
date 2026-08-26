@@ -1,0 +1,124 @@
+.hero-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  gap: 28px;
+  align-items: stretch;
+  padding: 28px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: linear-gradient(180deg, rgba(18, 32, 51, 0.8), rgba(8, 16, 28, 0.9));
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(124, 225, 199, 0.14), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(122, 167, 255, 0.16), transparent 24%);
+  pointer-events: none;
+}
+
+.hero-copy,
+.auth-panel,
+.roadmap-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-copy h1 {
+  margin: 18px 0 16px;
+  max-width: 12ch;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: clamp(3rem, 7vw, 5.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.hero-copy p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.04rem;
+  line-height: 1.7;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.stats-grid > div {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stats-grid dt {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.stats-grid dd {
+  margin: 10px 0 0;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(160, 184, 214, 0.16);
+  background: rgba(8, 16, 28, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.roadmap-block {
+  margin-top: 28px;
+}
+
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.roadmap-grid article {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.roadmap-grid span {
+  display: inline-flex;
+  margin-bottom: 12px;
+}
+
+.roadmap-grid h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: 1.35rem;
+}
+
+.roadmap-grid p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
