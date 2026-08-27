@@ -9,6 +9,7 @@
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
     "rootDir": "./src",
+    "types": ["node"],
     "incremental": true,
     "strictPropertyInitialization": false,
     "skipLibCheck": true,
