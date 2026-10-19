@@ -44,6 +44,16 @@ const fallbackItems: CatalogItem[] = [
     coverUrl: "https://media.rawg.io/media/games/456/456dea5e1c7e3cd07060c14e96612001.jpg",
     synopsis: "Jogo de mundo aberto com narrativa criminal e multiplayer massivo.",
     releaseYear: 2013
+  },
+  {
+    id: "openlibrary_book_OL27448W",
+    externalId: "OL27448W",
+    source: "openlibrary",
+    type: "BOOK",
+    title: "O Senhor dos Anéis",
+    coverUrl: null,
+    synopsis: "Clássico da fantasia épica de J. R. R. Tolkien.",
+    releaseYear: 1954
   }
 ];
 
@@ -51,7 +61,8 @@ function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
 }
 
-async function fetchJson<T>(path: string): Promise<T | null> {
+// Busca publica (sem login), usada pelos Server Components.
+export async function fetchJson<T>(path: string): Promise<T | null> {
   try {
     const response = await fetch(`${getApiBaseUrl()}${path}`, {
       cache: "no-store",

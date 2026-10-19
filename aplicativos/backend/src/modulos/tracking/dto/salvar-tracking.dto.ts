@@ -1,6 +1,7 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
-export const STATUS_TRACKING = ["WANT", "WATCHING", "COMPLETED", "PAUSED"] as const;
+export const STATUS_TRACKING = ["WANT", "WATCHING", "COMPLETED", "PAUSED", "DROPPED"] as const;
 
 export type StatusTracking = (typeof STATUS_TRACKING)[number];
 
@@ -15,7 +16,17 @@ export class SalvarTrackingDto {
   @Max(100)
   progress?: number;
 
+  // null remove a avaliacao.
   @IsOptional()
-  @IsBoolean()
-  favorite?: boolean;
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number | null;
+
+  // null ou "" remove a nota.
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
+  @IsString()
+  @MaxLength(2000)
+  notes?: string | null;
 }

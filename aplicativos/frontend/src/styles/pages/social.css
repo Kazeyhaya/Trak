@@ -1,0 +1,356 @@
+/* Navegacao */
+
+.site-nav {
+  flex-wrap: wrap;
+}
+
+.site-nav a[aria-current="page"] {
+  color: var(--text);
+  background: rgba(124, 225, 199, 0.1);
+}
+
+/* Avaliacao */
+
+.rating-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.rating-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: rgba(160, 184, 214, 0.35);
+}
+
+.rating-stars button {
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rating-stars--sm,
+.rating-stars--sm button {
+  font-size: 1rem;
+}
+
+.rating-stars .is-on {
+  color: var(--accent);
+}
+
+.rating-stars button:focus-visible {
+  outline: 2px solid var(--primary);
+  border-radius: 6px;
+}
+
+.notes-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(160, 184, 214, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+/* Episodios */
+
+.episode-toolbar {
+  margin: 14px 0;
+}
+
+.episode-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.episode-list label {
+  display: grid;
+  grid-template-columns: auto 2.5rem 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+}
+
+.episode-list input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.episode-list .is-watched label {
+  background: rgba(124, 225, 199, 0.06);
+}
+
+.episode-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.episode-date {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Feed e atividades */
+
+.activity-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+
+.activity-item p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.activity-item time {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.activity-item a {
+  color: var(--primary);
+}
+
+/* Perfil */
+
+.profile-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.profile-hero h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  letter-spacing: -0.04em;
+}
+
+.profile-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.profile-counts {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+.profile-counts strong {
+  color: var(--text);
+}
+
+.search-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Alertas */
+
+.alert-list {
+  display: grid;
+  gap: 10px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.alert-item strong {
+  display: block;
+}
+
+.alert-item span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* Importacao e moderacao */
+
+.import-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.import-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px;
+}
+
+.import-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.import-card p,
+.import-card li {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.import-card select,
+.import-card input[type="text"],
+.profile-form textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(160, 184, 214, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+}
+
+.profile-form textarea {
+  padding: 12px;
+}
+
+.import-card input[type="file"] {
+  color: var(--muted);
+}
+
+.import-result ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.report-item {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.report-item blockquote {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.report-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* Landing */
+
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.landing-features article {
+  padding: 20px;
+}
+
+.landing-features h3 {
+  margin: 10px 0 6px;
+  font-size: 1.15rem;
+}
+
+.landing-features p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 980px) {
+  .import-grid,
+  .landing-features {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .episode-list label {
+    grid-template-columns: auto 2rem 1fr;
+  }
+
+  .episode-date {
+    grid-column: 3;
+  }
+}
+
+/* Cards de midia em grade estreita */
+
+.media-card h3 {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.media-card-footer span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Estado selecionado dos chips (filtros, status, temporadas). Antes nao havia
+   estilo, entao o status escolhido nao aparecia selecionado. */
+.filter-chip {
+  cursor: pointer;
+}
+
+.filter-chip.is-active,
+.filter-chip[aria-selected="true"] {
+  color: #06101c;
+  background: var(--primary);
+  border-color: var(--primary);
+  font-weight: 700;
+}
+
+.filter-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.filter-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

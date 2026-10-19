@@ -7,18 +7,22 @@ import {
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
+import { AtividadesService } from "../social/atividades.service";
+
+export const CONTEUDO_REMOVIDO = "[comentário removido]";
 import { DenunciarComentarioDto } from "./dto/denunciar-comentario.dto";
 
 @Injectable()
 export class ComentariosService {
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly catalogoService: CatalogoService
+    private readonly catalogoService: CatalogoService,
+    private readonly atividadesService: AtividadesService
   ) {}
 
-  async listarPorMidia(mediaItemId: string, authUserId: string) {
+  async listarPorMidia(mediaItemId: string, authUserId?: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const userId = authUserId ? await this.supabaseService.resolverUserId(authUserId) : null;
 
     const { data: comentarios, error } = await supabase
       .from("Comment")
@@ -82,6 +86,8 @@ export class ComentariosService {
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
+
+    await this.atividadesService.registrar(userId, "COMMENT", mediaItemId, { commentId: data.id });
 
     return {
       ...data,
@@ -176,13 +182,31 @@ export class ComentariosService {
       throw new InternalServerErrorException(likesError.message);
     }
 
+    await this.apagarOuOcultar(comentarioId);
+    return { ok: true };
+  }
+
+  // Apaga o comentario; se o banco impedir (ex.: denuncia vinculada por chave
+  // estrangeira), oculta o conteudo para preservar o historico de moderacao.
+  async apagarOuOcultar(comentarioId: string) {
+    const supabase = this.supabaseService.getClient();
     const { error } = await supabase.from("Comment").delete().eq("id", comentarioId);
+
+    if (error?.code === "23503") {
+      const { error: updateError } = await supabase
+        .from("Comment")
+        .update({ content: CONTEUDO_REMOVIDO, updatedAt: new Date().toISOString() })
+        .eq("id", comentarioId);
+
+      if (updateError) {
+        throw new InternalServerErrorException(updateError.message);
+      }
+      return;
+    }
 
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
-
-    return { ok: true };
   }
 
   private async contarCurtidas(comentarioId: string) {
@@ -246,7 +270,8 @@ export class ComentariosService {
         commentId: comentarioId,
         reporterUserId,
         reason: payload.reason,
-        details: payload.details
+        details: payload.details,
+        updatedAt: new Date().toISOString()
       })
       .select("id,commentId,reporterUserId,reason,details,status,createdAt")
       .single();

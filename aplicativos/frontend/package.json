@@ -6,9 +6,12 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.55.0",
     "@swc/helpers": "^0.5.15",
     "next": "16.3.3",
@@ -23,6 +26,10 @@
     "@types/react-dom": "19.1.2",
     "eslint": "9.25.1",
     "eslint-config-next": "16.3.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

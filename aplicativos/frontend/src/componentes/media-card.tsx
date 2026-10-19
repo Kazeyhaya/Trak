@@ -37,7 +37,7 @@ export function MediaCard({ type, title, meta, coverUrl, progress, accent }: Med
       </div>
 
       <div className="media-card-footer">
-        <span>{progress ?? "Disponivel para tracking"}</span>
+        <span>{progress ?? "Disponível para tracking"}</span>
         <strong>{accent ?? "Abrir item"}</strong>
       </div>
     </article>
