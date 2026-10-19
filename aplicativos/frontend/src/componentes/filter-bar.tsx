@@ -7,7 +7,8 @@ const filters = [
   { label: "Todos", value: "" },
   { label: "Filmes", value: "movie" },
   { label: "Séries", value: "series" },
-  { label: "Jogos", value: "game" }
+  { label: "Jogos", value: "game" },
+  { label: "Livros", value: "book" }
 ];
 
 function normalizeType(value?: string | null) {
@@ -60,7 +61,7 @@ export function FilterBar() {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar filmes, séries e jogos"
+          placeholder="Buscar filmes, séries, jogos e livros"
         />
       </label>
 

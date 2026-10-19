@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "../contextos/auth-context";
+import { destinoSeguro } from "../lib/rotas";
 import { UiButton } from "./ui-button";
 
-export function AuthShell() {
+export function AuthShell({ next }: { next?: string }) {
   const { signIn, signUp, user } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "registro">("login");
@@ -29,7 +30,7 @@ export function AuthShell() {
               <span className="panel-title">Conta</span>
             </div>
             <div className="auth-actions">
-              <UiButton href="/painel">Ir para o painel</UiButton>
+              <UiButton href={destinoSeguro(next)}>Continuar</UiButton>
               <UiButton href="/catalogo" variant="secondary">Ver catálogo</UiButton>
             </div>
           </aside>
@@ -57,7 +58,9 @@ export function AuthShell() {
     if (result.error) {
       setError(result.error);
     } else if (mode === "login" || result.hasSession) {
-      router.replace("/painel");
+      // refresh faz os Server Components lerem os novos cookies de sessao.
+      router.replace(destinoSeguro(next));
+      router.refresh();
     } else {
       setNotice("Conta criada. Confira seu e-mail para confirmar o acesso.");
     }

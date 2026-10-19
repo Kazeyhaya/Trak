@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { FilterBar } from "./filter-bar";
-import { MediaCard } from "./media-card";
+import { MediaGrid } from "./media-grid";
 import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiCard } from "./ui-card";
-import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
+import { CatalogItem } from "../lib/catalogo-api";
 
 type CatalogShellProps = {
   items: CatalogItem[];
@@ -12,12 +12,6 @@ type CatalogShellProps = {
   query?: string;
   typeFilter?: string;
 };
-
-function buildMeta(item: CatalogItem) {
-  const year = item.releaseYear ? `${item.releaseYear}` : "Sem ano";
-
-  return `${year} · ${item.source.toUpperCase()}`;
-}
 
 function CatalogEmptyState({ query }: { query: string }) {
   return (
@@ -55,7 +49,7 @@ export function CatalogShell({ items, offline = false, query = "", typeFilter = 
 
       <section className="content-hero">
         <div>
-          <h1>Descubra, filtre e organize os itens que vão entrar no tracking.</h1>
+          <h1>Descubra filmes, séries, jogos e livros para acompanhar.</h1>
         </div>
       </section>
 
@@ -70,20 +64,7 @@ export function CatalogShell({ items, offline = false, query = "", typeFilter = 
       {visibleItems.length === 0 ? (
         <CatalogEmptyState query={query} />
       ) : (
-        <section className="catalog-grid" aria-label={query ? "Resultados da busca" : "Itens em destaque"}>
-          {visibleItems.map((item) => (
-            <Link key={item.id} href={`/itens/${item.id}`}>
-              <MediaCard
-                type={getMediaTypeLabel(item.type)}
-                title={item.title}
-                meta={buildMeta(item)}
-                coverUrl={item.coverUrl}
-                progress={item.synopsis ?? undefined}
-                accent="Detalhe"
-              />
-            </Link>
-          ))}
-        </section>
+        <MediaGrid items={visibleItems} label={query ? "Resultados da busca" : "Itens em destaque"} />
       )}
     </main>
   );

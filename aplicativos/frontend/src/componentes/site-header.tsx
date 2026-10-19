@@ -1,16 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "../contextos/auth-context";
 
 export function SiteHeader() {
-  const { user, signOut } = useAuth();
-  const navItems = user
-    ? [
-        { label: "Catálogo", href: "/catalogo" },
-        { label: "Painel", href: "/painel" }
-      ]
-    : [];
+  const { user, profile, isAdmin, signOut } = useAuth();
+  const pathname = usePathname();
+  const navItems = [
+    { label: "Catálogo", href: "/catalogo" },
+    ...(user
+      ? [
+          { label: "Painel", href: "/painel" },
+          { label: "Feed", href: "/feed" },
+          { label: "Para você", href: "/recomendacoes" },
+          { label: "Importar", href: "/importar" },
+          ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
+        ]
+      : [])
+  ];
 
   return (
     <header className="site-header">
@@ -20,19 +28,19 @@ export function SiteHeader() {
         </span>
       </Link>
 
-      {navItems.length > 0 && (
-        <nav className="site-nav" aria-label="Navegação principal">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      )}
+      <nav className="site-nav" aria-label="Navegação principal">
+        {navItems.map((item) => (
+          <Link key={item.href} href={item.href} aria-current={pathname.startsWith(item.href) ? "page" : undefined}>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
 
       {user ? (
         <div className="header-user">
-          <span className="header-user-email">{user.email}</span>
+          <Link className="header-user-email" href={profile ? `/u/${profile.username}` : "/perfil"}>
+            {profile ? `@${profile.username}` : "Criar perfil"}
+          </Link>
           <button type="button" className="header-cta" onClick={() => void signOut()}>
             Sair
           </button>

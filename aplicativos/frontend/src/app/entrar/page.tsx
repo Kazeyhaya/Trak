@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Trak | Entrar",
-  description: "Tela inicial de autenticação do Trak"
+  description: "Entre ou crie sua conta no Trak"
 };
 
-export default function EntrarPage() {
-  return <AuthShell />;
+export default async function EntrarPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
+  return <AuthShell next={next} />;
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Controller, Get, Param, ParseIntPipe, Query } from "@nestjs/common";
 import { CatalogoService } from "./catalogo.service";
 
 @Controller("catalogo")
@@ -13,5 +13,20 @@ export class CatalogoController {
   @Get(":id")
   buscarPorId(@Param("id") id: string) {
     return this.catalogoService.buscarPorId(id);
+  }
+
+  @Get(":id/temporadas")
+  listarTemporadas(@Param("id") id: string) {
+    return this.catalogoService.listarTemporadas(id);
+  }
+
+  @Get(":id/temporadas/:temporada")
+  listarEpisodios(@Param("id") id: string, @Param("temporada", ParseIntPipe) temporada: number) {
+    return this.catalogoService.listarEpisodios(id, temporada);
+  }
+
+  @Get(":id/relacionados")
+  relacionados(@Param("id") id: string) {
+    return this.catalogoService.relacionados(id);
   }
 }

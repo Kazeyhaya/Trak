@@ -1,9 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { supabaseAnonKey, supabaseUrl } from "./supabase-config";
 
-// Vars are public and safe to expose in the browser
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-
+// A sessao fica em cookies (e nao no localStorage) para o servidor tambem ler.
 // Returns null when env vars are absent (build-time / unconfigured)
 export const supabase =
-  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+  supabaseUrl && supabaseAnonKey ? createBrowserClient(supabaseUrl, supabaseAnonKey) : null;

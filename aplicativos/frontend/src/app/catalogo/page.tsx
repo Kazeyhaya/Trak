@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AuthGuard } from "../../componentes/auth-guard";
 import { CatalogShell } from "../../componentes/catalog-shell";
 import { getCatalogItems } from "../../lib/catalogo-api";
 
@@ -8,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Trak | Catálogo",
-  description: "Descubra filmes, séries e jogos para acompanhar no Trak"
+  description: "Descubra filmes, séries, jogos e livros para acompanhar no Trak"
 };
 
 export default async function CatalogoPage({
@@ -22,8 +21,6 @@ export default async function CatalogoPage({
   const { items, offline } = await getCatalogItems(query, typeFilter);
 
   return (
-    <AuthGuard>
-      <CatalogShell items={items} offline={offline} query={query} typeFilter={typeFilter} />
-    </AuthGuard>
+    <CatalogShell items={items} offline={offline} query={query} typeFilter={typeFilter} />
   );
 }

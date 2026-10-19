@@ -24,7 +24,7 @@
     "isolatedModules": true,
     "target": "ES2017",
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
     "module": "esnext",
     "esModuleInterop": true,
     "resolveJsonModule": true

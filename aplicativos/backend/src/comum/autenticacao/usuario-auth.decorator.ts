@@ -11,3 +11,11 @@ export const UsuarioLogado = createParamDecorator(
     return request.usuarioAuth;
   }
 );
+
+// Igual ao UsuarioLogado, mas pode ser undefined (AutenticacaoOpcionalGuard).
+export const UsuarioOpcional = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): UsuarioAuth | undefined => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.usuarioAuth;
+  }
+);

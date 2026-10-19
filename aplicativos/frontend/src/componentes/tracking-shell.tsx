@@ -4,13 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { AlertsSection } from "./alerts-section";
 import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import {
-  ApiError,
+  errorMessage,
   FavoriteEntry,
   getFavorites,
   getStatusLabel,
@@ -19,7 +20,7 @@ import {
 } from "../lib/api";
 
 function deriveStats(items: TrackingEntry[], favorites: FavoriteEntry[]) {
-  const ativos = items.filter((i) => i.status !== "COMPLETED").length;
+  const ativos = items.filter((i) => i.status !== "COMPLETED" && i.status !== "DROPPED").length;
   const emProgresso = items.filter((i) => i.status === "WATCHING").length;
   const concluidos = items.filter((i) => i.status === "COMPLETED").length;
 
@@ -50,14 +51,12 @@ export function TrackingShell() {
         setItems(trackingData);
         setFavorites(favoritesData);
       })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Não foi possível carregar seu tracking.")
-      )
+      .catch((err) => setError(errorMessage(err, "Não foi possível carregar seu tracking.")))
       .finally(() => setLoaded(true));
   }, []);
 
   const stats = loaded && !error ? deriveStats(items, favorites) : emptyStats;
-  const timeline = items.filter((i) => i.status !== "COMPLETED").slice(0, 8);
+  const timeline = items.filter((i) => i.status !== "COMPLETED" && i.status !== "DROPPED").slice(0, 8);
 
   return (
     <main className="content-shell">
@@ -93,6 +92,8 @@ export function TrackingShell() {
           </UiCard>
         ))}
       </section>
+
+      <AlertsSection />
 
       <section className="content-panel">
         <SectionHeading
@@ -138,6 +139,12 @@ export function TrackingShell() {
 
         <div className="item-next-actions">
           <UiButton href="/catalogo">Ir para catálogo</UiButton>
+          <UiButton href="/recomendacoes" variant="secondary">
+            Recomendações para você
+          </UiButton>
+          <UiButton href="/importar" variant="secondary">
+            Importar histórico
+          </UiButton>
         </div>
       </section>
 

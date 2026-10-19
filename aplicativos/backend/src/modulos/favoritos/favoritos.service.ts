@@ -2,12 +2,14 @@ import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
+import { AtividadesService } from "../social/atividades.service";
 
 @Injectable()
 export class FavoritosService {
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly catalogoService: CatalogoService
+    private readonly catalogoService: CatalogoService,
+    private readonly atividadesService: AtividadesService
   ) {}
 
   async listar(authUserId: string) {
@@ -42,7 +44,7 @@ export class FavoritosService {
     await this.catalogoService.garantirNoBanco(mediaItemId);
 
     // ignoreDuplicates evita trocar o id de um favorito que ja existe.
-    const { error } = await supabase.from("Favorite").upsert(
+    const { data, error } = await supabase.from("Favorite").upsert(
       {
         id: randomUUID(),
         userId,
@@ -52,10 +54,15 @@ export class FavoritosService {
         onConflict: "userId,mediaItemId",
         ignoreDuplicates: true
       }
-    );
+    ).select("id");
 
     if (error) {
       throw new InternalServerErrorException(error.message);
+    }
+
+    // Com ignoreDuplicates, so retorna linha quando o favorito e novo.
+    if (data && data.length > 0) {
+      await this.atividadesService.registrar(userId, "FAVORITE", mediaItemId);
     }
 
     return { ok: true };

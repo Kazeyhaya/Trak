@@ -100,7 +100,8 @@
 
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Capas em retrato: varias colunas estreitas em vez de duas largas. */
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 18px;
 }
 
@@ -161,7 +162,8 @@
 }
 
 .media-card-art {
-  aspect-ratio: 16 / 9;
+  /* Proporcao de poster/capa (2:3); jogos do RAWG sao recortados ao centro. */
+  aspect-ratio: 2 / 3;
   border-radius: 22px;
   background:
     radial-gradient(circle at 20% 20%, rgba(124, 225, 199, 0.28), transparent 28%),

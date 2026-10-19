@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { SupabaseAuthGuard } from "../../comum/autenticacao/supabase-auth.guard";
 import { UsuarioAuth, UsuarioLogado } from "../../comum/autenticacao/usuario-auth.decorator";
+import { MarcarEpisodiosDto } from "./dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
 import { TrackingService } from "./tracking.service";
 
@@ -40,5 +41,19 @@ export class TrackingController {
   @Delete("items/:mediaItemId")
   remover(@UsuarioLogado() usuario: UsuarioAuth, @Param("mediaItemId") mediaItemId: string) {
     return this.trackingService.remover(usuario.id, mediaItemId);
+  }
+
+  @Get("items/:mediaItemId/episodios")
+  listarEpisodios(@UsuarioLogado() usuario: UsuarioAuth, @Param("mediaItemId") mediaItemId: string) {
+    return this.trackingService.listarEpisodios(usuario.id, mediaItemId);
+  }
+
+  @Put("items/:mediaItemId/episodios")
+  marcarEpisodios(
+    @UsuarioLogado() usuario: UsuarioAuth,
+    @Param("mediaItemId") mediaItemId: string,
+    @Body() payload: MarcarEpisodiosDto
+  ) {
+    return this.trackingService.marcarEpisodios(usuario.id, mediaItemId, payload);
   }
 }
