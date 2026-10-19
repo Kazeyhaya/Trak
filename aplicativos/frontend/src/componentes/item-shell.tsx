@@ -1,88 +1,204 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
+import { CommentsSection } from "./comments-section";
 import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
-import { saveTrackingItem } from "../lib/tracking-api";
-
-const actions = ["Favoritar", "Iniciar tracking", "Compartilhar", "Adicionar nota"];
-const statusOptions = ["WANT", "WATCHING", "COMPLETED", "PAUSED"];
+import {
+  addFavorite,
+  ApiError,
+  getFavorites,
+  getStatusLabel,
+  getTrackingItem,
+  removeFavorite,
+  removeTrackingItem,
+  saveTrackingItem,
+  TRACKING_STATUSES,
+  TrackingEntry,
+  TrackingPayload,
+  TrackingStatus
+} from "../lib/api";
 
 type ItemShellProps = {
-  item: CatalogItem | null;
+  item: CatalogItem;
 };
 
-function buildDetails(item: CatalogItem | null) {
-  return [
-    { label: "Fonte", value: item?.source.toUpperCase() ?? "TMDB" },
-    { label: "Ano", value: `${item?.releaseYear ?? "1999"}` },
-    { label: "Tipo", value: item ? getMediaTypeLabel(item.type) : "Movie" },
-    { label: "Status", value: "WANT" }
-  ];
+const PROGRESS_SAVE_DELAY_MS = 600;
+
+function errorMessage(error: unknown) {
+  return error instanceof ApiError ? error.message : "Algo deu errado. Tente novamente.";
 }
 
 export function ItemShell({ item }: ItemShellProps) {
-  const [status, setStatus] = useState("WANT");
-  const [progress, setProgress] = useState(25);
-  const [isSaving, setIsSaving] = useState(false);
-  const details = buildDetails(item);
-  const title = item?.title ?? "Fight Club";
-  const synopsis =
-    item?.synopsis ??
-    "Estrutura base para o detalhe do item, com espaco para tracking, favoritos, progresso e dados pessoais.";
+  const [tracking, setTracking] = useState<TrackingEntry | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!item?.id) {
-      return;
-    }
+    let active = true;
 
-    const saveState = async () => {
-      setIsSaving(true);
-      await saveTrackingItem(item.id, { status, progress, favorite: false });
-      setIsSaving(false);
+    Promise.all([getTrackingItem(item.id), getFavorites()])
+      .then(([entry, favorites]) => {
+        if (!active) {
+          return;
+        }
+        setTracking(entry);
+        setProgress(entry?.progress ?? 0);
+        setIsFavorite(favorites.some((favorite) => favorite.mediaItemId === item.id));
+      })
+      .catch((err) => active && setError(errorMessage(err)))
+      .finally(() => active && setLoading(false));
+
+    return () => {
+      active = false;
+      if (progressTimer.current) {
+        clearTimeout(progressTimer.current);
+      }
     };
+  }, [item.id]);
 
-    void saveState();
-  }, [item?.id, progress, status]);
+  async function save(payload: TrackingPayload) {
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await saveTrackingItem(item.id, payload);
+      setTracking(saved);
+      setProgress(saved.progress);
+    } catch (err) {
+      setError(errorMessage(err));
+      setProgress(tracking?.progress ?? 0);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleStatus(status: TrackingStatus) {
+    // Concluir um item leva o progresso a 100%.
+    void save(status === "COMPLETED" ? { status, progress: 100 } : { status });
+  }
+
+  function handleProgress(value: number) {
+    setProgress(value);
+    if (progressTimer.current) {
+      clearTimeout(progressTimer.current);
+    }
+    progressTimer.current = setTimeout(() => {
+      void save({ progress: value, ...(tracking ? {} : { status: "WATCHING" as const }) });
+    }, PROGRESS_SAVE_DELAY_MS);
+  }
+
+  async function handleRemoveTracking() {
+    setSaving(true);
+    setError(null);
+    try {
+      await removeTrackingItem(item.id);
+      setTracking(null);
+      setProgress(0);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleFavorite() {
+    const next = !isFavorite;
+    setIsFavorite(next);
+    setError(null);
+    try {
+      await (next ? addFavorite(item.id) : removeFavorite(item.id));
+    } catch (err) {
+      setIsFavorite(!next);
+      setError(errorMessage(err));
+    }
+  }
+
+  async function handleShare() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: item.title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareNotice("Link copiado.");
+    } catch {
+      // Compartilhamento cancelado pelo usuario.
+    }
+  }
+
+  const statusLabel = tracking ? getStatusLabel(tracking.status, item.type) : "Fora do tracking";
+  const details = [
+    { label: "Fonte", value: item.source.toUpperCase() },
+    { label: "Ano", value: item.releaseYear ? String(item.releaseYear) : "—" },
+    { label: "Tipo", value: getMediaTypeLabel(item.type) },
+    { label: "Status", value: loading ? "…" : statusLabel }
+  ];
 
   return (
-        <main className="content-shell">
+    <main className="content-shell">
       <SiteHeader />
 
       <section className="item-hero">
         <div className="item-poster" aria-hidden="true">
-          {item?.coverUrl ? <img src={item.coverUrl} alt="" /> : <span />}
+          {item.coverUrl ? (
+            <Image src={item.coverUrl} alt="" width={500} height={750} priority />
+          ) : (
+            <span />
+          )}
         </div>
 
         <div className="item-copy">
-          <h1>{title}</h1>
-          <p>{synopsis}</p>
+          <h1>{item.title}</h1>
+          <p>{item.synopsis ?? "Sinopse indisponível."}</p>
 
-          <div className="item-actions" aria-label="Acoes do item">
-            {actions.map((action) => (
-              <UiButton key={action} variant="secondary">
-                {action}
+          <div className="item-actions" aria-label="Ações do item">
+            <UiButton variant="secondary" pressed={isFavorite} disabled={loading} onClick={handleFavorite}>
+              {isFavorite ? "★ Favorito" : "☆ Favoritar"}
+            </UiButton>
+            <UiButton variant="secondary" onClick={handleShare}>
+              Compartilhar
+            </UiButton>
+            {tracking && (
+              <UiButton variant="secondary" disabled={saving} onClick={handleRemoveTracking}>
+                Remover do tracking
               </UiButton>
-            ))}
+            )}
           </div>
+          {shareNotice && (
+            <p className="auth-notice" role="status">
+              {shareNotice}
+            </p>
+          )}
 
           <div className="item-status-block">
-            <div className="status-chips" role="list" aria-label="Status de tracking">
-              {statusOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`filter-chip${status === option ? " is-active" : ""}`}
-                  onClick={() => setStatus(option)}
-                >
-                  {option}
-                </button>
-              ))}
+            <div className="status-chips" role="group" aria-label="Status de tracking">
+              {TRACKING_STATUSES.map((option) => {
+                const isActive = tracking?.status === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`filter-chip${isActive ? " is-active" : ""}`}
+                    aria-pressed={isActive}
+                    disabled={loading || saving}
+                    onClick={() => handleStatus(option)}
+                  >
+                    {getStatusLabel(option, item.type)}
+                  </button>
+                );
+              })}
             </div>
 
             <label className="progress-control">
@@ -91,10 +207,18 @@ export function ItemShell({ item }: ItemShellProps) {
                 type="range"
                 min="0"
                 max="100"
+                step="5"
                 value={progress}
-                onChange={(event) => setProgress(Number(event.target.value))}
+                disabled={loading}
+                onChange={(event) => handleProgress(Number(event.target.value))}
               />
             </label>
+
+            {error && (
+              <p className="auth-error" role="alert">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -110,19 +234,19 @@ export function ItemShell({ item }: ItemShellProps) {
 
       <section className="content-panel">
         <SectionHeading
-          eyebrow="Próximo passo"
-          title="Tracking completo por item"
-          description="Aqui o item vira o centro para status, progresso, notas e ações pessoais."
+          eyebrow="Seu tracking"
+          title={tracking ? statusLabel : "Ainda não está no seu tracking"}
+          description={
+            tracking
+              ? `Progresso em ${tracking.progress}%. Ajuste o status ou o progresso acima quando quiser.`
+              : "Escolha um status acima para começar a acompanhar este item."
+          }
         />
 
         <UiCard className="tracking-summary">
           <div>
-            <UiBadge tone="secondary">Resumo</UiBadge>
-            <strong>{title}</strong>
-            <p>
-              Seu status atual é {status.toLowerCase()} e o progresso está em {progress}%.
-              {isSaving ? " Salvando..." : " Sincronizado com o rastreio."}
-            </p>
+            <UiBadge tone="secondary">{saving ? "Salvando…" : tracking ? "Salvo" : "Não iniciado"}</UiBadge>
+            <strong>{item.title}</strong>
           </div>
           <div className="item-next-actions">
             <UiButton href="/catalogo">Voltar ao catálogo</UiButton>
@@ -132,6 +256,8 @@ export function ItemShell({ item }: ItemShellProps) {
           </div>
         </UiCard>
       </section>
+
+      <CommentsSection mediaItemId={item.id} />
     </main>
   );
 }

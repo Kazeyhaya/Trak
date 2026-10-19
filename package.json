@@ -12,6 +12,7 @@
     "build:web": "npm run build -w @trak/web",
     "build:api": "npm run build -w @trak/api",
     "build": "npm run build --workspaces",
-    "start:prod": "npm run start:prod -w @trak/api"
+    "start:prod": "npm run start:prod -w @trak/api",
+    "lint": "npm run lint --workspaces"
   }
 }

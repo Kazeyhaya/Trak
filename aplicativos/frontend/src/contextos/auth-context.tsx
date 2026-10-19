@@ -25,25 +25,23 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Sem Supabase configurado nao ha sessao para carregar.
+  const [loading, setLoading] = useState(Boolean(supabase));
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
       return;
     }
 
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
-      persistToken(data.session);
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
-      persistToken(nextSession);
       setLoading(false);
     });
 
@@ -90,16 +88,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   return useContext(AuthContext);
-}
-
-function persistToken(session: Session | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (session?.access_token) {
-    window.localStorage.setItem("trak_token", session.access_token);
-  } else {
-    window.localStorage.removeItem("trak_token");
-  }
 }

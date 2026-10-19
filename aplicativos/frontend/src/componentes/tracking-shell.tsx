@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { SectionHeading } from "./section-heading";
@@ -7,63 +9,55 @@ import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
-import { getTrackingItems } from "../lib/tracking-api";
+import {
+  ApiError,
+  FavoriteEntry,
+  getFavorites,
+  getStatusLabel,
+  getTrackingItems,
+  TrackingEntry
+} from "../lib/api";
 
-type TrackingEntry = {
-  id: string;
-  mediaItemId: string;
-  status: string;
-  progress: number;
-  favorite: boolean;
-};
-
-function deriveStats(items: TrackingEntry[]) {
+function deriveStats(items: TrackingEntry[], favorites: FavoriteEntry[]) {
   const ativos = items.filter((i) => i.status !== "COMPLETED").length;
-  const emProgresso = items.filter((i) => i.status === "WATCHING" || i.status === "READING").length;
-  const favoritos = items.filter((i) => i.favorite).length;
-  const avgProgress =
-    items.length > 0
-      ? Math.round(items.reduce((sum, i) => sum + (i.progress ?? 0), 0) / items.length)
-      : 0;
+  const emProgresso = items.filter((i) => i.status === "WATCHING").length;
+  const concluidos = items.filter((i) => i.status === "COMPLETED").length;
 
   return [
     { label: "Itens ativos", value: String(ativos).padStart(2, "0") },
     { label: "Em progresso", value: String(emProgresso).padStart(2, "0") },
-    { label: "Favoritos", value: String(favoritos).padStart(2, "0") },
-    { label: "Progresso médio", value: `${avgProgress}%` }
+    { label: "Concluídos", value: String(concluidos).padStart(2, "0") },
+    { label: "Favoritos", value: String(favorites.length).padStart(2, "0") }
   ];
 }
 
 const emptyStats = [
   { label: "Itens ativos", value: "—" },
   { label: "Em progresso", value: "—" },
-  { label: "Favoritos", value: "—" },
-  { label: "Progresso médio", value: "—" }
+  { label: "Concluídos", value: "—" },
+  { label: "Favoritos", value: "—" }
 ];
 
 export function TrackingShell() {
   const [items, setItems] = useState<TrackingEntry[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getTrackingItems().then((data) => {
-      if (data) {
-        setItems(data);
-      }
-      setLoaded(true);
-    });
+    Promise.all([getTrackingItems(), getFavorites()])
+      .then(([trackingData, favoritesData]) => {
+        setItems(trackingData);
+        setFavorites(favoritesData);
+      })
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : "Não foi possível carregar seu tracking.")
+      )
+      .finally(() => setLoaded(true));
   }, []);
 
-  const stats = loaded ? deriveStats(items) : emptyStats;
-
-  const timeline = items
-    .filter((i) => i.status !== "COMPLETED")
-    .slice(0, 5)
-    .map((entry) => ({
-      mediaItemId: entry.mediaItemId,
-      status: entry.status,
-      progress: entry.progress
-    }));
+  const stats = loaded && !error ? deriveStats(items, favorites) : emptyStats;
+  const timeline = items.filter((i) => i.status !== "COMPLETED").slice(0, 8);
 
   return (
     <main className="content-shell">
@@ -79,13 +73,17 @@ export function TrackingShell() {
         </div>
 
         <div className="content-summary">
-          <UiBadge tone="secondary">{loaded ? `${items.length} registros` : "Carregando..."}</UiBadge>
-          <strong>Tracking + timeline + prioridades</strong>
-          <p>
-            Métricas calculadas a partir dos itens registrados na sua conta.
-          </p>
+          <UiBadge tone="secondary">{loaded ? `${items.length} registros` : "Carregando…"}</UiBadge>
+          <strong>Tracking + timeline + favoritos</strong>
+          <p>Métricas calculadas a partir dos itens registrados na sua conta.</p>
         </div>
       </section>
+
+      {error && (
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
+      )}
 
       <section className="tracking-grid">
         {stats.map((stat) => (
@@ -108,14 +106,12 @@ export function TrackingShell() {
             <UiCard className="timeline-item">
               <UiBadge tone="secondary">Aguardando</UiBadge>
               <div>
-                <span>Verificando dados</span>
-                <h3>Carregando registros...</h3>
-                <p>Os seus itens em andamento aparecem aqui após o login.</p>
+                <h3>Carregando registros…</h3>
               </div>
             </UiCard>
           )}
 
-          {loaded && timeline.length === 0 && (
+          {loaded && !error && timeline.length === 0 && (
             <UiCard className="timeline-item">
               <UiBadge tone="secondary">Vazio</UiBadge>
               <div>
@@ -127,14 +123,14 @@ export function TrackingShell() {
           )}
 
           {timeline.map((entry) => (
-            <UiCard key={entry.mediaItemId} className="timeline-item">
-              <UiBadge tone="secondary">{entry.status}</UiBadge>
+            <UiCard key={entry.id} className="timeline-item">
+              <UiBadge tone="secondary">{getStatusLabel(entry.status, entry.item?.type)}</UiBadge>
               <div>
                 <span>{entry.progress}% concluído</span>
                 <h3>
-                  <a href={`/itens/${entry.mediaItemId}`}>{entry.mediaItemId}</a>
+                  <Link href={`/itens/${entry.mediaItemId}`}>{entry.item?.title ?? entry.mediaItemId}</Link>
                 </h3>
-                <p>Abrir o item para atualizar status ou ajustar progresso.</p>
+                <p>Abra o item para atualizar status ou ajustar progresso.</p>
               </div>
             </UiCard>
           ))}
@@ -142,11 +138,35 @@ export function TrackingShell() {
 
         <div className="item-next-actions">
           <UiButton href="/catalogo">Ir para catálogo</UiButton>
-          <UiButton href="/entrar" variant="secondary">
-            Revisar acesso
-          </UiButton>
         </div>
       </section>
+
+      {favorites.length > 0 && (
+        <section className="content-panel">
+          <SectionHeading
+            eyebrow="Favoritos"
+            title="Seus favoritos"
+            description="Os itens que você marcou com estrela."
+          />
+
+          <div className="timeline-list">
+            {favorites.map((favorite) => (
+              <UiCard key={favorite.mediaItemId} className="timeline-item">
+                {favorite.item?.coverUrl && (
+                  <Image className="timeline-cover" src={favorite.item.coverUrl} alt="" width={56} height={84} />
+                )}
+                <div>
+                  <h3>
+                    <Link href={`/itens/${favorite.mediaItemId}`}>
+                      {favorite.item?.title ?? favorite.mediaItemId}
+                    </Link>
+                  </h3>
+                </div>
+              </UiCard>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

@@ -46,6 +46,11 @@ export class ComentariosController {
     return this.comentariosService.descurtir(id, usuario.id);
   }
 
+  @Delete(":id")
+  remover(@Param("id") id: string, @UsuarioLogado() usuario: UsuarioAuth) {
+    return this.comentariosService.remover(id, usuario.id);
+  }
+
   @Post(":id/denuncias")
   denunciar(
     @Param("id") id: string,

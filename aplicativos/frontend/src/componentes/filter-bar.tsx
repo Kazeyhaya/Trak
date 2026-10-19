@@ -1,14 +1,13 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const filters = [
   { label: "Todos", value: "" },
   { label: "Filmes", value: "movie" },
-  { label: "Series", value: "series" },
-  { label: "Jogos", value: "game" },
-  { label: "Livros", value: "book" }
+  { label: "Séries", value: "series" },
+  { label: "Jogos", value: "game" }
 ];
 
 function normalizeType(value?: string | null) {
@@ -23,13 +22,9 @@ export function FilterBar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState("");
-  const [activeType, setActiveType] = useState("");
-
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    setActiveType(normalizeType(searchParams.get("type")));
-  }, [searchParams]);
+  // O CatalogShell remonta este componente (via key) quando a URL muda.
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [activeType, setActiveType] = useState(normalizeType(searchParams.get("type")));
 
   function updateUrl(nextQuery: string, nextType: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -58,18 +53,18 @@ export function FilterBar() {
   }
 
   return (
-    <form className="filter-bar" aria-label="Filtros de catalogo" onSubmit={handleSubmit}>
+    <form className="filter-bar" aria-label="Filtros do catálogo" onSubmit={handleSubmit}>
       <label className="filter-search">
         <span className="sr-only">Buscar no catálogo</span>
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por titulo, fonte ou ano"
+          placeholder="Buscar filmes, séries e jogos"
         />
       </label>
 
-      <div className="filter-chips" role="list" aria-label="Categorias">
+      <div className="filter-chips" role="group" aria-label="Categorias">
         {filters.map((filter) => {
           const isActive = activeType === filter.value;
 
@@ -78,6 +73,7 @@ export function FilterBar() {
               key={filter.value || "all"}
               type="button"
               className={`filter-chip${isActive ? " is-active" : ""}`}
+              aria-pressed={isActive}
               onClick={() => {
                 const nextType = filter.value;
                 setActiveType(nextType);

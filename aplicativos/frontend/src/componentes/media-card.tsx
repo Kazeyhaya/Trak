@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { UiBadge } from "./ui-badge";
 
 type MediaCardProps = {
@@ -14,7 +16,13 @@ export function MediaCard({ type, title, meta, coverUrl, progress, accent }: Med
     <article className="media-card">
       <div className="media-card-art" aria-hidden="true">
         {coverUrl ? (
-          <img className="media-card-image" src={coverUrl} alt="" />
+          <Image
+            className="media-card-image"
+            src={coverUrl}
+            alt=""
+            fill
+            sizes="(max-width: 720px) 100vw, (max-width: 1180px) 50vw, 300px"
+          />
         ) : (
           <span className="media-card-orb" />
         )}

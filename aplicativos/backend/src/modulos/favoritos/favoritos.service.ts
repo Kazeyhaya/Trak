@@ -1,34 +1,18 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { CatalogoService } from "../catalogo/catalogo.service";
 
 @Injectable()
 export class FavoritosService {
-  constructor(private readonly supabaseService: SupabaseService) {}
-
-  private async resolverUserId(authUserId: string) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data, error } = await supabase
-      .from("User")
-      .select("id")
-      .eq("authUserId", authUserId)
-      .maybeSingle();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    if (data?.id) {
-      return data.id as string;
-    }
-
-    return authUserId;
-  }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly catalogoService: CatalogoService
+  ) {}
 
   async listar(authUserId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { data: favoritos, error } = await supabase
       .from("Favorite")
@@ -40,34 +24,24 @@ export class FavoritosService {
       throw new InternalServerErrorException(error.message);
     }
 
-    const mediaIds = (favoritos ?? []).map((f) => f.mediaItemId as string);
+    const itens = await this.catalogoService.buscarSalvos(
+      (favoritos ?? []).map((f) => f.mediaItemId as string)
+    );
 
-    if (mediaIds.length === 0) {
-      return [];
-    }
-
-    const { data: itens, error: itensError } = await supabase
-      .from("MediaItem")
-      .select("id,externalId,source,type,title,coverUrl,synopsis,releaseYear")
-      .in("id", mediaIds);
-
-    if (itensError) {
-      throw new InternalServerErrorException(itensError.message);
-    }
-
-    const mapa = new Map((itens ?? []).map((item) => [item.id as string, item]));
-
-    return favoritos?.map((fav) => ({
+    return (favoritos ?? []).map((fav) => ({
       mediaItemId: fav.mediaItemId,
       createdAt: fav.createdAt,
-      item: mapa.get(fav.mediaItemId as string) ?? null
+      item: itens.get(fav.mediaItemId as string) ?? null
     }));
   }
 
   async adicionar(authUserId: string, mediaItemId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
+    await this.catalogoService.garantirNoBanco(mediaItemId);
+
+    // ignoreDuplicates evita trocar o id de um favorito que ja existe.
     const { error } = await supabase.from("Favorite").upsert(
       {
         id: randomUUID(),
@@ -76,7 +50,7 @@ export class FavoritosService {
       },
       {
         onConflict: "userId,mediaItemId",
-        ignoreDuplicates: false
+        ignoreDuplicates: true
       }
     );
 
@@ -89,7 +63,7 @@ export class FavoritosService {
 
   async remover(authUserId: string, mediaItemId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { error } = await supabase
       .from("Favorite")
