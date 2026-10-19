@@ -24,4 +24,20 @@ export class SupabaseService {
     });
     return this.client;
   }
+
+  // Converte o id do Supabase Auth no id da tabela "User". Quando o usuario
+  // ainda nao tem linha em "User", usa o proprio id do Auth.
+  async resolverUserId(authUserId: string) {
+    const { data, error } = await this.getClient()
+      .from("User")
+      .select("id")
+      .eq("authUserId", authUserId)
+      .maybeSingle();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return data?.id ? (data.id as string) : authUserId;
+  }
 }

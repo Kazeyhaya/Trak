@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { AuthGuard } from "../../../componentes/auth-guard";
 import { ItemShell } from "../../../componentes/item-shell";
@@ -10,19 +12,26 @@ type ItemPageProps = {
 
 export const dynamic = "force-dynamic";
 
+// Evita buscar o mesmo item duas vezes (metadata + pagina).
+const getItem = cache(getCatalogItemById);
+
 export async function generateMetadata({ params }: ItemPageProps): Promise<Metadata> {
-  const resolvedParams = await params;
-  const item = await getCatalogItemById(resolvedParams.slug);
+  const { slug } = await params;
+  const item = await getItem(slug);
 
   return {
-    title: `Trak | ${item?.title ?? decodeURIComponent(resolvedParams.slug)}`,
-    description: "Detalhe base do item no site Trak"
+    title: item ? `Trak | ${item.title}` : "Trak | Item não encontrado",
+    description: item?.synopsis ?? "Acompanhe este item no Trak"
   };
 }
 
 export default async function ItemPage({ params }: ItemPageProps) {
-  const resolvedParams = await params;
-  const item = await getCatalogItemById(resolvedParams.slug);
+  const { slug } = await params;
+  const item = await getItem(slug);
+
+  if (!item) {
+    notFound();
+  }
 
   return (
     <AuthGuard>

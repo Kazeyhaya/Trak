@@ -7,9 +7,20 @@ type UiButtonProps = {
   className?: string;
   type?: "button" | "submit";
   disabled?: boolean;
+  pressed?: boolean;
+  onClick?: () => void;
 };
 
-export function UiButton({ children, href, variant = "primary", className, type = "button", disabled = false }: UiButtonProps) {
+export function UiButton({
+  children,
+  href,
+  variant = "primary",
+  className,
+  type = "button",
+  disabled = false,
+  pressed,
+  onClick
+}: UiButtonProps) {
   const buttonClassName = [
     variant === "primary" ? "primary-button" : "secondary-button",
     className
@@ -26,7 +37,13 @@ export function UiButton({ children, href, variant = "primary", className, type 
   }
 
   return (
-    <button className={buttonClassName} type={type} disabled={disabled}>
+    <button
+      className={buttonClassName}
+      type={type}
+      disabled={disabled}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
       {children}
     </button>
   );

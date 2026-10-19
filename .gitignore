@@ -4,3 +4,10 @@ dist
 *.tsbuildinfo
 .env
 .env.local
+.env.*.local
+next-env.d.ts
+
+# Artefatos de compilacao do backend nunca devem ficar em src/
+aplicativos/backend/src/**/*.js
+aplicativos/backend/src/**/*.js.map
+aplicativos/backend/src/**/*.d.ts

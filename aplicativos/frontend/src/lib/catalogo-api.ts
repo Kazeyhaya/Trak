@@ -11,30 +11,32 @@ export type CatalogItem = {
   releaseYear: number | null;
 };
 
+// Exibidos apenas quando a API esta fora do ar. Os ids seguem o formato do
+// backend (fonte_tipo_id) para que tracking e detalhe continuem funcionando.
 const fallbackItems: CatalogItem[] = [
   {
-    id: "media_tmdb_550",
+    id: "tmdb_movie_550",
     externalId: "550",
     source: "tmdb",
     type: "MOVIE",
-    title: "Fight Club",
+    title: "Clube da Luta",
     coverUrl: "https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
     synopsis:
-      "Um homem desiludido encontra um vendedor carismatico e inicia um clube secreto de luta.",
+      "Um homem desiludido encontra um vendedor carismático e inicia um clube secreto de luta.",
     releaseYear: 1999
   },
   {
-    id: "media_tmdb_1399",
+    id: "tmdb_series_1399",
     externalId: "1399",
     source: "tmdb",
     type: "SERIES",
     title: "Game of Thrones",
     coverUrl: "https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
-    synopsis: "Familias nobres disputam o controle dos Sete Reinos de Westeros.",
+    synopsis: "Famílias nobres disputam o controle dos Sete Reinos de Westeros.",
     releaseYear: 2011
   },
   {
-    id: "media_rawg_3498",
+    id: "rawg_game_3498",
     externalId: "3498",
     source: "rawg",
     type: "GAME",
@@ -42,16 +44,6 @@ const fallbackItems: CatalogItem[] = [
     coverUrl: "https://media.rawg.io/media/games/456/456dea5e1c7e3cd07060c14e96612001.jpg",
     synopsis: "Jogo de mundo aberto com narrativa criminal e multiplayer massivo.",
     releaseYear: 2013
-  },
-  {
-    id: "media_openlibrary_OL82563W",
-    externalId: "OL82563W",
-    source: "openlibrary",
-    type: "BOOK",
-    title: "The Lord of the Rings",
-    coverUrl: null,
-    synopsis: "Classico da fantasia epica de J. R. R. Tolkien.",
-    releaseYear: 1954
   }
 ];
 
@@ -61,7 +53,10 @@ function getApiBaseUrl() {
 
 async function fetchJson<T>(path: string): Promise<T | null> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}${path}`, { cache: "no-store" });
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000)
+    });
 
     if (!response.ok) {
       return null;
@@ -73,30 +68,36 @@ async function fetchJson<T>(path: string): Promise<T | null> {
   }
 }
 
-export async function getCatalogItems() {
-  const items = await fetchJson<CatalogItem[]>("/catalogo");
-  return items ?? fallbackItems;
+export async function getCatalogItems(query = "", type = "") {
+  const params = new URLSearchParams();
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+  if (type) {
+    params.set("type", type);
+  }
+
+  const suffix = params.size > 0 ? `?${params}` : "";
+  const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`);
+
+  return items ? { items, offline: false } : { items: fallbackItems, offline: true };
 }
 
 export async function getCatalogItemById(id: string) {
   const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}`);
 
-  if (item) {
-    return item;
-  }
-
-  return fallbackItems.find((entry) => entry.id === id) ?? null;
+  return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }
 
 export function getMediaTypeLabel(type: MediaType) {
   switch (type) {
     case "MOVIE":
-      return "Movie";
+      return "Filme";
     case "SERIES":
-      return "Series";
+      return "Série";
     case "GAME":
-      return "Game";
+      return "Jogo";
     case "BOOK":
-      return "Book";
+      return "Livro";
   }
 }

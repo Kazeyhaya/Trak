@@ -1,35 +1,24 @@
 import {
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { CatalogoService } from "../catalogo/catalogo.service";
 import { DenunciarComentarioDto } from "./dto/denunciar-comentario.dto";
 
 @Injectable()
 export class ComentariosService {
-  constructor(private readonly supabaseService: SupabaseService) {}
-
-  private async resolverUserId(authUserId: string) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data, error } = await supabase
-      .from("User")
-      .select("id")
-      .eq("authUserId", authUserId)
-      .maybeSingle();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return data?.id ? (data.id as string) : authUserId;
-  }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly catalogoService: CatalogoService
+  ) {}
 
   async listarPorMidia(mediaItemId: string, authUserId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { data: comentarios, error } = await supabase
       .from("Comment")
@@ -65,15 +54,18 @@ export class ComentariosService {
     }
 
     return (comentarios ?? []).map((comentario) => ({
-        ...comentario,
-        likesCount: likesCount.get(comentario.id as string) ?? 0,
-        likedByUser: likesDoUsuario.has(comentario.id as string)
-      }));
+      ...comentario,
+      likesCount: likesCount.get(comentario.id as string) ?? 0,
+      likedByUser: likesDoUsuario.has(comentario.id as string),
+      isOwn: comentario.userId === userId
+    }));
   }
 
   async criar(mediaItemId: string, authUserId: string, content: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    await this.catalogoService.garantirNoBanco(mediaItemId);
 
     const { data, error } = await supabase
       .from("Comment")
@@ -81,7 +73,8 @@ export class ComentariosService {
         id: randomUUID(),
         mediaItemId,
         userId,
-        content
+        content,
+        updatedAt: new Date().toISOString()
       })
       .select("id,userId,mediaItemId,content,createdAt,updatedAt")
       .single();
@@ -93,13 +86,14 @@ export class ComentariosService {
     return {
       ...data,
       likesCount: 0,
-      likedByUser: false
+      likedByUser: false,
+      isOwn: true
     };
   }
 
   async curtir(comentarioId: string, authUserId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { data: comentario, error: comentarioError } = await supabase
       .from("Comment")
@@ -123,7 +117,7 @@ export class ComentariosService {
       },
       {
         onConflict: "commentId,userId",
-        ignoreDuplicates: false
+        ignoreDuplicates: true
       }
     );
 
@@ -136,7 +130,7 @@ export class ComentariosService {
 
   async descurtir(comentarioId: string, authUserId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { error } = await supabase
       .from("CommentLike")
@@ -149,6 +143,46 @@ export class ComentariosService {
     }
 
     return this.contarCurtidas(comentarioId);
+  }
+
+  async remover(comentarioId: string, authUserId: string) {
+    const supabase = this.supabaseService.getClient();
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    const { data: comentario, error: comentarioError } = await supabase
+      .from("Comment")
+      .select("id,userId")
+      .eq("id", comentarioId)
+      .maybeSingle();
+
+    if (comentarioError) {
+      throw new InternalServerErrorException(comentarioError.message);
+    }
+
+    if (!comentario) {
+      throw new NotFoundException("Comentario nao encontrado.");
+    }
+
+    if (comentario.userId !== userId) {
+      throw new ForbiddenException("Voce so pode apagar seus proprios comentarios.");
+    }
+
+    const { error: likesError } = await supabase
+      .from("CommentLike")
+      .delete()
+      .eq("commentId", comentarioId);
+
+    if (likesError) {
+      throw new InternalServerErrorException(likesError.message);
+    }
+
+    const { error } = await supabase.from("Comment").delete().eq("id", comentarioId);
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return { ok: true };
   }
 
   private async contarCurtidas(comentarioId: string) {
@@ -174,7 +208,7 @@ export class ComentariosService {
     payload: DenunciarComentarioDto
   ) {
     const supabase = this.supabaseService.getClient();
-    const reporterUserId = await this.resolverUserId(authUserId);
+    const reporterUserId = await this.supabaseService.resolverUserId(authUserId);
 
     const { data: comentario, error: comentarioError } = await supabase
       .from("Comment")

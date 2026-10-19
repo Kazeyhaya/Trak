@@ -1,34 +1,25 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { CatalogoService } from "../catalogo/catalogo.service";
+import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
+
+const CAMPOS = "id,mediaItemId,status,progress,favorite,updatedAt";
 
 @Injectable()
 export class TrackingService {
-  constructor(private readonly supabaseService: SupabaseService) {}
-
-  private async resolverUserId(authUserId: string) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data, error } = await supabase
-      .from("User")
-      .select("id")
-      .eq("authUserId", authUserId)
-      .maybeSingle();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return data?.id ? (data.id as string) : authUserId;
-  }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly catalogoService: CatalogoService
+  ) {}
 
   async listar(authUserId: string) {
     const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
 
     const { data, error } = await supabase
       .from("TrackingItem")
-      .select("id,mediaItemId,status,progress,favorite,updatedAt")
+      .select(CAMPOS)
       .eq("userId", userId)
       .order("updatedAt", { ascending: false });
 
@@ -36,30 +27,74 @@ export class TrackingService {
       throw new InternalServerErrorException(error.message);
     }
 
-    return data ?? [];
+    const itens = await this.catalogoService.buscarSalvos((data ?? []).map((t) => t.mediaItemId as string));
+
+    return (data ?? []).map((tracking) => ({
+      ...tracking,
+      item: itens.get(tracking.mediaItemId as string) ?? null
+    }));
   }
 
-  async salvar(authUserId: string, mediaItemId: string, payload: { status?: string; progress?: number; favorite?: boolean }) {
-    const supabase = this.supabaseService.getClient();
-    const userId = await this.resolverUserId(authUserId);
+  async buscar(authUserId: string, mediaItemId: string) {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    return this.buscarRegistro(userId, mediaItemId);
+  }
 
-    const nextPayload = {
-      id: randomUUID(),
-      userId,
-      mediaItemId,
-      status: payload.status ?? "WANT",
-      progress: payload.progress ?? 0,
-      favorite: payload.favorite ?? false,
-      updatedAt: new Date().toISOString()
-    };
+  private async buscarRegistro(userId: string, mediaItemId: string) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("TrackingItem")
+      .select(CAMPOS)
+      .eq("userId", userId)
+      .eq("mediaItemId", mediaItemId)
+      .maybeSingle();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return data;
+  }
+
+  async salvar(authUserId: string, mediaItemId: string, payload: SalvarTrackingDto) {
+    const supabase = this.supabaseService.getClient();
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const existente = await this.buscarRegistro(userId, mediaItemId);
+    const updatedAt = new Date().toISOString();
+
+    // Atualizacao parcial: campos nao enviados mantem o valor salvo.
+    if (existente) {
+      const alteracoes = Object.fromEntries(
+        Object.entries(payload).filter(([, valor]) => valor !== undefined)
+      );
+      const { data, error } = await supabase
+        .from("TrackingItem")
+        .update({ ...alteracoes, updatedAt })
+        .eq("id", existente.id)
+        .select(CAMPOS)
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+
+      return data;
+    }
+
+    await this.catalogoService.garantirNoBanco(mediaItemId);
 
     const { data, error } = await supabase
       .from("TrackingItem")
-      .upsert(nextPayload, {
-        onConflict: "userId,mediaItemId",
-        ignoreDuplicates: false
+      .insert({
+        id: randomUUID(),
+        userId,
+        mediaItemId,
+        status: payload.status ?? "WANT",
+        progress: payload.progress ?? 0,
+        favorite: payload.favorite ?? false,
+        updatedAt
       })
-      .select("id,mediaItemId,status,progress,favorite,updatedAt")
+      .select(CAMPOS)
       .single();
 
     if (error) {
@@ -67,5 +102,21 @@ export class TrackingService {
     }
 
     return data;
+  }
+
+  async remover(authUserId: string, mediaItemId: string) {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { error } = await this.supabaseService
+      .getClient()
+      .from("TrackingItem")
+      .delete()
+      .eq("userId", userId)
+      .eq("mediaItemId", mediaItemId);
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return { ok: true };
   }
 }
