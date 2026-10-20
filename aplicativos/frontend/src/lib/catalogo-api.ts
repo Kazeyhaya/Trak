@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "./api-base";
+
 export type MediaType = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
 export type CatalogItem = {
@@ -57,14 +59,11 @@ const fallbackItems: CatalogItem[] = [
   }
 ];
 
-function getApiBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
-}
 
 // Busca publica (sem login), usada pelos Server Components.
 export async function fetchJson<T>(path: string): Promise<T | null> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(10000)
     });
