@@ -6,5 +6,8 @@
     "dist",
     "**/*spec.ts",
     "src/testes"
-  ]
+  ],
+  "compilerOptions": {
+    "incremental": false
+  }
 }

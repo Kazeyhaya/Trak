@@ -7,18 +7,16 @@ if (existsSync(envFilePath)) {
   process.loadEnvFile(envFilePath);
 }
 
-import { ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { origensPermitidas } from "./comum/cors";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const corsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const corsOrigins = origensPermitidas(process.env.CORS_ORIGIN);
 
   // Atras de um proxy (Render, Railway, Fly...), o IP real vem do X-Forwarded-For.
   // Sem isso o rate limit trataria todos os usuarios como um so IP.
@@ -34,6 +32,8 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
   app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3001);
+  // Aparece nos logs do servidor (ex.: Render) para conferir a configuracao de CORS.
+  new Logger("CORS").log(`Origens liberadas: ${corsOrigins.map(String).join(", ")}`);
 }
 
 void bootstrap();

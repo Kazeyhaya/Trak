@@ -1,7 +1,8 @@
 import type { CatalogItem, MediaType } from "./catalogo-api";
+import { API_BASE_URL } from "./api-base";
 import { supabase } from "./supabase-client";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
+export { API_BASE_URL };
 
 export class ApiError extends Error {
   constructor(
