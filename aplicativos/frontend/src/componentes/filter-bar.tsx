@@ -7,6 +7,7 @@ const filters = [
   { label: "Todos", value: "" },
   { label: "Filmes", value: "movie" },
   { label: "Séries", value: "series" },
+  { label: "Animes e animações", value: "anime" },
   { label: "Jogos", value: "game" },
   { label: "Livros", value: "book" }
 ];

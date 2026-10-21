@@ -35,7 +35,7 @@ describe("API (e2e)", () => {
   it("GET /health responde com headers do helmet", async () => {
     const response = await fetch(`${base}/health`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "ok", service: "trak-api" });
+    expect(await response.json()).toMatchObject({ status: "ok", service: "trak-api", sources: { openLibrary: true } });
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-powered-by")).toBeNull();
   });

@@ -181,6 +181,15 @@ atividade no feed por item e devolve a lista do que não foi encontrado. Tela: `
    `IN_PROGRESS`, e a tabela `Profile` duplicava campos de `User`. O código foi adaptado ao schema existente
    (`tracking.banco.ts`, `social.service.ts`) e as escritas passaram a enviar `updatedAt`, que é obrigatório.
 
+7. **Capa da página do item recortada e saindo do quadro**: a grade usava `align-items: stretch`, então a
+   capa esticava até a altura da coluna de texto (que fica alta para quem está logado) e o `object-fit: cover`
+   recortava uma fatia ampliada da imagem. Agora a capa tem proporção fixa 2:3 e fica fixa ao rolar a página
+   (`styles/pages/item.css`, `styles/responsive.css`).
+
+**Filtro "Animes e animações"** (catálogo): séries e filmes do gênero Animação do TMDB (id 16), via
+`/discover`, ordenados por popularidade. Na busca por texto, os resultados são filtrados pelo mesmo gênero.
+Código em `listarAnimacoes()` (`catalogo.service.ts`) e no chip de `filter-bar.tsx`.
+
 ## 12. O que **não** foi testado e limitações
 
 - **Nada foi testado contra um Supabase real.** As consultas ao banco foram verificadas com mock. Depois de aplicar

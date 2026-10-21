@@ -354,3 +354,17 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* Botoes desabilitados: antes nao havia estilo, entao "Salvar perfil" parecia
+   clicavel mesmo bloqueado. */
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: saturate(0.4);
+}
+
+.field-error {
+  color: #ff9090;
+  font-size: 0.85rem;
+}

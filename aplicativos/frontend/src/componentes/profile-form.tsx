@@ -8,8 +8,7 @@ import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
 import { errorMessage, Profile, saveMyProfile } from "../lib/api";
-
-const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+import { problemaUsername } from "../lib/perfil";
 
 export function ProfileForm() {
   const { profile } = useAuth();
@@ -40,7 +39,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
   const [saved, setSaved] = useState<string | null>(null);
 
   const normalized = username.trim().toLowerCase();
-  const usernameValid = USERNAME_PATTERN.test(normalized);
+  const usernameValid = problemaUsername(normalized) === null;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -67,7 +66,10 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
             value={username}
             maxLength={20}
             autoCapitalize="none"
-            autoComplete="username"
+            // "username" faria o navegador preencher com o e-mail salvo do login.
+            autoComplete="off"
+            name="trak-handle"
+            spellCheck={false}
             placeholder="seu_nome"
             onChange={(event) => setUsername(event.target.value)}
             aria-invalid={username !== "" && !usernameValid}
@@ -75,6 +77,11 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
             required
           />
           <small id="username-help">3 a 20 caracteres: letras minúsculas, números ou _.</small>
+          {username !== "" && !usernameValid && (
+            <span className="field-error" role="alert">
+              {problemaUsername(username)}
+            </span>
+          )}
         </label>
         <label>
           Nome de exibição
