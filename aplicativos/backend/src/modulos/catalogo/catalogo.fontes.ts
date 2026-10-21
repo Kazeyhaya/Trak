@@ -9,7 +9,11 @@ export type TmdbItem = {
   poster_path?: string | null;
   release_date?: string;
   first_air_date?: string;
+  genre_ids?: number[];
 };
+
+// Genero "Animacao" no TMDB (o mesmo id para filmes e series).
+export const TMDB_GENERO_ANIMACAO = 16;
 
 export type RawgItem = {
   id: number;

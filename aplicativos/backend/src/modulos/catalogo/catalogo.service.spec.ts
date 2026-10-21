@@ -139,3 +139,68 @@ describe("CatalogoService.buscarJogoPorNome", () => {
     expect((await criarServico().buscarJogoPorNome("PORTAL"))?.id).toBe("rawg_game_2");
   });
 });
+
+describe("CatalogoService diagnostico", () => {
+  it("registra no log quando a API externa recusa a chave (401)", async () => {
+    process.env.TMDB_API_KEY = "chave-errada";
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));
+    const servico = criarServico();
+    const aviso = jest.spyOn((servico as unknown as { logger: { warn: (m: string) => void } }).logger, "warn");
+
+    expect(await servico.listar(undefined, "movie")).toEqual([]);
+    expect(aviso).toHaveBeenCalledWith(expect.stringMatching(/api\.themoviedb\.org respondeu 401.*chave de API invalida/));
+    // A chave nunca aparece no log.
+    expect(aviso.mock.calls.flat().join(" ")).not.toContain("chave-errada");
+  });
+
+  it("avisa ao subir quando faltam chaves", () => {
+    delete process.env.TMDB_API_KEY;
+    process.env.RAWG_API_KEY = "  ";
+    const servico = criarServico();
+    const aviso = jest.spyOn((servico as unknown as { logger: { warn: (m: string) => void } }).logger, "warn");
+
+    servico.onModuleInit();
+
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining("TMDB_API_KEY nao configurada"));
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining("RAWG_API_KEY nao configurada"));
+  });
+});
+
+describe("CatalogoService.listar (animes e animacoes)", () => {
+  beforeEach(() => {
+    process.env.TMDB_API_KEY = "k";
+    process.env.RAWG_API_KEY = "k";
+  });
+
+  it("sem busca usa o discover do TMDB com o genero Animacao, em series e filmes", async () => {
+    const fetch = mockFetch({
+      "/discover/tv": { results: [{ id: 12971, name: "Dragon Ball Z", genre_ids: [16] }] },
+      "/discover/movie": { results: [{ id: 129, title: "A Viagem de Chihiro", genre_ids: [16] }] }
+    });
+
+    const itens = await criarServico().listar(undefined, "anime");
+
+    expect(itens.map((i) => i.id)).toEqual(["tmdb_series_12971", "tmdb_movie_129"]);
+    const urls = fetch.mock.calls.map(([url]) => String(url));
+    expect(urls).toHaveLength(2);
+    expect(urls.every((url) => url.includes("with_genres=16"))).toBe(true);
+    // Jogos e livros nao entram nesse filtro.
+    expect(urls.some((url) => url.includes("rawg") || url.includes("openlibrary"))).toBe(false);
+  });
+
+  it("com busca mantem so os resultados do genero Animacao", async () => {
+    mockFetch({
+      "/search/tv": {
+        results: [
+          { id: 1, name: "Naruto", genre_ids: [16, 10759] },
+          { id: 2, name: "Naruto: O Documentario", genre_ids: [99] }
+        ]
+      },
+      "/search/movie": { results: [{ id: 3, title: "Naruto (live action)" }] }
+    });
+
+    const itens = await criarServico().listar("naruto", "anime");
+
+    expect(itens.map((i) => i.title)).toEqual(["Naruto"]);
+  });
+});

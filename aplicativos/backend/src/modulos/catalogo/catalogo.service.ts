@@ -1,7 +1,8 @@
 import {
   Injectable,
   Logger,
-  NotFoundException
+  NotFoundException,
+  OnModuleInit
 } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import {
@@ -12,6 +13,7 @@ import {
   OpenLibraryDoc,
   parsearId,
   RawgItem,
+  TMDB_GENERO_ANIMACAO,
   TmdbItem
 } from "./catalogo.fontes";
 import { Episodio, ItemCatalogo, Novidade, Temporada } from "./catalogo.types";
@@ -32,7 +34,7 @@ type TmdbEpisodio = {
   runtime?: number | null;
 };
 
-type FiltroTipo = "movie" | "series" | "game" | "book";
+type FiltroTipo = "movie" | "series" | "game" | "book" | "anime";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 1000;
@@ -42,8 +44,15 @@ const RAWG = "https://api.rawg.io/api";
 const OPEN_LIBRARY = "https://openlibrary.org";
 const DIA_MS = 24 * 60 * 60 * 1000;
 
+function dicaDeErro(status: number) {
+  if (status === 401 || status === 403) {
+    return " (chave de API invalida; no TMDB use a \"API Key\" v3, nao o token de leitura v4)";
+  }
+  return status === 429 ? " (limite de requisicoes da API atingido)" : "";
+}
+
 @Injectable()
-export class CatalogoService {
+export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
   private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
 
@@ -72,14 +81,34 @@ export class CatalogoService {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: { "User-Agent": "Trak (https://github.com/Kazeyhaya/Trak)" }
       });
-      return response.ok ? ((await response.json()) as T) : null;
-    } catch {
+      if (!response.ok) {
+        // 404 e normal (item inexistente); os demais indicam chave invalida, limite ou queda.
+        if (response.status !== 404) {
+          this.logger.warn(`${new URL(url).host} respondeu ${response.status}${dicaDeErro(response.status)}`);
+        }
+        return null;
+      }
+      return (await response.json()) as T;
+    } catch (error) {
+      this.logger.warn(`Falha ao acessar ${new URL(url).host}: ${(error as Error).message}`);
       return null;
     }
   }
 
+  // Avisa no log, ao subir a API, quais fontes ficarao sem resultados.
+  onModuleInit() {
+    for (const [variavel, fonte] of [
+      ["TMDB_API_KEY", "filmes e series (TMDB)"],
+      ["RAWG_API_KEY", "jogos (RAWG)"]
+    ] as const) {
+      if (!process.env[variavel]?.trim()) {
+        this.logger.warn(`${variavel} nao configurada: o catalogo ficara sem ${fonte}.`);
+      }
+    }
+  }
+
   private tmdb<T>(path: string, params: Record<string, string> = {}) {
-    const apiKey = process.env.TMDB_API_KEY;
+    const apiKey = process.env.TMDB_API_KEY?.trim();
     if (!apiKey) {
       return Promise.resolve(null);
     }
@@ -90,7 +119,7 @@ export class CatalogoService {
   }
 
   private rawg<T>(path: string, params: Record<string, string> = {}) {
-    const apiKey = process.env.RAWG_API_KEY;
+    const apiKey = process.env.RAWG_API_KEY?.trim();
     if (!apiKey) {
       return Promise.resolve(null);
     }
@@ -110,7 +139,17 @@ export class CatalogoService {
   async listar(query?: string, tipo?: string) {
     // Fontes sem chave configurada simplesmente nao retornam itens.
     const busca = query?.trim() || undefined;
-    const filtro = (["movie", "series", "game", "book"] as const).find((t) => t === tipo);
+    const filtro = (["movie", "series", "game", "book", "anime"] as const).find((t) => t === tipo);
+
+    // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
+    if (filtro === "anime") {
+      const [series, movies] = await Promise.all([
+        this.listarAnimacoes("tv", busca),
+        this.listarAnimacoes("movie", busca)
+      ]);
+      return [...series, ...movies];
+    }
+
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
 
     const [movies, series, games, books] = await Promise.all([
@@ -130,6 +169,22 @@ export class CatalogoService {
       : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`);
 
     return (data?.results ?? []).slice(0, query ? 12 : 8).map((item) => mapearTmdb(item, type));
+  }
+
+  private async listarAnimacoes(mediaType: "movie" | "tv", query?: string): Promise<ItemCatalogo[]> {
+    const type = mediaType === "movie" ? "MOVIE" : "SERIES";
+    // A busca por texto do TMDB nao filtra genero, entao o filtro e feito nos resultados.
+    const data = query
+      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
+      : await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
+          with_genres: String(TMDB_GENERO_ANIMACAO),
+          sort_by: "popularity.desc"
+        });
+
+    return (data?.results ?? [])
+      .filter((item) => !query || item.genre_ids?.includes(TMDB_GENERO_ANIMACAO))
+      .slice(0, 12)
+      .map((item) => mapearTmdb(item, type));
   }
 
   private async listarRawg(query?: string): Promise<ItemCatalogo[]> {
