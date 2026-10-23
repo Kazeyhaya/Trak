@@ -33,9 +33,17 @@ describe("guards de autenticacao", () => {
     expect(request.usuarioAuth).toBeUndefined();
   });
 
-  it("AutenticacaoOpcionalGuard recusa token invalido em vez de ignorar", async () => {
+  it("AutenticacaoOpcionalGuard trata token invalido ou expirado como visitante anonimo", async () => {
+    const request: Record<string, unknown> = { headers: { authorization: "Bearer x" } };
+    await expect(new AutenticacaoOpcionalGuard(servico(tokenInvalido)).canActivate(contexto(request))).resolves.toBe(
+      true
+    );
+    expect(request.usuarioAuth).toBeUndefined();
+  });
+
+  it("SupabaseAuthGuard recusa token invalido", async () => {
     await expect(
-      new AutenticacaoOpcionalGuard(servico(tokenInvalido)).canActivate(contexto({ headers: { authorization: "Bearer x" } }))
+      new SupabaseAuthGuard(servico(tokenInvalido)).canActivate(contexto({ headers: { authorization: "Bearer x" } }))
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

@@ -1,11 +1,15 @@
 import {
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   OnModuleInit
 } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import {
+  GeneroCatalogo,
+  GENEROS_CATALOGO,
+  MAPA_GENEROS,
   mapearOpenLibrary,
   mapearRawg,
   mapearTmdb,
@@ -16,7 +20,7 @@ import {
   TMDB_GENERO_ANIMACAO,
   TmdbItem
 } from "./catalogo.fontes";
-import { Episodio, ItemCatalogo, Novidade, Temporada } from "./catalogo.types";
+import { Episodio, ExtrasCatalogo, ItemCatalogo, NotaExterna, Novidade, ProvedorOndeAssistir, Temporada } from "./catalogo.types";
 
 type TmdbTv = TmdbItem & {
   number_of_episodes?: number;
@@ -42,7 +46,9 @@ const FETCH_TIMEOUT_MS = 8000;
 const TMDB = "https://api.themoviedb.org/3";
 const RAWG = "https://api.rawg.io/api";
 const OPEN_LIBRARY = "https://openlibrary.org";
+const OMDB = "https://www.omdbapi.com";
 const DIA_MS = 24 * 60 * 60 * 1000;
+const LIMITE_POR_FONTE = 20;
 
 function dicaDeErro(status: number) {
   if (status === 401 || status === 403) {
@@ -134,18 +140,28 @@ export class CatalogoService implements OnModuleInit {
     return this.comCache(`ol:${path}?${query}`, () => this.fetchJson<T>(`${OPEN_LIBRARY}${path}?${query}`));
   }
 
+  private omdb<T>(params: Record<string, string>) {
+    const apiKey = process.env.OMDB_API_KEY?.trim();
+    if (!apiKey) {
+      return Promise.resolve(null);
+    }
+    const query = new URLSearchParams({ apikey: apiKey, ...params });
+    return this.comCache(`omdb:${new URLSearchParams(params)}`, () => this.fetchJson<T>(`${OMDB}/?${query}`));
+  }
+
   // Listagem e busca
 
-  async listar(query?: string, tipo?: string) {
+  async listar(query?: string, tipo?: string, genero?: string) {
     // Fontes sem chave configurada simplesmente nao retornam itens.
     const busca = query?.trim() || undefined;
     const filtro = (["movie", "series", "game", "book", "anime"] as const).find((t) => t === tipo);
+    const generoValido = GENEROS_CATALOGO.find((g) => g === genero?.toLowerCase());
 
     // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
     if (filtro === "anime") {
       const [series, movies] = await Promise.all([
-        this.listarAnimacoes("tv", busca),
-        this.listarAnimacoes("movie", busca)
+        this.listarAnimacoes("tv", busca, generoValido),
+        this.listarAnimacoes("movie", busca, generoValido)
       ]);
       return [...series, ...movies];
     }
@@ -153,62 +169,111 @@ export class CatalogoService implements OnModuleInit {
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
 
     const [movies, series, games, books] = await Promise.all([
-      incluir("movie") ? this.listarTmdb("movie", busca) : [],
-      incluir("series") ? this.listarTmdb("tv", busca) : [],
-      incluir("game") ? this.listarRawg(busca) : [],
-      incluir("book") ? this.listarLivros(busca) : []
+      incluir("movie") ? this.listarTmdb("movie", busca, generoValido) : [],
+      incluir("series") ? this.listarTmdb("tv", busca, generoValido) : [],
+      incluir("game") ? this.listarRawg(busca, generoValido) : [],
+      incluir("book") ? this.listarLivros(busca, generoValido) : []
     ]);
 
     return [...movies, ...series, ...games, ...books];
   }
 
-  private async listarTmdb(mediaType: "movie" | "tv", query?: string): Promise<ItemCatalogo[]> {
+  private async listarTmdb(mediaType: "movie" | "tv", query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
     const type = mediaType === "movie" ? "MOVIE" : "SERIES";
+    const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
+    if (genero && !tmdbGenre) {
+      return [];
+    }
+
     const data = query
       ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
-      : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`);
+      : tmdbGenre
+        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
+            with_genres: String(tmdbGenre),
+            sort_by: "popularity.desc"
+          })
+        : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`);
 
-    return (data?.results ?? []).slice(0, query ? 12 : 8).map((item) => mapearTmdb(item, type));
+    return (data?.results ?? [])
+      .filter((item) => !query || !tmdbGenre || item.genre_ids?.includes(tmdbGenre))
+      .slice(0, LIMITE_POR_FONTE)
+      .map((item) => mapearTmdb(item, type));
   }
 
-  private async listarAnimacoes(mediaType: "movie" | "tv", query?: string): Promise<ItemCatalogo[]> {
+  private async listarAnimacoes(
+    mediaType: "movie" | "tv",
+    query?: string,
+    genero?: GeneroCatalogo
+  ): Promise<ItemCatalogo[]> {
     const type = mediaType === "movie" ? "MOVIE" : "SERIES";
+    const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
+    if (genero && !tmdbGenre) {
+      return [];
+    }
+    const genresParam = tmdbGenre ? `${TMDB_GENERO_ANIMACAO},${tmdbGenre}` : String(TMDB_GENERO_ANIMACAO);
     // A busca por texto do TMDB nao filtra genero, entao o filtro e feito nos resultados.
     const data = query
       ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
       : await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
-          with_genres: String(TMDB_GENERO_ANIMACAO),
+          with_genres: genresParam,
           sort_by: "popularity.desc"
         });
 
     return (data?.results ?? [])
-      .filter((item) => !query || item.genre_ids?.includes(TMDB_GENERO_ANIMACAO))
-      .slice(0, 12)
+      .filter(
+        (item) =>
+          !query ||
+          (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO) && (!tmdbGenre || item.genre_ids?.includes(tmdbGenre)))
+      )
+      .slice(0, LIMITE_POR_FONTE)
       .map((item) => mapearTmdb(item, type));
   }
 
-  private async listarRawg(query?: string): Promise<ItemCatalogo[]> {
-    const data = await this.rawg<{ results: RawgItem[] }>(
-      "/games",
-      query ? { page_size: "12", search: query } : { page_size: "8", ordering: "-added" }
-    );
-
-    // A listagem do RAWG nao traz descricao.
-    return (data?.results ?? []).map((item) => ({ ...mapearRawg(item), synopsis: null }));
-  }
-
-  private async listarLivros(query?: string): Promise<ItemCatalogo[]> {
-    if (query) {
-      const data = await this.openLibrary<{ docs: OpenLibraryDoc[] }>("/search.json", {
-        q: query,
-        limit: "12",
-        fields: "key,title,cover_i,first_publish_year"
-      });
-      return (data?.docs ?? []).map(mapearOpenLibrary);
+  private async listarRawg(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+    const rawgGenre = genero ? MAPA_GENEROS[genero].rawg : undefined;
+    if (genero && !rawgGenre) {
+      return [];
+    }
+    const params: Record<string, string> = query
+      ? { page_size: String(LIMITE_POR_FONTE), search: query }
+      : { page_size: String(LIMITE_POR_FONTE), ordering: "-added" };
+    if (rawgGenre) {
+      params.genres = rawgGenre;
     }
 
-    const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>("/trending/weekly.json", { limit: "8" });
-    return (data?.works ?? []).slice(0, 8).map(mapearOpenLibrary);
+    const data = await this.rawg<{ results: RawgItem[] }>("/games", params);
+
+    // A listagem do RAWG nao traz descricao.
+    return (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
+  }
+
+  private async listarLivros(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+    const subject = genero ? MAPA_GENEROS[genero].openLibrary : undefined;
+    if (genero && !subject) {
+      return [];
+    }
+
+    if (query) {
+      const q = subject ? `${query} subject:${subject}` : query;
+      const data = await this.openLibrary<{ docs: OpenLibraryDoc[] }>("/search.json", {
+        q,
+        limit: String(LIMITE_POR_FONTE),
+        fields: "key,title,cover_i,first_publish_year"
+      });
+      return (data?.docs ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
+    }
+
+    if (subject) {
+      const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
+        limit: String(LIMITE_POR_FONTE)
+      });
+      return (data?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
+    }
+
+    const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>("/trending/weekly.json", {
+      limit: String(LIMITE_POR_FONTE)
+    });
+    return (data?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
   }
 
   async buscarPorId(id: string): Promise<ItemCatalogo> {
@@ -219,6 +284,186 @@ export class CatalogoService implements OnModuleInit {
     }
 
     return item;
+  }
+
+  private async mediaTrak(mediaItemId: string) {
+    try {
+      const { data } = await this.supabaseService
+        .getClient()
+        .from("UserMedia")
+        .select("personalRating")
+        .eq("mediaItemId", mediaItemId);
+
+      const notas = (data ?? []).flatMap((r) =>
+        typeof r.personalRating === "number" && r.personalRating > 0 ? [r.personalRating] : []
+      );
+      if (notas.length === 0) {
+        return { average: null, count: 0 };
+      }
+      const media = Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10;
+      return { average: media, count: notas.length };
+    } catch {
+      return { average: null, count: 0 };
+    }
+  }
+
+  private async notasOmdb(imdbId: string): Promise<NotaExterna[]> {
+    const data = await this.omdb<{
+      imdbRating?: string;
+      Metascore?: string;
+      Ratings?: Array<{ Source: string; Value: string }>;
+    }>({ i: imdbId });
+
+    if (!data) {
+      return [];
+    }
+
+    const notas: NotaExterna[] = [];
+    if (data.imdbRating && data.imdbRating !== "N/A") {
+      notas.push({ source: "IMDb", value: `${data.imdbRating}/10` });
+    }
+    const rt = data.Ratings?.find((r) => r.Source === "Rotten Tomatoes");
+    if (rt?.Value && rt.Value !== "N/A") {
+      notas.push({ source: "Rotten Tomatoes", value: rt.Value });
+    }
+    const mc = data.Ratings?.find((r) => r.Source === "Metacritic")?.Value;
+    if (mc && mc !== "N/A") {
+      notas.push({ source: "Metacritic", value: mc });
+    } else if (data.Metascore && data.Metascore !== "N/A") {
+      notas.push({ source: "Metacritic", value: `${data.Metascore}/100` });
+    }
+    return notas;
+  }
+
+  async extras(id: string): Promise<ExtrasCatalogo> {
+    const parsed = parsearId(id);
+    if (!parsed) {
+      throw new NotFoundException("Item nao encontrado.");
+    }
+
+    const trakPromise = this.mediaTrak(id);
+
+    if (parsed.source === "tmdb") {
+      const mediaPath = parsed.type === "MOVIE" ? "movie" : "tv";
+      const [item, providersData, externalIds] = await Promise.all([
+        this.tmdb<TmdbItem>(`/${mediaPath}/${parsed.externalId}`),
+        this.tmdb<{
+          results?: Record<
+            string,
+            {
+              link?: string;
+              flatrate?: Array<{ provider_name: string }>;
+              ads?: Array<{ provider_name: string }>;
+              free?: Array<{ provider_name: string }>;
+              rent?: Array<{ provider_name: string }>;
+              buy?: Array<{ provider_name: string }>;
+            }
+          >;
+        }>(`/${mediaPath}/${parsed.externalId}/watch/providers`),
+        parsed.type === "SERIES"
+          ? this.tmdb<{ imdb_id?: string | null }>(`/tv/${parsed.externalId}/external_ids`)
+          : Promise.resolve(null)
+      ]);
+
+      const imdbId = item?.imdb_id ?? externalIds?.imdb_id ?? null;
+      const [omdbRatings, trakRating] = await Promise.all([
+        imdbId ? this.notasOmdb(imdbId) : Promise.resolve([]),
+        trakPromise
+      ]);
+
+      const externalRatings: NotaExterna[] = [...omdbRatings];
+      if (item?.vote_average && item.vote_average > 0) {
+        externalRatings.push({
+          source: "TMDB",
+          value: `${item.vote_average.toFixed(1)}/10`
+        });
+      }
+
+      const br = providersData?.results?.BR ?? providersData?.results?.US;
+      const vistos = new Set<string>();
+      const watchProviders: ProvedorOndeAssistir[] = [];
+      const adicionar = (lista: Array<{ provider_name: string }> | undefined, category: ProvedorOndeAssistir["category"]) => {
+        for (const p of lista ?? []) {
+          if (!vistos.has(p.provider_name)) {
+            vistos.add(p.provider_name);
+            watchProviders.push({ name: p.provider_name, category, url: br?.link ?? null });
+          }
+        }
+      };
+      adicionar(br?.flatrate, "STREAMING");
+      adicionar(br?.free, "STREAMING");
+      adicionar(br?.ads, "STREAMING");
+      adicionar(br?.rent, "RENT");
+      adicionar(br?.buy, "BUY");
+
+      return {
+        genres: (item?.genres ?? []).map((g) => g.name),
+        watchProviders,
+        watchLink: br?.link ?? null,
+        trakRating,
+        externalRatings
+      };
+    }
+
+    if (parsed.source === "rawg") {
+      const [jogo, lojasData, trakRating] = await Promise.all([
+        this.rawg<RawgItem>(`/games/${parsed.externalId}`),
+        this.rawg<{ results?: Array<{ url?: string; store_id?: number }> }>(`/games/${parsed.externalId}/stores`),
+        trakPromise
+      ]);
+
+      const externalRatings: NotaExterna[] = [];
+      if (jogo?.metacritic) {
+        externalRatings.push({ source: "Metacritic", value: `${jogo.metacritic}/100` });
+      }
+      if (jogo?.rating && jogo.rating > 0) {
+        externalRatings.push({ source: "RAWG", value: `${jogo.rating.toFixed(1)}/5` });
+      }
+
+      const urlsPorNome = new Map<string, string>();
+      for (const s of lojasData?.results ?? []) {
+        if (s.url) {
+          urlsPorNome.set(s.url, s.url);
+        }
+      }
+
+      const watchProviders: ProvedorOndeAssistir[] = (jogo?.stores ?? [])
+        .filter((s) => s.store?.name)
+        .map((s) => ({
+          name: s.store!.name,
+          category: "STORE" as const,
+          url: s.url || (s.store?.domain ? `https://${s.store.domain}` : null)
+        }));
+
+      return {
+        genres: (jogo?.genres ?? []).map((g) => g.name),
+        watchProviders,
+        watchLink: watchProviders[0]?.url ?? null,
+        trakRating,
+        externalRatings
+      };
+    }
+
+    const [livro, ratingsData, trakRating] = await Promise.all([
+      this.openLibrary<OpenLibraryDoc>(`/works/${parsed.externalId}.json`),
+      this.openLibrary<{ summary?: { average?: number; count?: number } }>(`/works/${parsed.externalId}/ratings.json`),
+      trakPromise
+    ]);
+
+    const externalRatings: NotaExterna[] = [];
+    const olMedia = ratingsData?.summary?.average ?? livro?.ratings_average;
+    if (olMedia && olMedia > 0) {
+      externalRatings.push({ source: "Open Library", value: `${olMedia.toFixed(1)}/5` });
+    }
+
+    const openLibraryUrl = `https://openlibrary.org/works/${parsed.externalId}`;
+    return {
+      genres: (livro?.subjects ?? []).slice(0, 5),
+      watchProviders: [{ name: "Open Library", category: "READ", url: openLibraryUrl }],
+      watchLink: openLibraryUrl,
+      trakRating,
+      externalRatings
+    };
   }
 
   private async carregarItem(id: string): Promise<ItemCatalogo | null> {
@@ -425,39 +670,34 @@ export class CatalogoService implements OnModuleInit {
   // Persistencia
 
   // Garante que o item exista em "MediaItem" antes de ser referenciado por
-  // tracking, favoritos ou comentarios. Falhas sao registradas, nao propagadas.
+  // tracking, favoritos ou comentarios.
   async garantirNoBanco(id: string, itemConhecido?: ItemCatalogo) {
     const supabase = this.supabaseService.getClient();
 
-    try {
-      const { data: existente, error } = await supabase
-        .from("MediaItem")
-        .select("id")
-        .eq("id", id)
-        .maybeSingle();
+    const { data: existente, error } = await supabase
+      .from("MediaItem")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
 
-      if (error) {
-        throw error;
-      }
+    if (error) {
+      this.logger.warn(`Nao foi possivel consultar MediaItem ${id}: ${error.message}`);
+      throw new InternalServerErrorException(error.message);
+    }
 
-      if (existente) {
-        return;
-      }
+    if (existente) {
+      return;
+    }
 
-      const item = itemConhecido ?? (await this.buscarPorId(id));
-      const agora = new Date().toISOString();
-      const { error: insertError } = await supabase
-        .from("MediaItem")
-        .upsert({ ...item, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
+    const item = itemConhecido ?? (await this.buscarPorId(id));
+    const agora = new Date().toISOString();
+    const { error: insertError } = await supabase
+      .from("MediaItem")
+      .upsert({ ...item, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
 
-      if (insertError) {
-        throw insertError;
-      }
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${(error as Error).message}`);
+    if (insertError) {
+      this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${insertError.message}`);
+      throw new InternalServerErrorException(insertError.message);
     }
   }
 

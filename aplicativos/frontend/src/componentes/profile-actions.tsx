@@ -7,14 +7,23 @@ import { UiButton } from "./ui-button";
 import { useAuth } from "../contextos/auth-context";
 import { getPublicProfile } from "../lib/api";
 
-// O servidor renderiza o perfil sem login; aqui descobrimos se o visitante
-// e o dono do perfil ou se ja o segue.
-export function ProfileActions({ username }: { username: string }) {
+type ProfileActionsProps = {
+  username: string;
+  initialIsMe?: boolean;
+  initialFollowing?: boolean;
+};
+
+// O servidor ja envia isMe e isFollowing quando ha cookie de sessao;
+// fazemos fallback no cliente apenas se o usuario logou sem cookie no SSR.
+export function ProfileActions({ username, initialIsMe, initialFollowing }: ProfileActionsProps) {
   const { user, loading } = useAuth();
-  const [state, setState] = useState<{ isMe: boolean; isFollowing: boolean } | null>(null);
+  const temEstadoInicial = initialIsMe !== undefined && initialFollowing !== undefined;
+  const [state, setState] = useState<{ isMe: boolean; isFollowing: boolean } | null>(
+    temEstadoInicial ? { isMe: initialIsMe, isFollowing: initialFollowing } : null
+  );
 
   useEffect(() => {
-    if (!user) {
+    if (!user || temEstadoInicial) {
       return;
     }
     let active = true;
@@ -24,13 +33,17 @@ export function ProfileActions({ username }: { username: string }) {
     return () => {
       active = false;
     };
-  }, [user, username]);
+  }, [user, username, temEstadoInicial]);
 
-  if (loading || (user && !state)) {
+  if (loading && !temEstadoInicial) {
     return null;
   }
 
-  if (state?.isMe) {
+  if (user && !state) {
+    return null;
+  }
+
+  if (user && state?.isMe) {
     return (
       <UiButton href="/perfil" variant="secondary">
         Editar perfil
@@ -38,5 +51,5 @@ export function ProfileActions({ username }: { username: string }) {
     );
   }
 
-  return <FollowButton username={username} initialFollowing={state?.isFollowing ?? false} />;
+  return <FollowButton username={username} initialFollowing={user ? (state?.isFollowing ?? false) : false} />;
 }

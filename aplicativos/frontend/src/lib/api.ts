@@ -73,6 +73,8 @@ export type TrackingEntry = {
   progress: number;
   rating: number | null;
   notes: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
   updatedAt: string;
   item?: CatalogItem | null;
 };
@@ -104,6 +106,33 @@ export const saveTrackingItem = (mediaItemId: string, payload: TrackingPayload) 
 
 export const removeTrackingItem = (mediaItemId: string) =>
   request<{ ok: true }>(`/tracking/items/${encodeURIComponent(mediaItemId)}`, { method: "DELETE" });
+
+// Extras de catalogo (onde assistir, notas do Trak e externas)
+
+export type WatchProvider = {
+  name: string;
+  category: "STREAMING" | "RENT" | "BUY" | "STORE" | "READ";
+  url?: string | null;
+};
+
+export type ExternalRating = {
+  source: string;
+  value: string;
+};
+
+export type CatalogExtras = {
+  genres: string[];
+  watchProviders: WatchProvider[];
+  watchLink: string | null;
+  trakRating: {
+    average: number | null;
+    count: number;
+  };
+  externalRatings: ExternalRating[];
+};
+
+export const getCatalogExtras = (mediaItemId: string) =>
+  request<CatalogExtras>(`/catalogo/${encodeURIComponent(mediaItemId)}/extras`);
 
 // Episodios
 
@@ -138,11 +167,17 @@ export type FavoriteEntry = { mediaItemId: string; createdAt: string; item: Cata
 
 export const getFavorites = () => request<FavoriteEntry[]>("/favoritos");
 
+export const checkFavorite = (mediaItemId: string) =>
+  request<{ isFavorite: boolean }>(`/favoritos/${encodeURIComponent(mediaItemId)}`);
+
 export const addFavorite = (mediaItemId: string) =>
   request<{ ok: true }>("/favoritos", { method: "POST", body: json({ mediaItemId }) });
 
 export const removeFavorite = (mediaItemId: string) =>
   request<{ ok: true }>(`/favoritos/${encodeURIComponent(mediaItemId)}`, { method: "DELETE" });
+
+export const reorderFavorites = (mediaItemIds: string[]) =>
+  request<{ ok: true }>("/favoritos/ordem", { method: "PUT", body: json({ mediaItemIds }) });
 
 // Comentarios
 
@@ -152,6 +187,7 @@ export type CommentEntry = {
   mediaItemId: string;
   content: string;
   createdAt: string;
+  user?: { username: string; displayName: string | null } | null;
   likesCount: number;
   likedByUser: boolean;
   isOwn: boolean;

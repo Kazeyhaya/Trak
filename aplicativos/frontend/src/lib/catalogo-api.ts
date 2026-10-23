@@ -56,15 +56,31 @@ const fallbackItems: CatalogItem[] = [
     coverUrl: null,
     synopsis: "Clássico da fantasia épica de J. R. R. Tolkien.",
     releaseYear: 1954
+  },
+  {
+    id: "tmdb_movie_129",
+    externalId: "129",
+    source: "tmdb",
+    type: "MOVIE",
+    title: "A Viagem de Chihiro",
+    coverUrl: "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+    synopsis: "Uma garota entra em um mundo mágico governado por deuses, bruxas e espíritos.",
+    releaseYear: 2001
   }
 ];
 
 
-// Busca publica (sem login), usada pelos Server Components.
-export async function fetchJson<T>(path: string): Promise<T | null> {
+// Busca usada pelos Server Components (opcionalmente autenticada via token).
+export async function fetchJson<T>(path: string, token?: string | null): Promise<T | null> {
   try {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${path}`, {
       cache: "no-store",
+      headers,
       signal: AbortSignal.timeout(10000)
     });
 
@@ -78,13 +94,16 @@ export async function fetchJson<T>(path: string): Promise<T | null> {
   }
 }
 
-export async function getCatalogItems(query = "", type = "") {
+export async function getCatalogItems(query = "", type = "", genre = "") {
   const params = new URLSearchParams();
   if (query.trim()) {
     params.set("q", query.trim());
   }
   if (type) {
     params.set("type", type);
+  }
+  if (genre) {
+    params.set("genre", genre);
   }
 
   const suffix = params.size > 0 ? `?${params}` : "";

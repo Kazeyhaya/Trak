@@ -10,14 +10,16 @@ import { SiteHeader } from "../../../componentes/site-header";
 import { UiCard } from "../../../componentes/ui-card";
 import { getStatusLabel, PublicProfile, TRACKING_STATUSES } from "../../../lib/api";
 import { fetchJson } from "../../../lib/catalogo-api";
+import { tokenDoServidor } from "../../../lib/supabase-server";
 
 type ProfilePageProps = { params: Promise<{ username: string }> };
 
 export const dynamic = "force-dynamic";
 
-const getProfile = cache((username: string) =>
-  fetchJson<PublicProfile>(`/perfis/${encodeURIComponent(username.toLowerCase())}`)
-);
+const getProfile = cache(async (username: string) => {
+  const token = await tokenDoServidor();
+  return fetchJson<PublicProfile>(`/perfis/${encodeURIComponent(username.toLowerCase())}`, token);
+});
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
   const { username } = await params;
@@ -63,7 +65,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             </span>
           </div>
         </div>
-        <ProfileActions username={profile.username} />
+        <ProfileActions
+          username={profile.username}
+          initialIsMe={data.isMe}
+          initialFollowing={data.isFollowing}
+        />
       </section>
 
       {data.isPrivate ? (

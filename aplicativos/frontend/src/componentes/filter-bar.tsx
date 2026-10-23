@@ -12,12 +12,24 @@ const filters = [
   { label: "Livros", value: "book" }
 ];
 
-function normalizeType(value?: string | null) {
-  if (!value) {
-    return "";
-  }
+const genres = [
+  { label: "Todos os gêneros", value: "" },
+  { label: "Ação", value: "acao" },
+  { label: "Aventura", value: "aventura" },
+  { label: "Comédia", value: "comedia" },
+  { label: "Drama", value: "drama" },
+  { label: "Ficção Científica", value: "ficcao" },
+  { label: "Fantasia", value: "fantasia" },
+  { label: "Terror", value: "terror" },
+  { label: "Romance", value: "romance" },
+  { label: "Mistério", value: "misterio" },
+  { label: "Documentário", value: "documentario" },
+  { label: "RPG", value: "rpg" },
+  { label: "Estratégia", value: "estrategia" }
+];
 
-  return value.toLowerCase();
+function normalizeValue(value?: string | null) {
+  return value ? value.toLowerCase() : "";
 }
 
 export function FilterBar() {
@@ -26,9 +38,10 @@ export function FilterBar() {
   const searchParams = useSearchParams();
   // O CatalogShell remonta este componente (via key) quando a URL muda.
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [activeType, setActiveType] = useState(normalizeType(searchParams.get("type")));
+  const [activeType, setActiveType] = useState(normalizeValue(searchParams.get("type")));
+  const [activeGenre, setActiveGenre] = useState(normalizeValue(searchParams.get("genre")));
 
-  function updateUrl(nextQuery: string, nextType: string) {
+  function updateUrl(nextQuery: string, nextType: string, nextGenre: string) {
     const params = new URLSearchParams(searchParams.toString());
 
     if (nextQuery.trim()) {
@@ -43,6 +56,12 @@ export function FilterBar() {
       params.delete("type");
     }
 
+    if (nextGenre) {
+      params.set("genre", nextGenre);
+    } else {
+      params.delete("genre");
+    }
+
     const nextQueryString = params.toString();
     const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
 
@@ -51,7 +70,7 @@ export function FilterBar() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    updateUrl(query, activeType);
+    updateUrl(query, activeType, activeGenre);
   }
 
   return (
@@ -79,10 +98,32 @@ export function FilterBar() {
               onClick={() => {
                 const nextType = filter.value;
                 setActiveType(nextType);
-                updateUrl(query, nextType);
+                updateUrl(query, nextType, activeGenre);
               }}
             >
               {filter.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="filter-chips" role="group" aria-label="Gêneros">
+        {genres.map((genre) => {
+          const isActive = activeGenre === genre.value;
+
+          return (
+            <button
+              key={genre.value || "all-genres"}
+              type="button"
+              className={`filter-chip${isActive ? " is-active" : ""}`}
+              aria-pressed={isActive}
+              onClick={() => {
+                const nextGenre = genre.value;
+                setActiveGenre(nextGenre);
+                updateUrl(query, activeType, nextGenre);
+              }}
+            >
+              {genre.label}
             </button>
           );
         })}

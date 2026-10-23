@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { destinoSeguro, ehRotaPrivada } from "./rotas";
 
 describe("ehRotaPrivada", () => {
-  it.each(["/painel", "/feed", "/perfil", "/moderacao", "/importar", "/recomendacoes", "/painel/qualquer"])(
+  it.each(["/painel", "/feed", "/perfil", "/moderacao", "/importar", "/recomendacoes", "/recap", "/painel/qualquer"])(
     "%s exige login",
     (rota) => {
       expect(ehRotaPrivada(rota)).toBe(true);

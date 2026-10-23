@@ -32,3 +32,12 @@ export async function usuarioDoServidor() {
   const { data } = await supabase.auth.getUser();
   return data.user;
 }
+
+export async function tokenDoServidor() {
+  const supabase = await criarSupabaseServidor();
+  if (!supabase) {
+    return null;
+  }
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}

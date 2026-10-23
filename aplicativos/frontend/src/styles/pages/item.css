@@ -95,7 +95,7 @@
 
 .item-details-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -186,4 +186,22 @@
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.item-extras-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.item-extras-block {
+  display: grid;
+  gap: 10px;
+}
+
+.item-extras-block .eyebrow {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

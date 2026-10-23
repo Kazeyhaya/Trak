@@ -10,10 +10,50 @@ export type TmdbItem = {
   release_date?: string;
   first_air_date?: string;
   genre_ids?: number[];
+  genres?: Array<{ id: number; name: string }>;
+  vote_average?: number;
+  vote_count?: number;
+  imdb_id?: string | null;
+  external_ids?: { imdb_id?: string | null };
 };
 
 // Genero "Animacao" no TMDB (o mesmo id para filmes e series).
 export const TMDB_GENERO_ANIMACAO = 16;
+
+export const GENEROS_CATALOGO = [
+  "acao",
+  "aventura",
+  "comedia",
+  "drama",
+  "ficcao",
+  "fantasia",
+  "terror",
+  "romance",
+  "misterio",
+  "documentario",
+  "rpg",
+  "estrategia"
+] as const;
+
+export type GeneroCatalogo = (typeof GENEROS_CATALOGO)[number];
+
+export const MAPA_GENEROS: Record<
+  GeneroCatalogo,
+  { tmdbMovie?: number; tmdbTv?: number; rawg?: string; openLibrary?: string }
+> = {
+  acao: { tmdbMovie: 28, tmdbTv: 10759, rawg: "action", openLibrary: "action_and_adventure" },
+  aventura: { tmdbMovie: 12, tmdbTv: 10759, rawg: "adventure", openLibrary: "adventure" },
+  comedia: { tmdbMovie: 35, tmdbTv: 35, openLibrary: "humor" },
+  drama: { tmdbMovie: 18, tmdbTv: 18, openLibrary: "drama" },
+  ficcao: { tmdbMovie: 878, tmdbTv: 10765, rawg: "shooter", openLibrary: "science_fiction" },
+  fantasia: { tmdbMovie: 14, tmdbTv: 10765, rawg: "role-playing-games-rpg", openLibrary: "fantasy" },
+  terror: { tmdbMovie: 27, tmdbTv: 9648, openLibrary: "horror" },
+  romance: { tmdbMovie: 10749, tmdbTv: 18, openLibrary: "romance" },
+  misterio: { tmdbMovie: 9648, tmdbTv: 9648, rawg: "puzzle", openLibrary: "mystery_and_detective_stories" },
+  documentario: { tmdbMovie: 99, tmdbTv: 99, openLibrary: "history" },
+  rpg: { rawg: "role-playing-games-rpg", openLibrary: "fantasy" },
+  estrategia: { rawg: "strategy" }
+};
 
 export type RawgItem = {
   id: number;
@@ -21,6 +61,10 @@ export type RawgItem = {
   background_image: string | null;
   released: string | null;
   description_raw?: string;
+  rating?: number;
+  metacritic?: number | null;
+  genres?: Array<{ name: string; slug: string }>;
+  stores?: Array<{ url?: string; store?: { name: string; domain?: string } }>;
 };
 
 export type OpenLibraryDoc = {
@@ -33,6 +77,8 @@ export type OpenLibraryDoc = {
   first_publish_year?: number;
   first_publish_date?: string;
   description?: string | { value: string };
+  subjects?: string[];
+  ratings_average?: number;
 };
 
 export type IdParseado =

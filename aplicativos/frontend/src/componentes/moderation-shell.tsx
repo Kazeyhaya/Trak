@@ -127,7 +127,7 @@ export function ModerationShell() {
               )}
               <div className="item-next-actions">
                 <UiButton
-                  disabled={busy === report.id || !report.comment}
+                  disabled={busy === report.id || !report.comment || report.comment.content === "[comentário removido]"}
                   onClick={() => act(report, "RESOLVED", true)}
                 >
                   Remover comentário

@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AlertsSection } from "./alerts-section";
+import { MediaCard } from "./media-card";
 import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
@@ -16,8 +17,21 @@ import {
   getFavorites,
   getStatusLabel,
   getTrackingItems,
-  TrackingEntry
+  removeFavorite,
+  reorderFavorites,
+  TRACKING_STATUSES,
+  TrackingEntry,
+  TrackingStatus
 } from "../lib/api";
+import { getMediaTypeLabel, MediaType } from "../lib/catalogo-api";
+
+const MEDIA_FILTERS: Array<{ label: string; value: MediaType | "" }> = [
+  { label: "Todos", value: "" },
+  { label: "Filmes", value: "MOVIE" },
+  { label: "Séries", value: "SERIES" },
+  { label: "Jogos", value: "GAME" },
+  { label: "Livros", value: "BOOK" }
+];
 
 function deriveStats(items: TrackingEntry[], favorites: FavoriteEntry[]) {
   const ativos = items.filter((i) => i.status !== "COMPLETED" && i.status !== "DROPPED").length;
@@ -44,6 +58,10 @@ export function TrackingShell() {
   const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<TrackingStatus | "">("");
+  const [typeFilter, setTypeFilter] = useState<MediaType | "">("");
+  const [favTypeFilter, setFavTypeFilter] = useState<MediaType | "">("");
+  const [busyFav, setBusyFav] = useState(false);
 
   useEffect(() => {
     Promise.all([getTrackingItems(), getFavorites()])
@@ -56,7 +74,62 @@ export function TrackingShell() {
   }, []);
 
   const stats = loaded && !error ? deriveStats(items, favorites) : emptyStats;
-  const timeline = items.filter((i) => i.status !== "COMPLETED" && i.status !== "DROPPED").slice(0, 8);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((entry) => {
+      if (statusFilter && entry.status !== statusFilter) {
+        return false;
+      }
+      if (typeFilter && entry.item?.type !== typeFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [items, statusFilter, typeFilter]);
+
+  const filteredFavorites = useMemo(() => {
+    if (!favTypeFilter) {
+      return favorites;
+    }
+    return favorites.filter((fav) => fav.item?.type === favTypeFilter);
+  }, [favorites, favTypeFilter]);
+
+  async function handleRemoveFavorite(mediaItemId: string) {
+    setBusyFav(true);
+    try {
+      await removeFavorite(mediaItemId);
+      setFavorites((prev) => prev.filter((f) => f.mediaItemId !== mediaItemId));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyFav(false);
+    }
+  }
+
+  async function handleMoveFavorite(mediaItemId: string, direction: -1 | 1 | "top") {
+    const index = favorites.findIndex((f) => f.mediaItemId === mediaItemId);
+    if (index < 0) {
+      return;
+    }
+    const targetIndex = direction === "top" ? 0 : index + direction;
+    if (targetIndex < 0 || targetIndex >= favorites.length || targetIndex === index) {
+      return;
+    }
+
+    const next = [...favorites];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+    setFavorites(next);
+    setBusyFav(true);
+
+    try {
+      await reorderFavorites(next.map((f) => f.mediaItemId));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyFav(false);
+    }
+  }
 
   return (
     <main className="content-shell">
@@ -64,17 +137,22 @@ export function TrackingShell() {
 
       <section className="content-hero">
         <div>
-          <h1>Seu radar de tracking para acompanhar progresso, status e ritmo.</h1>
+          <h1>Sua biblioteca pessoal de filmes, séries, jogos e livros.</h1>
           <p>
-            Uma visão central do que está em andamento, do que precisa de atenção e do
-            que já foi concluído.
+            Organize o que está em andamento, filtre sua estante por categoria e monte seus favoritos na ordem que
+            preferir.
           </p>
         </div>
 
         <div className="content-summary">
-          <UiBadge tone="secondary">{loaded ? `${items.length} registros` : "Carregando…"}</UiBadge>
-          <strong>Tracking + timeline + favoritos</strong>
-          <p>Métricas calculadas a partir dos itens registrados na sua conta.</p>
+          <UiBadge tone="secondary">{loaded ? `${items.length} na biblioteca` : "Carregando…"}</UiBadge>
+          <strong>Biblioteca + Favoritos + Retrospectiva</strong>
+          <p>Acompanhe suas estatísticas e veja sua retrospectiva do ano.</p>
+          <div className="item-next-actions" style={{ marginTop: "12px" }}>
+            <UiButton href="/recap" variant="secondary">
+              Ver Retrospectiva (Recap)
+            </UiButton>
+          </div>
         </div>
       </section>
 
@@ -97,47 +175,92 @@ export function TrackingShell() {
 
       <section className="content-panel">
         <SectionHeading
-          eyebrow="Timeline"
-          title="Em andamento"
-          description="Itens ativos no seu tracking, ordenados pela atualização mais recente."
+          eyebrow="Estante"
+          title="Sua biblioteca"
+          description="Filtre por status ou categoria e clique em qualquer obra para atualizar seu progresso ou nota."
         />
 
-        <div className="timeline-list">
-          {!loaded && (
-            <UiCard className="timeline-item">
-              <UiBadge tone="secondary">Aguardando</UiBadge>
-              <div>
-                <h3>Carregando registros…</h3>
-              </div>
-            </UiCard>
-          )}
+        <div className="library-filters">
+          <div className="filter-chips" role="group" aria-label="Filtrar por status">
+            <button
+              type="button"
+              className={`filter-chip${statusFilter === "" ? " is-active" : ""}`}
+              aria-pressed={statusFilter === ""}
+              onClick={() => setStatusFilter("")}
+            >
+              Todos os status ({items.length})
+            </button>
+            {TRACKING_STATUSES.map((st) => {
+              const count = items.filter((i) => i.status === st).length;
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  className={`filter-chip${statusFilter === st ? " is-active" : ""}`}
+                  aria-pressed={statusFilter === st}
+                  onClick={() => setStatusFilter(st)}
+                >
+                  {getStatusLabel(st)} ({count})
+                </button>
+              );
+            })}
+          </div>
 
-          {loaded && !error && timeline.length === 0 && (
-            <UiCard className="timeline-item">
-              <UiBadge tone="secondary">Vazio</UiBadge>
-              <div>
-                <span>Sem itens ativos</span>
-                <h3>Nenhum item em andamento</h3>
-                <p>Adicione itens do catálogo e marque o status para ver a timeline.</p>
-              </div>
-            </UiCard>
-          )}
-
-          {timeline.map((entry) => (
-            <UiCard key={entry.id} className="timeline-item">
-              <UiBadge tone="secondary">{getStatusLabel(entry.status, entry.item?.type)}</UiBadge>
-              <div>
-                <span>{entry.progress}% concluído</span>
-                <h3>
-                  <Link href={`/itens/${entry.mediaItemId}`}>{entry.item?.title ?? entry.mediaItemId}</Link>
-                </h3>
-                <p>Abra o item para atualizar status ou ajustar progresso.</p>
-              </div>
-            </UiCard>
-          ))}
+          <div className="filter-chips" role="group" aria-label="Filtrar biblioteca por categoria">
+            {MEDIA_FILTERS.map((mf) => (
+              <button
+                key={mf.value || "all"}
+                type="button"
+                className={`filter-chip${typeFilter === mf.value ? " is-active" : ""}`}
+                aria-pressed={typeFilter === mf.value}
+                onClick={() => setTypeFilter(mf.value)}
+              >
+                {mf.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="item-next-actions">
+        {!loaded && <p className="panel-note">Carregando sua biblioteca…</p>}
+
+        {loaded && !error && filteredItems.length === 0 && (
+          <UiCard className="empty-state">
+            <UiBadge tone="secondary">Vazio</UiBadge>
+            <h3>Nenhuma obra encontrada neste filtro</h3>
+            <p>Explore o catálogo para adicionar filmes, séries, jogos e livros à sua estante.</p>
+          </UiCard>
+        )}
+
+        {filteredItems.length > 0 && (
+          <div className="catalog-grid" style={{ marginTop: "18px" }}>
+            {filteredItems.map((entry) => {
+              const title = entry.item?.title ?? entry.mediaItemId;
+              const typeLabel = entry.item ? getMediaTypeLabel(entry.item.type) : "Item";
+              const year = entry.item?.releaseYear ? String(entry.item.releaseYear) : "Sem ano";
+              const statusText = getStatusLabel(entry.status, entry.item?.type);
+              const progressText =
+                entry.status === "COMPLETED"
+                  ? statusText
+                  : `${statusText} · ${entry.progress}%`;
+              const ratingText = entry.rating ? `${entry.rating} ★` : undefined;
+
+              return (
+                <Link key={entry.id} href={`/itens/${entry.mediaItemId}`}>
+                  <MediaCard
+                    type={typeLabel}
+                    title={title}
+                    meta={year}
+                    coverUrl={entry.item?.coverUrl}
+                    progress={progressText}
+                    accent={ratingText}
+                  />
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="item-next-actions" style={{ marginTop: "22px" }}>
           <UiButton href="/catalogo">Ir para catálogo</UiButton>
           <UiButton href="/recomendacoes" variant="secondary">
             Recomendações para você
@@ -148,32 +271,106 @@ export function TrackingShell() {
         </div>
       </section>
 
-      {favorites.length > 0 && (
-        <section className="content-panel">
-          <SectionHeading
-            eyebrow="Favoritos"
-            title="Seus favoritos"
-            description="Os itens que você marcou com estrela."
-          />
+      <section className="content-panel">
+        <SectionHeading
+          eyebrow="Favoritos"
+          title="Pasta de favoritos"
+          description="Monte e ordene seus favoritos. Os primeiros da lista ficam no topo do seu perfil público."
+        />
 
-          <div className="timeline-list">
-            {favorites.map((favorite) => (
-              <UiCard key={favorite.mediaItemId} className="timeline-item">
-                {favorite.item?.coverUrl && (
-                  <Image className="timeline-cover" src={favorite.item.coverUrl} alt="" width={56} height={84} />
-                )}
-                <div>
-                  <h3>
-                    <Link href={`/itens/${favorite.mediaItemId}`}>
-                      {favorite.item?.title ?? favorite.mediaItemId}
-                    </Link>
-                  </h3>
-                </div>
-              </UiCard>
-            ))}
+        {favorites.length > 0 && (
+          <div className="library-filters">
+            <div className="filter-chips" role="group" aria-label="Filtrar favoritos por categoria">
+              {MEDIA_FILTERS.map((mf) => (
+                <button
+                  key={mf.value || "all-fav"}
+                  type="button"
+                  className={`filter-chip${favTypeFilter === mf.value ? " is-active" : ""}`}
+                  aria-pressed={favTypeFilter === mf.value}
+                  onClick={() => setFavTypeFilter(mf.value)}
+                >
+                  {mf.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+
+        {loaded && favorites.length === 0 && (
+          <p className="panel-note">Você ainda não marcou nenhum item como favorito.</p>
+        )}
+
+        {filteredFavorites.length > 0 && (
+          <div className="catalog-grid" style={{ marginTop: "18px" }}>
+            {filteredFavorites.map((favorite, idx) => {
+              const globalIndex = favorites.findIndex((f) => f.mediaItemId === favorite.mediaItemId);
+              return (
+                <UiCard key={favorite.mediaItemId} className="favorite-manage-card">
+                  <Link href={`/itens/${favorite.mediaItemId}`} className="favorite-manage-link">
+                    <div className="media-card-art" aria-hidden="true">
+                      {favorite.item?.coverUrl ? (
+                        <Image
+                          className="media-card-image"
+                          src={favorite.item.coverUrl}
+                          alt=""
+                          fill
+                          sizes="(max-width: 720px) 50vw, 240px"
+                        />
+                      ) : (
+                        <span className="media-card-orb" />
+                      )}
+                    </div>
+                    <div className="media-card-copy">
+                      <UiBadge tone="primary">
+                        #{globalIndex + 1} · {favorite.item ? getMediaTypeLabel(favorite.item.type) : "Favorito"}
+                      </UiBadge>
+                      <h3>{favorite.item?.title ?? favorite.mediaItemId}</h3>
+                      <p>{favorite.item?.releaseYear ?? "Sem ano"}</p>
+                    </div>
+                  </Link>
+                  <div className="favorite-manage-actions" role="group" aria-label={`Ações para ${favorite.item?.title ?? favorite.mediaItemId}`}>
+                    <button
+                      type="button"
+                      className="filter-chip"
+                      disabled={busyFav || globalIndex === 0}
+                      title="Fixar no topo (#1)"
+                      onClick={() => void handleMoveFavorite(favorite.mediaItemId, "top")}
+                    >
+                      Topo
+                    </button>
+                    <button
+                      type="button"
+                      className="filter-chip"
+                      disabled={busyFav || globalIndex === 0}
+                      aria-label="Mover para trás"
+                      onClick={() => void handleMoveFavorite(favorite.mediaItemId, -1)}
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      className="filter-chip"
+                      disabled={busyFav || globalIndex === favorites.length - 1 || idx === filteredFavorites.length - 1}
+                      aria-label="Mover para frente"
+                      onClick={() => void handleMoveFavorite(favorite.mediaItemId, 1)}
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
+                      className="filter-chip"
+                      disabled={busyFav}
+                      onClick={() => void handleRemoveFavorite(favorite.mediaItemId)}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </UiCard>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </main>
   );
 }

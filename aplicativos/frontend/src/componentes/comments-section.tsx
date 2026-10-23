@@ -157,7 +157,17 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
           <UiCard key={comment.id} className="comment-item">
             <p>{comment.content}</p>
             <div className="comment-meta">
-              <time dateTime={comment.createdAt}>{dateFormatter.format(new Date(comment.createdAt))}</time>
+              <span>
+                {comment.user && (
+                  <>
+                    <Link href={`/u/${comment.user.username}`}>
+                      {comment.user.displayName || `@${comment.user.username}`}
+                    </Link>
+                    {" · "}
+                  </>
+                )}
+                <time dateTime={comment.createdAt}>{dateFormatter.format(new Date(comment.createdAt))}</time>
+              </span>
               <div className="comment-actions">
                 <button
                   type="button"

@@ -127,8 +127,27 @@ export class TrackingService {
         })
         .select(CAMPOS_TRACKING)
         .single();
-      falha(error);
-      linha = data as LinhaUserMedia;
+
+      // Se duas requisicoes chegarem ao mesmo tempo, a segunda encontra a linha recem-criada e faz update.
+      if (error?.code === "23505") {
+        const recemCriada = await this.buscarLinha(userId, mediaItemId);
+        if (recemCriada) {
+          const { data: dataUpdate, error: errorUpdate } = await this.db
+            .from(TABELA_TRACKING)
+            .update({ ...paraBanco(alteracoes, recemCriada, agora), updatedAt: agora })
+            .eq("id", recemCriada.id)
+            .select(CAMPOS_TRACKING)
+            .single();
+          falha(errorUpdate);
+          linha = dataUpdate as LinhaUserMedia;
+        } else {
+          falha(error);
+          linha = data as LinhaUserMedia;
+        }
+      } else {
+        falha(error);
+        linha = data as LinhaUserMedia;
+      }
     }
 
     const salvo = deBanco(linha);
@@ -177,14 +196,20 @@ export class TrackingService {
 
   // Grava episodios em lote (importacao) e recalcula o progresso, sem gerar atividade.
   async importarEpisodios(userId: string, mediaItemId: string, episodios: Array<{ season: number; episode: number }>) {
+    const unicos = [
+      ...new Map(episodios.map((e) => [`${e.season}:${e.episode}`, e])).values()
+    ];
     const { error } = await this.db.from("EpisodeProgress").upsert(
-      episodios.map((e) => ({ userId, mediaItemId, season: e.season, episode: e.episode })),
+      unicos.map((e) => ({ userId, mediaItemId, season: e.season, episode: e.episode })),
       { onConflict: "userId,mediaItemId,season,episode", ignoreDuplicates: true }
     );
     falha(error);
 
-    const total = await this.catalogoService.totalEpisodiosExibidos(mediaItemId).catch(() => 0);
-    const progresso = calcularProgresso(episodios.filter((e) => e.season > 0).length, total);
+    const [assistidos, total] = await Promise.all([
+      this.episodiosDoUsuario(userId, mediaItemId),
+      this.catalogoService.totalEpisodiosExibidos(mediaItemId).catch(() => 0)
+    ]);
+    const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
     await this.salvarParaUsuario(
       userId,
       mediaItemId,
