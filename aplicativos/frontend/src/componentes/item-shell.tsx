@@ -346,11 +346,13 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
           })}
         </div>
 
-        {isSeries ? (
+        {isSeries && (
           <p className="panel-note">
             Progresso: {progress}% · marque os episódios na seção abaixo.
           </p>
-        ) : (
+        )}
+
+        {(item.type === "GAME" || item.type === "BOOK") && (
           <label className="progress-control">
             <span>Progresso pessoal: {progress}%</span>
             <input

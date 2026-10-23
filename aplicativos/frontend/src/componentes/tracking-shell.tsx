@@ -239,7 +239,7 @@ export function TrackingShell() {
               const year = entry.item?.releaseYear ? String(entry.item.releaseYear) : "Sem ano";
               const statusText = getStatusLabel(entry.status, entry.item?.type);
               const progressText =
-                entry.status === "COMPLETED"
+                entry.status === "COMPLETED" || entry.item?.type === "MOVIE"
                   ? statusText
                   : `${statusText} · ${entry.progress}%`;
               const ratingText = entry.rating ? `${entry.rating} ★` : undefined;
