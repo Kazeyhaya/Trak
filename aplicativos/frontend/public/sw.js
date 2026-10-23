@@ -3,7 +3,7 @@
 // - Navegacao: network-first, com a pagina /offline quando nao ha conexao.
 // - Chamadas a API e paginas pessoais nunca sao servidas do cache.
 
-const VERSAO = "trak-v1";
+const VERSAO = "trak-v2";
 const CACHE_ESTATICO = `${VERSAO}-estatico`;
 const PAGINA_OFFLINE = "/offline";
 
