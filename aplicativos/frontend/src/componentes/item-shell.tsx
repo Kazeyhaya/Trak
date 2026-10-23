@@ -36,11 +36,14 @@ type ItemShellProps = {
 
 const PROGRESS_SAVE_DELAY_MS = 600;
 const NOTES_MAX_LENGTH = 2000;
+const SYNOPSIS_PREVIEW_LENGTH = 360;
 
 export function ItemShell({ item }: ItemShellProps) {
   const { user, loading: authLoading } = useAuth();
   const isSeries = item.type === "SERIES";
+  const isGame = item.type === "GAME";
   const [extras, setExtras] = useState<CatalogExtras | null>(null);
+  const [expandSynopsis, setExpandSynopsis] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -55,18 +58,28 @@ export function ItemShell({ item }: ItemShellProps) {
   const verbWhere =
     item.type === "GAME" ? "Onde jogar" : item.type === "BOOK" ? "Onde ler" : "Onde assistir";
 
+  const fullSynopsis = item.synopsis?.trim() ?? "";
+  const isLongSynopsis = fullSynopsis.length > SYNOPSIS_PREVIEW_LENGTH;
+  const displayedSynopsis =
+    !fullSynopsis
+      ? "Sinopse indisponível."
+      : isLongSynopsis && !expandSynopsis
+        ? `${fullSynopsis.slice(0, SYNOPSIS_PREVIEW_LENGTH).trimEnd()}…`
+        : fullSynopsis;
+
   return (
     <main className="content-shell">
       <SiteHeader />
 
       <section className="item-hero">
-        <div className="item-poster" aria-hidden="true">
+        <div className={`item-poster${isGame ? " item-poster--landscape" : ""}`} aria-hidden="true">
           {item.coverUrl ? (
             <Image
               src={item.coverUrl.replace("/media/resize/640/-/games/", "/media/games/")}
               alt=""
-              width={640}
-              height={960}
+              width={isGame ? 1280 : 640}
+              height={isGame ? 720 : 960}
+              quality={90}
               priority
             />
           ) : (
@@ -84,7 +97,18 @@ export function ItemShell({ item }: ItemShellProps) {
             ))}
           </div>
           <h1>{item.title}</h1>
-          <p>{item.synopsis ?? "Sinopse indisponível."}</p>
+          <div className="item-synopsis">
+            <p>{displayedSynopsis}</p>
+            {isLongSynopsis && (
+              <button
+                type="button"
+                className="synopsis-toggle"
+                onClick={() => setExpandSynopsis((prev) => !prev)}
+              >
+                {expandSynopsis ? "Mostrar menos" : "Ler mais"}
+              </button>
+            )}
+          </div>
 
           {authLoading ? null : user ? (
             <PersonalTracking item={item} isSeries={isSeries} />

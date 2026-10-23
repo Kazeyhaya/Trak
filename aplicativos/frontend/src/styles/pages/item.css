@@ -23,6 +23,11 @@
   padding: 18px;
 }
 
+.item-poster--landscape {
+  /* Jogos do RAWG usam artes widescreen (16:9); exibir sem corte preserva a nitidez total. */
+  aspect-ratio: 16 / 9;
+}
+
 .item-poster span {
   display: block;
   width: 100%;
@@ -62,6 +67,26 @@
   margin: 0;
   color: var(--muted);
   line-height: 1.7;
+}
+
+.item-synopsis {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.synopsis-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.synopsis-toggle:hover {
+  text-decoration: underline;
 }
 
 .item-actions,

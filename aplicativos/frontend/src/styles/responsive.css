@@ -37,6 +37,10 @@
     margin: 0 auto;
     padding: 10px;
   }
+
+  .item-poster--landscape {
+    width: min(100%, 460px);
+  }
 }
 
 @media (max-width: 640px) {

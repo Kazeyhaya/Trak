@@ -165,15 +165,23 @@ export function mapearTmdb(item: TmdbItem, type: "MOVIE" | "SERIES"): ItemCatalo
 }
 
 export function mapearRawg(item: RawgItem): ItemCatalogo {
+  // Pega apenas o primeiro paragrafo da sinopse para nao poluir a pagina com textos gigantes.
+  const paragrafos = (item.description_raw ?? "")
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 20);
+  const resumo = paragrafos[0] ?? item.description_raw?.trim() ?? "";
+  const sinopseCurta = resumo.length > 520 ? `${resumo.slice(0, 517).trimEnd()}…` : resumo;
+
   return {
     id: montarId("rawg", "GAME", item.id),
     externalId: String(item.id),
     source: "rawg",
     type: "GAME",
     title: item.name,
-    // Mantem a resolucao alta do RAWG para o otimizador do Next.js nao pixelar no recorte vertical (2:3).
+    // Mantem a resolucao alta do RAWG para o otimizador do Next.js nao pixelar.
     coverUrl: item.background_image ?? null,
-    synopsis: item.description_raw || null,
+    synopsis: sinopseCurta || null,
     releaseYear: anoDe(item.released)
   };
 }

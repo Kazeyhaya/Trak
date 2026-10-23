@@ -466,6 +466,27 @@ export class CatalogoService implements OnModuleInit {
     };
   }
 
+  private async traduzirParaPtBr(texto: string | null): Promise<string | null> {
+    if (!texto) {
+      return null;
+    }
+    return this.comCache(`tr:${texto.slice(0, 120)}`, async () => {
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt-BR&dt=t&q=${encodeURIComponent(texto)}`;
+        const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (!response.ok) {
+          return texto;
+        }
+        const data = (await response.json()) as unknown[];
+        const partes = Array.isArray(data?.[0]) ? (data[0] as Array<[string]>) : [];
+        const traduzido = partes.map((p) => p?.[0] ?? "").join("").trim();
+        return traduzido || texto;
+      } catch {
+        return texto;
+      }
+    });
+  }
+
   private async carregarItem(id: string): Promise<ItemCatalogo | null> {
     const parsed = parsearId(id);
 
@@ -476,12 +497,26 @@ export class CatalogoService implements OnModuleInit {
 
     if (parsed?.source === "rawg") {
       const item = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
-      return item ? mapearRawg(item) : null;
+      if (!item) {
+        return null;
+      }
+      const mapeado = mapearRawg(item);
+      return {
+        ...mapeado,
+        synopsis: await this.traduzirParaPtBr(mapeado.synopsis)
+      };
     }
 
     if (parsed?.source === "openlibrary") {
       const item = await this.openLibrary<OpenLibraryDoc>(`/works/${parsed.externalId}.json`);
-      return item ? mapearOpenLibrary(item) : null;
+      if (!item) {
+        return null;
+      }
+      const mapeado = mapearOpenLibrary(item);
+      return {
+        ...mapeado,
+        synopsis: await this.traduzirParaPtBr(mapeado.synopsis)
+      };
     }
 
     return null;
