@@ -33,3 +33,25 @@ export interface Novidade {
   date: string;
   label: string;
 }
+
+export interface ProvedorOndeAssistir {
+  name: string;
+  category: "STREAMING" | "RENT" | "BUY" | "STORE" | "READ";
+  url?: string | null;
+}
+
+export interface NotaExterna {
+  source: string;
+  value: string;
+}
+
+export interface ExtrasCatalogo {
+  genres: string[];
+  watchProviders: ProvedorOndeAssistir[];
+  watchLink: string | null;
+  trakRating: {
+    average: number | null;
+    count: number;
+  };
+  externalRatings: NotaExterna[];
+}

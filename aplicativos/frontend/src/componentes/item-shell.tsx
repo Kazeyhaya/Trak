@@ -15,8 +15,10 @@ import { useAuth } from "../contextos/auth-context";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
 import {
   addFavorite,
+  CatalogExtras,
+  checkFavorite,
   errorMessage,
-  getFavorites,
+  getCatalogExtras,
   getStatusLabel,
   getTrackingItem,
   removeFavorite,
@@ -38,6 +40,20 @@ const NOTES_MAX_LENGTH = 2000;
 export function ItemShell({ item }: ItemShellProps) {
   const { user, loading: authLoading } = useAuth();
   const isSeries = item.type === "SERIES";
+  const [extras, setExtras] = useState<CatalogExtras | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getCatalogExtras(item.id)
+      .then((data) => active && setExtras(data))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [item.id]);
+
+  const verbWhere =
+    item.type === "GAME" ? "Onde jogar" : item.type === "BOOK" ? "Onde ler" : "Onde assistir";
 
   return (
     <main className="content-shell">
@@ -53,7 +69,14 @@ export function ItemShell({ item }: ItemShellProps) {
         </div>
 
         <div className="item-copy">
-          <UiBadge tone="secondary">{getMediaTypeLabel(item.type)}</UiBadge>
+          <div className="status-chips">
+            <UiBadge tone="secondary">{getMediaTypeLabel(item.type)}</UiBadge>
+            {extras?.genres.map((genre) => (
+              <UiBadge key={genre} tone="secondary">
+                {genre}
+              </UiBadge>
+            ))}
+          </div>
           <h1>{item.title}</h1>
           <p>{item.synopsis ?? "Sinopse indisponível."}</p>
 
@@ -75,10 +98,6 @@ export function ItemShell({ item }: ItemShellProps) {
 
       <section className="item-details-grid">
         <UiCard>
-          <span>Fonte</span>
-          <strong>{item.source.toUpperCase()}</strong>
-        </UiCard>
-        <UiCard>
           <span>Ano</span>
           <strong>{item.releaseYear ?? "—"}</strong>
         </UiCard>
@@ -86,7 +105,64 @@ export function ItemShell({ item }: ItemShellProps) {
           <span>Tipo</span>
           <strong>{getMediaTypeLabel(item.type)}</strong>
         </UiCard>
+        <UiCard>
+          <span>Nota no Trak</span>
+          <strong>
+            {extras?.trakRating.average
+              ? `${extras.trakRating.average.toLocaleString("pt-BR")} ★ (${extras.trakRating.count})`
+              : "Sem avaliações"}
+          </strong>
+        </UiCard>
       </section>
+
+      {extras && (extras.externalRatings.length > 0 || extras.watchProviders.length > 0) && (
+        <section className="content-panel item-extras-panel">
+          {extras.externalRatings.length > 0 && (
+            <div className="item-extras-block">
+              <span className="eyebrow">Avaliações</span>
+              <div className="status-chips">
+                {extras.externalRatings.map((rating) => (
+                  <UiBadge key={rating.source} tone="primary">
+                    {rating.source}: {rating.value}
+                  </UiBadge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {extras.watchProviders.length > 0 && (
+            <div className="item-extras-block">
+              <span className="eyebrow">{verbWhere}</span>
+              <div className="status-chips">
+                {extras.watchProviders.map((provider) => {
+                  const tag =
+                    provider.category === "RENT"
+                      ? " (Aluguel)"
+                      : provider.category === "BUY"
+                        ? " (Compra)"
+                        : "";
+                  const label = `${provider.name}${tag}`;
+                  return provider.url ? (
+                    <a
+                      key={`${provider.name}-${provider.category}`}
+                      href={provider.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="filter-chip"
+                    >
+                      {label} ↗
+                    </a>
+                  ) : (
+                    <span key={`${provider.name}-${provider.category}`} className="filter-chip">
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <RelatedItems mediaItemId={item.id} />
       <CommentsSection mediaItemId={item.id} />
@@ -115,14 +191,14 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
   useEffect(() => {
     let active = true;
 
-    Promise.all([getTrackingItem(item.id), getFavorites()])
-      .then(([entry, favorites]) => {
+    Promise.all([getTrackingItem(item.id), checkFavorite(item.id)])
+      .then(([entry, fav]) => {
         if (!active) {
           return;
         }
         applyTracking(entry);
         setNotes(entry?.notes ?? "");
-        setIsFavorite(favorites.some((favorite) => favorite.mediaItemId === item.id));
+        setIsFavorite(fav.isFavorite);
       })
       .catch((err) => active && setError(errorMessage(err)))
       .finally(() => active && setLoading(false));

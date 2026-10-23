@@ -13,7 +13,11 @@ type RequestComUsuario = {
   usuarioAuth?: UsuarioAuth;
 };
 
-async function autenticar(supabaseService: SupabaseService, request: RequestComUsuario) {
+async function autenticar(
+  supabaseService: SupabaseService,
+  request: RequestComUsuario,
+  opcional = false
+) {
   const authHeader = request.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -24,6 +28,9 @@ async function autenticar(supabaseService: SupabaseService, request: RequestComU
   const { data, error } = await supabaseService.getClient().auth.getUser(token);
 
   if (error || !data.user) {
+    if (opcional) {
+      return null;
+    }
     throw new UnauthorizedException("Token invalido ou expirado.");
   }
 
@@ -47,12 +54,13 @@ export class SupabaseAuthGuard implements CanActivate {
 }
 
 // Para rotas publicas que personalizam a resposta quando ha login.
+// Se o token estiver expirado ou invalido, trata como visitante anonimo.
 @Injectable()
 export class AutenticacaoOpcionalGuard implements CanActivate {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    await autenticar(this.supabaseService, context.switchToHttp().getRequest());
+    await autenticar(this.supabaseService, context.switchToHttp().getRequest(), true);
     return true;
   }
 }

@@ -91,7 +91,7 @@ export function paraBanco(
   }
   if (mudouStatus && alteracao.status === "COMPLETED") {
     linha.finishedAt = agora;
-    linha.timesConsumed = (existente?.timesConsumed ?? 0) + 1;
+    linha.timesConsumed = Math.max(existente?.timesConsumed ?? 0, 1);
   }
 
   return linha;

@@ -20,6 +20,30 @@ export class ComentariosService {
     private readonly atividadesService: AtividadesService
   ) {}
 
+  private async autoresPorIds(userIds: string[]) {
+    const unicos = [...new Set(userIds)];
+    if (unicos.length === 0) {
+      return new Map<string, { username: string; displayName: string | null }>();
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("User")
+      .select("id,username,displayName")
+      .in("id", unicos);
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return new Map(
+      (data ?? []).map((u) => [
+        u.id as string,
+        { username: u.username as string, displayName: (u.displayName as string | null) ?? null }
+      ])
+    );
+  }
+
   async listarPorMidia(mediaItemId: string, authUserId?: string) {
     const supabase = this.supabaseService.getClient();
     const userId = authUserId ? await this.supabaseService.resolverUserId(authUserId) : null;
@@ -34,31 +58,39 @@ export class ComentariosService {
       throw new InternalServerErrorException(error.message);
     }
 
-    const comentarioIds = (comentarios ?? []).map((c) => c.id as string);
+    const visiveis = (comentarios ?? []).filter((c) => c.content !== CONTEUDO_REMOVIDO);
+    const comentarioIds = visiveis.map((c) => c.id as string);
     const likesCount = new Map<string, number>();
     const likesDoUsuario = new Set<string>();
 
-    if (comentarioIds.length > 0) {
-      const { data: likes, error: likesError } = await supabase
-        .from("CommentLike")
-        .select("commentId,userId")
-        .in("commentId", comentarioIds);
-
-      if (likesError) {
-        throw new InternalServerErrorException(likesError.message);
-      }
-
-      for (const like of likes ?? []) {
-        const commentId = like.commentId as string;
-        likesCount.set(commentId, (likesCount.get(commentId) ?? 0) + 1);
-        if ((like.userId as string) === userId) {
-          likesDoUsuario.add(commentId);
+    const [autores] = await Promise.all([
+      this.autoresPorIds(visiveis.map((c) => c.userId as string)),
+      (async () => {
+        if (comentarioIds.length === 0) {
+          return;
         }
-      }
-    }
+        const { data: likes, error: likesError } = await supabase
+          .from("CommentLike")
+          .select("commentId,userId")
+          .in("commentId", comentarioIds);
 
-    return (comentarios ?? []).map((comentario) => ({
+        if (likesError) {
+          throw new InternalServerErrorException(likesError.message);
+        }
+
+        for (const like of likes ?? []) {
+          const commentId = like.commentId as string;
+          likesCount.set(commentId, (likesCount.get(commentId) ?? 0) + 1);
+          if ((like.userId as string) === userId) {
+            likesDoUsuario.add(commentId);
+          }
+        }
+      })()
+    ]);
+
+    return visiveis.map((comentario) => ({
       ...comentario,
+      user: autores.get(comentario.userId as string) ?? null,
       likesCount: likesCount.get(comentario.id as string) ?? 0,
       likedByUser: likesDoUsuario.has(comentario.id as string),
       isOwn: comentario.userId === userId
@@ -87,10 +119,14 @@ export class ComentariosService {
       throw new InternalServerErrorException(error.message);
     }
 
-    await this.atividadesService.registrar(userId, "COMMENT", mediaItemId, { commentId: data.id });
+    const [autores] = await Promise.all([
+      this.autoresPorIds([userId]),
+      this.atividadesService.registrar(userId, "COMMENT", mediaItemId, { commentId: data.id })
+    ]);
 
     return {
       ...data,
+      user: autores.get(userId) ?? null,
       likesCount: 0,
       likedByUser: false,
       isOwn: true
@@ -103,7 +139,7 @@ export class ComentariosService {
 
     const { data: comentario, error: comentarioError } = await supabase
       .from("Comment")
-      .select("id")
+      .select("id,content")
       .eq("id", comentarioId)
       .maybeSingle();
 
@@ -111,7 +147,7 @@ export class ComentariosService {
       throw new InternalServerErrorException(comentarioError.message);
     }
 
-    if (!comentario) {
+    if (!comentario || comentario.content === CONTEUDO_REMOVIDO) {
       throw new NotFoundException("Comentario nao encontrado.");
     }
 
@@ -236,7 +272,7 @@ export class ComentariosService {
 
     const { data: comentario, error: comentarioError } = await supabase
       .from("Comment")
-      .select("id")
+      .select("id,content")
       .eq("id", comentarioId)
       .maybeSingle();
 
@@ -244,7 +280,7 @@ export class ComentariosService {
       throw new InternalServerErrorException(comentarioError.message);
     }
 
-    if (!comentario) {
+    if (!comentario || comentario.content === CONTEUDO_REMOVIDO) {
       throw new NotFoundException("Comentario nao encontrado.");
     }
 

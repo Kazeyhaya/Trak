@@ -1,12 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contextos/auth-context";
+import { ehRotaPrivada } from "../lib/rotas";
 
 export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await signOut();
+    if (ehRotaPrivada(pathname)) {
+      router.replace("/entrar");
+    }
+    router.refresh();
+  }
   const navItems = [
     { label: "Catálogo", href: "/catalogo" },
     ...(user
@@ -14,6 +24,7 @@ export function SiteHeader() {
           { label: "Painel", href: "/painel" },
           { label: "Feed", href: "/feed" },
           { label: "Para você", href: "/recomendacoes" },
+          { label: "Recap", href: "/recap" },
           { label: "Importar", href: "/importar" },
           ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
         ]
@@ -41,7 +52,7 @@ export function SiteHeader() {
           <Link className="header-user-email" href={profile ? `/u/${profile.username}` : "/perfil"}>
             {profile ? `@${profile.username}` : "Criar perfil"}
           </Link>
-          <button type="button" className="header-cta" onClick={() => void signOut()}>
+          <button type="button" className="header-cta" onClick={() => void handleSignOut()}>
             Sair
           </button>
         </div>

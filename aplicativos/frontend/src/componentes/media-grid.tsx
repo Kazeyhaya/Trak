@@ -4,7 +4,7 @@ import { MediaCard } from "./media-card";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
 
 type MediaGridProps = {
-  items: Array<CatalogItem & { reason?: string }>;
+  items: Array<CatalogItem & { reason?: string; progress?: string; accent?: string }>;
   label?: string;
 };
 
@@ -17,10 +17,10 @@ export function MediaGrid({ items, label = "Itens" }: MediaGridProps) {
           <MediaCard
             type={getMediaTypeLabel(item.type)}
             title={item.title}
-            meta={`${item.releaseYear ?? "Sem ano"} · ${item.source.toUpperCase()}`}
+            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
             coverUrl={item.coverUrl}
-            progress={item.reason ?? item.synopsis ?? undefined}
-            accent="Detalhe"
+            progress={item.progress ?? item.reason ?? item.synopsis ?? undefined}
+            accent={item.accent}
           />
         </Link>
       ))}

@@ -47,3 +47,45 @@
   color: var(--muted);
   line-height: 1.6;
 }
+
+.library-filters {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.favorite-manage-card {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.favorite-manage-link {
+  display: grid;
+  gap: 12px;
+}
+
+.favorite-manage-link h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.favorite-manage-link p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.favorite-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(160, 184, 214, 0.12);
+}
+
+.favorite-manage-actions .filter-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}

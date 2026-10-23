@@ -13,14 +13,21 @@ export const metadata: Metadata = {
 export default async function CatalogoPage({
   searchParams
 }: {
-  searchParams?: Promise<{ q?: string; type?: string }>;
+  searchParams?: Promise<{ q?: string; type?: string; genre?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const query = resolvedSearchParams?.q ?? "";
   const typeFilter = resolvedSearchParams?.type ?? "";
-  const { items, offline } = await getCatalogItems(query, typeFilter);
+  const genreFilter = resolvedSearchParams?.genre ?? "";
+  const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter);
 
   return (
-    <CatalogShell items={items} offline={offline} query={query} typeFilter={typeFilter} />
+    <CatalogShell
+      items={items}
+      offline={offline}
+      query={query}
+      typeFilter={typeFilter}
+      genreFilter={genreFilter}
+    />
   );
 }

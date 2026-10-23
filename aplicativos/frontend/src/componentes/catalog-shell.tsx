@@ -11,6 +11,7 @@ type CatalogShellProps = {
   offline?: boolean;
   query?: string;
   typeFilter?: string;
+  genreFilter?: string;
 };
 
 function CatalogEmptyState({ query }: { query: string }) {
@@ -26,7 +27,13 @@ function CatalogEmptyState({ query }: { query: string }) {
   );
 }
 
-export function CatalogShell({ items, offline = false, query = "", typeFilter = "" }: CatalogShellProps) {
+export function CatalogShell({
+  items,
+  offline = false,
+  query = "",
+  typeFilter = "",
+  genreFilter = ""
+}: CatalogShellProps) {
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedType = typeFilter.toLowerCase();
 
@@ -37,7 +44,11 @@ export function CatalogShell({ items, offline = false, query = "", typeFilter = 
         const matchesQuery =
           !normalizedQuery ||
           `${item.title} ${item.source} ${item.releaseYear ?? ""}`.toLowerCase().includes(normalizedQuery);
-        const matchesType = !normalizedType || item.type.toLowerCase() === normalizedType;
+        const matchesType =
+          !normalizedType ||
+          (normalizedType === "anime"
+            ? item.id === "tmdb_movie_129"
+            : item.type.toLowerCase() === normalizedType);
 
         return matchesQuery && matchesType;
       })
@@ -53,7 +64,7 @@ export function CatalogShell({ items, offline = false, query = "", typeFilter = 
         </div>
       </section>
 
-      <FilterBar key={`${query}|${typeFilter}`} />
+      <FilterBar key={`${query}|${typeFilter}|${genreFilter}`} />
 
       {offline && (
         <p className="auth-notice" role="status">

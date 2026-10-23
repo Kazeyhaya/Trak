@@ -37,6 +37,24 @@ export class FavoritosService {
     }));
   }
 
+  async verificar(authUserId: string, mediaItemId: string) {
+    const supabase = this.supabaseService.getClient();
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    const { data, error } = await supabase
+      .from("Favorite")
+      .select("id")
+      .eq("userId", userId)
+      .eq("mediaItemId", mediaItemId)
+      .maybeSingle();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return { isFavorite: Boolean(data) };
+  }
+
   async adicionar(authUserId: string, mediaItemId: string) {
     const supabase = this.supabaseService.getClient();
     const userId = await this.supabaseService.resolverUserId(authUserId);
@@ -64,6 +82,55 @@ export class FavoritosService {
     if (data && data.length > 0) {
       await this.atividadesService.registrar(userId, "FAVORITE", mediaItemId);
     }
+
+    return { ok: true };
+  }
+
+  async reordenar(authUserId: string, mediaItemIds: string[]) {
+    const supabase = this.supabaseService.getClient();
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const unicos = [...new Set(mediaItemIds)];
+
+    if (unicos.length === 0) {
+      return { ok: true };
+    }
+
+    const { data: atuais, error: erroAtuais } = await supabase
+      .from("Favorite")
+      .select("mediaItemId")
+      .eq("userId", userId);
+
+    if (erroAtuais) {
+      throw new InternalServerErrorException(erroAtuais.message);
+    }
+
+    const permitidos = new Set((atuais ?? []).map((f) => f.mediaItemId as string));
+    const ordenados = unicos.filter((id) => permitidos.has(id));
+    const baseMs = Date.now();
+
+    // Favorite e ordenado por createdAt DESC; o primeiro da lista recebe o timestamp mais recente.
+    await Promise.all(
+      ordenados.map(async (mediaItemId, index) => {
+        const novoTimestamp = new Date(baseMs - index * 1000).toISOString();
+        const { error: delError } = await supabase
+          .from("Favorite")
+          .delete()
+          .eq("userId", userId)
+          .eq("mediaItemId", mediaItemId);
+        if (delError) {
+          throw new InternalServerErrorException(delError.message);
+        }
+        const { error: insError } = await supabase.from("Favorite").insert({
+          id: randomUUID(),
+          userId,
+          mediaItemId,
+          createdAt: novoTimestamp
+        });
+        if (insError) {
+          throw new InternalServerErrorException(insError.message);
+        }
+      })
+    );
 
     return { ok: true };
   }

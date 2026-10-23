@@ -36,10 +36,12 @@ export function MediaCard({ type, title, meta, coverUrl, progress, accent }: Med
         <p>{meta}</p>
       </div>
 
-      <div className="media-card-footer">
-        <span>{progress ?? "Disponível para tracking"}</span>
-        <strong>{accent ?? "Abrir item"}</strong>
-      </div>
+      {(progress || accent) && (
+        <div className="media-card-footer">
+          <span>{progress}</span>
+          {accent && <strong>{accent}</strong>}
+        </div>
+      )}
     </article>
   );
 }

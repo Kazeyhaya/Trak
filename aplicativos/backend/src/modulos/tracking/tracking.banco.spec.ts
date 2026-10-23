@@ -61,7 +61,7 @@ describe("paraBanco", () => {
     expect(paraBanco({ status: "WATCHING" }, { ...linha, status: "PAUSED" }, AGORA)).toEqual({ status: "IN_PROGRESS" });
   });
 
-  it("concluir preenche finishedAt e soma uma vez consumido", () => {
+  it("concluir preenche finishedAt e garante pelo menos uma vez consumido sem somar repetidamente", () => {
     expect(paraBanco({ status: "COMPLETED", progress: 100 }, linha, AGORA)).toEqual({
       status: "COMPLETED",
       progressCurrent: 100,
@@ -69,6 +69,9 @@ describe("paraBanco", () => {
       timesConsumed: 1
     });
     expect(paraBanco({ status: "COMPLETED" }, null, AGORA)).toMatchObject({ startedAt: AGORA, timesConsumed: 1 });
+    expect(
+      paraBanco({ status: "COMPLETED" }, { ...linha, status: "PAUSED", timesConsumed: 1 }, AGORA)
+    ).toMatchObject({ finishedAt: AGORA, timesConsumed: 1 });
   });
 
   it("salvar o mesmo status de novo nao mexe nas datas nem no contador", () => {
