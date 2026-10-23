@@ -31,8 +31,26 @@ export const GENEROS_CATALOGO = [
   "romance",
   "misterio",
   "documentario",
+  "suspense",
+  "crime",
+  "familia",
+  "guerra",
+  "historia",
+  "musica",
+  "faroeste",
   "rpg",
-  "estrategia"
+  "estrategia",
+  "tiro",
+  "plataforma",
+  "corrida",
+  "esportes",
+  "luta",
+  "simulacao",
+  "puzzle",
+  "indie",
+  "biografia",
+  "poesia",
+  "autoajuda"
 ] as const;
 
 export type GeneroCatalogo = (typeof GENEROS_CATALOGO)[number];
@@ -47,12 +65,30 @@ export const MAPA_GENEROS: Record<
   drama: { tmdbMovie: 18, tmdbTv: 18, openLibrary: "drama" },
   ficcao: { tmdbMovie: 878, tmdbTv: 10765, rawg: "shooter", openLibrary: "science_fiction" },
   fantasia: { tmdbMovie: 14, tmdbTv: 10765, rawg: "role-playing-games-rpg", openLibrary: "fantasy" },
-  terror: { tmdbMovie: 27, tmdbTv: 9648, openLibrary: "horror" },
+  terror: { tmdbMovie: 27, tmdbTv: 9648, rawg: "action", openLibrary: "horror" },
   romance: { tmdbMovie: 10749, tmdbTv: 18, openLibrary: "romance" },
   misterio: { tmdbMovie: 9648, tmdbTv: 9648, rawg: "puzzle", openLibrary: "mystery_and_detective_stories" },
   documentario: { tmdbMovie: 99, tmdbTv: 99, openLibrary: "history" },
-  rpg: { rawg: "role-playing-games-rpg", openLibrary: "fantasy" },
-  estrategia: { rawg: "strategy" }
+  suspense: { tmdbMovie: 53, tmdbTv: 9648, openLibrary: "thriller" },
+  crime: { tmdbMovie: 80, tmdbTv: 80, openLibrary: "crime" },
+  familia: { tmdbMovie: 10751, tmdbTv: 10751, rawg: "family", openLibrary: "juvenile_fiction" },
+  guerra: { tmdbMovie: 10752, tmdbTv: 10768 },
+  historia: { tmdbMovie: 36, openLibrary: "history" },
+  musica: { tmdbMovie: 10402 },
+  faroeste: { tmdbMovie: 37, tmdbTv: 37 },
+  rpg: { rawg: "role-playing-games-rpg" },
+  estrategia: { rawg: "strategy" },
+  tiro: { rawg: "shooter" },
+  plataforma: { rawg: "platformer" },
+  corrida: { rawg: "racing" },
+  esportes: { rawg: "sports" },
+  luta: { rawg: "fighting" },
+  simulacao: { rawg: "simulation" },
+  puzzle: { rawg: "puzzle" },
+  indie: { rawg: "indie" },
+  biografia: { openLibrary: "biography" },
+  poesia: { openLibrary: "poetry" },
+  autoajuda: { openLibrary: "self-help" }
 };
 
 export type RawgItem = {
