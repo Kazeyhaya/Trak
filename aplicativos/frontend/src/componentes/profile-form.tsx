@@ -21,6 +21,19 @@ export function ProfileForm() {
           <h1>{profile ? "Seu perfil" : "Crie seu perfil"}</h1>
           <p>Seu perfil público mostra seus favoritos, estatísticas e atividade recente.</p>
         </div>
+        <div className="item-next-actions">
+          <UiButton href="/recap" variant="secondary">
+            Retrospectiva (Recap)
+          </UiButton>
+          <UiButton href="/importar" variant="secondary">
+            Importar histórico
+          </UiButton>
+          {profile && (
+            <UiButton href={`/u/${profile.username}`} variant="secondary">
+              Ver perfil público
+            </UiButton>
+          )}
+        </div>
       </section>
       {/* key: remonta o formulario quando o perfil termina de carregar. */}
       <ProfileFields key={profile?.username ?? "novo"} profile={profile} />

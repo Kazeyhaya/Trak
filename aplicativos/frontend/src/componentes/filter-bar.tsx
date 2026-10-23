@@ -85,48 +85,50 @@ export function FilterBar() {
         />
       </label>
 
-      <div className="filter-chips" role="group" aria-label="Categorias">
-        {filters.map((filter) => {
-          const isActive = activeType === filter.value;
+      <div className="filter-controls-row">
+        <div className="filter-group">
+          <span className="filter-group-label">Tipo de mídia</span>
+          <div className="filter-chips" role="group" aria-label="Categorias">
+            {filters.map((filter) => {
+              const isActive = activeType === filter.value;
 
-          return (
-            <button
-              key={filter.value || "all"}
-              type="button"
-              className={`filter-chip${isActive ? " is-active" : ""}`}
-              aria-pressed={isActive}
-              onClick={() => {
-                const nextType = filter.value;
-                setActiveType(nextType);
-                updateUrl(query, nextType, activeGenre);
-              }}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={filter.value || "all"}
+                  type="button"
+                  className={`filter-chip${isActive ? " is-active" : ""}`}
+                  aria-pressed={isActive}
+                  onClick={() => {
+                    const nextType = filter.value;
+                    setActiveType(nextType);
+                    updateUrl(query, nextType, activeGenre);
+                  }}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-      <div className="filter-chips" role="group" aria-label="Gêneros">
-        {genres.map((genre) => {
-          const isActive = activeGenre === genre.value;
-
-          return (
-            <button
-              key={genre.value || "all-genres"}
-              type="button"
-              className={`filter-chip${isActive ? " is-active" : ""}`}
-              aria-pressed={isActive}
-              onClick={() => {
-                const nextGenre = genre.value;
-                setActiveGenre(nextGenre);
-                updateUrl(query, activeType, nextGenre);
-              }}
-            >
-              {genre.label}
-            </button>
-          );
-        })}
+        <label className="filter-group filter-genre-select">
+          <span className="filter-group-label">Gênero</span>
+          <select
+            value={activeGenre}
+            aria-label="Filtrar por gênero"
+            onChange={(event) => {
+              const nextGenre = event.target.value;
+              setActiveGenre(nextGenre);
+              updateUrl(query, activeType, nextGenre);
+            }}
+          >
+            {genres.map((genre) => (
+              <option key={genre.value || "all-genres"} value={genre.value}>
+                {genre.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     </form>
   );

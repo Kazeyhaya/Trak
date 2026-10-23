@@ -209,10 +209,15 @@ export class ComentariosService {
       throw new ForbiddenException("Voce so pode apagar seus proprios comentarios.");
     }
 
-    const { error: likesError } = await supabase
-      .from("CommentLike")
-      .delete()
-      .eq("commentId", comentarioId);
+    const [{ error: likesError }] = await Promise.all([
+      supabase.from("CommentLike").delete().eq("commentId", comentarioId),
+      supabase
+        .from("Activity")
+        .delete()
+        .eq("userId", userId)
+        .eq("type", "COMMENT")
+        .eq("data->>commentId", comentarioId)
+    ]);
 
     if (likesError) {
       throw new InternalServerErrorException(likesError.message);

@@ -24,7 +24,7 @@ export class SocialController {
   @UseGuards(SupabaseAuthGuard)
   @Put("perfis/eu")
   salvarPerfil(@UsuarioLogado() usuario: UsuarioAuth, @Body() payload: SalvarPerfilDto) {
-    return this.socialService.salvarPerfil(usuario.id, payload);
+    return this.socialService.salvarPerfil(usuario.id, payload, usuario.email);
   }
 
   @Get("perfis")

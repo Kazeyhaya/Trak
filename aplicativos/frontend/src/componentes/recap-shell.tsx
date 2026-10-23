@@ -223,7 +223,7 @@ export function RecapShell() {
         )}
 
         {loaded && yearItems.length > 0 && (
-          <div className="catalog-grid" style={{ marginTop: "18px" }}>
+          <div className="recap-awards-grid">
             {CATEGORIES.map((cat) => {
               const winner = winnersByCategory[cat.type];
               const options = yearItems.filter((i) => i.item?.type === cat.type && i.status !== "DROPPED");
@@ -243,8 +243,8 @@ export function RecapShell() {
               }
 
               return (
-                <div key={cat.type} className="field-stack">
-                  <Link href={`/itens/${winner.mediaItemId}`}>
+                <div key={cat.type} className="recap-award-slot">
+                  <Link href={`/itens/${winner.mediaItemId}`} className="recap-award-card-link">
                     <MediaCard
                       type={`🏆 ${cat.award}`}
                       title={winner.item.title}
@@ -254,19 +254,11 @@ export function RecapShell() {
                     />
                   </Link>
                   {options.length > 1 && (
-                    <label className="field-stack" style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-                      Trocar vencedor ({cat.title}):
+                    <label className="recap-award-picker">
+                      <span>Trocar vencedor ({cat.title}):</span>
                       <select
                         value={winner.mediaItemId}
                         onChange={(e) => setCustomPicks((prev) => ({ ...prev, [cat.type]: e.target.value }))}
-                        style={{
-                          minHeight: "38px",
-                          padding: "0 10px",
-                          borderRadius: "10px",
-                          border: "1px solid var(--surface-border)",
-                          background: "rgba(8, 16, 28, 0.7)",
-                          color: "var(--text)"
-                        }}
                       >
                         {options.map((opt) => (
                           <option key={opt.mediaItemId} value={opt.mediaItemId}>

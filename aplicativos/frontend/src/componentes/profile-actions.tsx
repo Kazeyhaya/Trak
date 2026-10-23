@@ -45,9 +45,15 @@ export function ProfileActions({ username, initialIsMe, initialFollowing }: Prof
 
   if (user && state?.isMe) {
     return (
-      <UiButton href="/perfil" variant="secondary">
-        Editar perfil
-      </UiButton>
+      <div className="item-next-actions">
+        <UiButton href="/recap">Retrospectiva (Recap)</UiButton>
+        <UiButton href="/importar" variant="secondary">
+          Importar histórico
+        </UiButton>
+        <UiButton href="/perfil" variant="secondary">
+          Editar perfil
+        </UiButton>
+      </div>
     );
   }
 

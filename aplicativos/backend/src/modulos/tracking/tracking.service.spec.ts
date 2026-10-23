@@ -169,4 +169,13 @@ describe("TrackingService.marcarEpisodios", () => {
       ])
     );
   });
+
+  it("remover tracking tambem apaga episodios e atividades do item no feed", async () => {
+    const { service, chamadas } = montar(() => ({ data: null }));
+
+    await service.remover("u1", "tmdb_movie_1");
+
+    const tabelasApagadas = chamadas.filter((c) => c.action === "delete").map((c) => c.table);
+    expect(tabelasApagadas).toEqual(["UserMedia", "EpisodeProgress", "Activity"]);
+  });
 });

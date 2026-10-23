@@ -152,6 +152,16 @@ export class TrackingService {
 
     const salvo = deBanco(linha);
 
+      if (alteracoes.rating === null && existente?.rating) {
+        const { error: ratingActError } = await this.db
+          .from("Activity")
+          .delete()
+          .eq("userId", userId)
+          .eq("mediaItemId", mediaItemId)
+          .eq("type", "RATING");
+        falha(ratingActError);
+      }
+
     if (registrarAtividade) {
       if (salvo.status !== existente?.status) {
         await this.atividadesService.registrar(userId, "STATUS", mediaItemId, { status: salvo.status });
@@ -166,12 +176,19 @@ export class TrackingService {
 
   async remover(authUserId: string, mediaItemId: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    const [{ error }, { error: episodiosError }] = await Promise.all([
+    const [{ error }, { error: episodiosError }, { error: atividadesError }] = await Promise.all([
       this.db.from(TABELA_TRACKING).delete().eq("userId", userId).eq("mediaItemId", mediaItemId),
-      this.db.from("EpisodeProgress").delete().eq("userId", userId).eq("mediaItemId", mediaItemId)
+      this.db.from("EpisodeProgress").delete().eq("userId", userId).eq("mediaItemId", mediaItemId),
+      this.db
+        .from("Activity")
+        .delete()
+        .eq("userId", userId)
+        .eq("mediaItemId", mediaItemId)
+        .in("type", ["STATUS", "RATING", "EPISODES"])
     ]);
     falha(error);
     falha(episodiosError);
+    falha(atividadesError);
     return { ok: true };
   }
 

@@ -139,14 +139,21 @@ export class FavoritosService {
     const supabase = this.supabaseService.getClient();
     const userId = await this.supabaseService.resolverUserId(authUserId);
 
-    const { error } = await supabase
-      .from("Favorite")
-      .delete()
-      .eq("userId", userId)
-      .eq("mediaItemId", mediaItemId);
+    const [{ error }, { error: actError }] = await Promise.all([
+      supabase.from("Favorite").delete().eq("userId", userId).eq("mediaItemId", mediaItemId),
+      supabase
+        .from("Activity")
+        .delete()
+        .eq("userId", userId)
+        .eq("mediaItemId", mediaItemId)
+        .eq("type", "FAVORITE")
+    ]);
 
     if (error) {
       throw new InternalServerErrorException(error.message);
+    }
+    if (actError) {
+      throw new InternalServerErrorException(actError.message);
     }
 
     return { ok: true };

@@ -86,6 +86,34 @@ export class SocialService {
     return new Map(((data ?? []) as LinhaUser[]).map((linha) => [linha.id, perfilDe(linha)]));
   }
 
+  private async filtrarAtividadesValidas(atividades: Atividade[]) {
+    if (atividades.length === 0) {
+      return [];
+    }
+
+    const userIds = [...new Set(atividades.map((a) => a.userId))];
+    const [{ data: trackings }, { data: favoritos }] = await Promise.all([
+      this.db.from(TABELA_TRACKING).select("userId,mediaItemId").in("userId", userIds),
+      this.db.from("Favorite").select("userId,mediaItemId").in("userId", userIds)
+    ]);
+
+    const paresTracking = new Set((trackings ?? []).map((t) => `${t.userId}:${t.mediaItemId}`));
+    const paresFavorito = new Set((favoritos ?? []).map((f) => `${f.userId}:${f.mediaItemId}`));
+
+    return atividades.filter((a) => {
+      if (!a.mediaItemId) {
+        return true;
+      }
+      if (a.type === "STATUS" || a.type === "RATING" || a.type === "EPISODES") {
+        return paresTracking.has(`${a.userId}:${a.mediaItemId}`);
+      }
+      if (a.type === "FAVORITE") {
+        return paresFavorito.has(`${a.userId}:${a.mediaItemId}`);
+      }
+      return true;
+    });
+  }
+
   // Junta autor e item em cada atividade.
   private async enriquecer(atividades: Atividade[]) {
     const [perfis, itens] = await Promise.all([
@@ -113,7 +141,7 @@ export class SocialService {
     return { profile: data ? perfilDe(data as LinhaUser) : null, isAdmin: ehAdmin(usuario.email) };
   }
 
-  async salvarPerfil(authUserId: string, payload: SalvarPerfilDto) {
+  async salvarPerfil(authUserId: string, payload: SalvarPerfilDto, email?: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const valores = Object.fromEntries(Object.entries(payload).filter(([, valor]) => valor !== undefined));
     const agora = new Date().toISOString();
@@ -127,9 +155,17 @@ export class SocialService {
       .maybeSingle();
 
     if (!resultado.error && !resultado.data) {
+      const novoRegistro = {
+        ...valores,
+        id: userId,
+        authUserId,
+        ...(email ? { email } : {}),
+        createdAt: agora,
+        updatedAt: agora
+      };
       resultado = await this.db
         .from("User")
-        .insert({ ...valores, id: userId, authUserId, createdAt: agora, updatedAt: agora })
+        .insert(novoRegistro)
         .select(CAMPOS_PERFIL)
         .maybeSingle();
     }
@@ -228,7 +264,9 @@ export class SocialService {
         const item = itensFavoritos.get(id);
         return item ? [item] : [];
       }),
-      activity: await this.enriquecer((atividades.data ?? []) as Atividade[])
+      activity: await this.enriquecer(
+        await this.filtrarAtividadesValidas((atividades.data ?? []) as Atividade[])
+      )
     };
   }
 
@@ -284,9 +322,11 @@ export class SocialService {
       (atividade) => atividade.userId === userId || perfis.get(atividade.userId)?.isPublic
     );
 
+    const validas = await this.filtrarAtividadesValidas(visiveis);
+
     return {
       followingCount: autores.length - 1,
-      items: await this.enriquecer(visiveis)
+      items: await this.enriquecer(validas)
     };
   }
 }

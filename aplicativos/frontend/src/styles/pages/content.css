@@ -89,6 +89,40 @@
   gap: 10px;
 }
 
+.filter-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(160, 184, 214, 0.12);
+}
+
+.filter-group {
+  display: grid;
+  gap: 8px;
+}
+
+.filter-group-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.filter-genre-select select {
+  min-width: 210px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(160, 184, 214, 0.2);
+  background: rgba(8, 16, 28, 0.75);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .filter-chip {
   min-height: 38px;
   padding: 0 14px;
@@ -152,6 +186,7 @@
 
 .media-card {
   display: grid;
+  align-content: start;
   gap: 14px;
   height: 100%;
   padding: 18px;
@@ -163,6 +198,7 @@
 
 .media-card-art {
   /* Proporcao de poster/capa (2:3); jogos do RAWG sao recortados ao centro. */
+  width: 100%;
   aspect-ratio: 2 / 3;
   border-radius: 22px;
   background:

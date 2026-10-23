@@ -24,8 +24,6 @@ export function SiteHeader() {
           { label: "Painel", href: "/painel" },
           { label: "Feed", href: "/feed" },
           { label: "Para você", href: "/recomendacoes" },
-          { label: "Recap", href: "/recap" },
-          { label: "Importar", href: "/importar" },
           ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
         ]
       : [])
