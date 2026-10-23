@@ -45,14 +45,14 @@ describe("mapeadores", () => {
     });
   });
 
-  it("RAWG troca a imagem original pela redimensionada", () => {
+  it("RAWG preserva a imagem em alta resolucao", () => {
     const item = mapearRawg({
       id: 1,
       name: "Jogo",
       released: "2013-09-17",
       background_image: "https://media.rawg.io/media/games/456/abc.jpg"
     });
-    expect(item.coverUrl).toBe("https://media.rawg.io/media/resize/640/-/games/456/abc.jpg");
+    expect(item.coverUrl).toBe("https://media.rawg.io/media/games/456/abc.jpg");
     expect(item.releaseYear).toBe(2013);
   });
 

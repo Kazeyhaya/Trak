@@ -717,6 +717,14 @@ export class CatalogoService implements OnModuleInit {
       this.logger.warn(`Nao foi possivel ler MediaItem: ${error.message}`);
     }
 
-    return new Map((data ?? []).map((item) => [item.id as string, item as ItemCatalogo]));
+    return new Map(
+      (data ?? []).map((item) => {
+        const coverUrl =
+          typeof item.coverUrl === "string"
+            ? item.coverUrl.replace("/media/resize/640/-/games/", "/media/games/")
+            : null;
+        return [item.id as string, { ...(item as ItemCatalogo), coverUrl }];
+      })
+    );
   }
 }

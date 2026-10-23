@@ -62,7 +62,13 @@ export function ItemShell({ item }: ItemShellProps) {
       <section className="item-hero">
         <div className="item-poster" aria-hidden="true">
           {item.coverUrl ? (
-            <Image src={item.coverUrl} alt="" width={500} height={750} priority />
+            <Image
+              src={item.coverUrl.replace("/media/resize/640/-/games/", "/media/games/")}
+              alt=""
+              width={640}
+              height={960}
+              priority
+            />
           ) : (
             <span />
           )}

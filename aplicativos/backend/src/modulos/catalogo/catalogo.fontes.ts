@@ -171,8 +171,8 @@ export function mapearRawg(item: RawgItem): ItemCatalogo {
     source: "rawg",
     type: "GAME",
     title: item.name,
-    // O RAWG entrega a imagem em resolucao original; a versao redimensionada e bem mais leve.
-    coverUrl: item.background_image?.replace("/media/games/", "/media/resize/640/-/games/") ?? null,
+    // Mantem a resolucao alta do RAWG para o otimizador do Next.js nao pixelar no recorte vertical (2:3).
+    coverUrl: item.background_image ?? null,
     synopsis: item.description_raw || null,
     releaseYear: anoDe(item.released)
   };

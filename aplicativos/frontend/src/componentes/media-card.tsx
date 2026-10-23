@@ -18,10 +18,10 @@ export function MediaCard({ type, title, meta, coverUrl, progress, accent }: Med
         {coverUrl ? (
           <Image
             className="media-card-image"
-            src={coverUrl}
+            src={coverUrl.replace("/media/resize/640/-/games/", "/media/games/")}
             alt=""
             fill
-            sizes="(max-width: 720px) 100vw, (max-width: 1180px) 50vw, 300px"
+            sizes="(max-width: 720px) 100vw, (max-width: 1180px) 50vw, 480px"
           />
         ) : (
           <span className="media-card-orb" />
