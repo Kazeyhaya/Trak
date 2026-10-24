@@ -215,8 +215,8 @@ export class CatalogoService implements OnModuleInit {
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
 
     const [movies, series, games, books] = await Promise.all([
-      incluir("movie") ? this.listarTmdb("movie", busca, generoValido) : [],
-      incluir("series") ? this.listarTmdb("tv", busca, generoValido) : [],
+      incluir("movie") ? this.listarTmdb("movie", busca, generoValido, filtro === "movie") : [],
+      incluir("series") ? this.listarTmdb("tv", busca, generoValido, true, filtro === "series") : [],
       incluir("game") ? this.listarRawg(busca, generoValido) : [],
       incluir("book") ? this.listarLivros(busca, generoValido) : []
     ]);
@@ -224,24 +224,42 @@ export class CatalogoService implements OnModuleInit {
     return [...movies, ...series, ...games, ...books];
   }
 
-  private async listarTmdb(mediaType: "movie" | "tv", query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+  private async listarTmdb(
+    mediaType: "movie" | "tv",
+    query?: string,
+    genero?: GeneroCatalogo,
+    excluirAnimacao = false,
+    forcarDiscover = false
+  ): Promise<ItemCatalogo[]> {
     const type = mediaType === "movie" ? "MOVIE" : "SERIES";
     const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
     if (genero && !tmdbGenre) {
       return [];
     }
 
+    const discoverParams: Record<string, string> = {
+      sort_by: "popularity.desc"
+    };
+    if (tmdbGenre) {
+      discoverParams.with_genres = String(tmdbGenre);
+    }
+    if (excluirAnimacao) {
+      discoverParams.without_genres = String(TMDB_GENERO_ANIMACAO);
+    }
+
     const data = query
       ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
-      : tmdbGenre
-        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
-            with_genres: String(tmdbGenre),
-            sort_by: "popularity.desc"
-          })
+      : tmdbGenre || forcarDiscover
+        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, discoverParams)
         : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`);
 
     return (data?.results ?? [])
-      .filter((item) => !query || !tmdbGenre || item.genre_ids?.includes(tmdbGenre))
+      .filter((item) => {
+        if (excluirAnimacao && item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
+          return false;
+        }
+        return !query || !tmdbGenre || item.genre_ids?.includes(tmdbGenre);
+      })
       .slice(0, LIMITE_POR_FONTE)
       .map((item) => mapearTmdb(item, type));
   }

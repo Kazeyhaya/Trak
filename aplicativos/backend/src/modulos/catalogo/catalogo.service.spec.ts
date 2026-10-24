@@ -204,6 +204,22 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
     expect(itens.map((i) => i.title)).toEqual(["Naruto"]);
   });
 
+  it("aba de series exclui animes e animacoes (genero 16)", async () => {
+    const fetch = mockFetch({
+      "/discover/tv": {
+        results: [
+          { id: 1396, name: "Breaking Bad", genre_ids: [18, 80] },
+          { id: 12971, name: "Dragon Ball Z", genre_ids: [16, 10759] }
+        ]
+      }
+    });
+
+    const itens = await criarServico().listar(undefined, "series");
+
+    expect(itens.map((i) => i.title)).toEqual(["Breaking Bad"]);
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("without_genres=16");
+  });
+
   it("filtra por genero em todas as fontes suportadas", async () => {
     const fetch = mockFetch({
       "/discover/movie": { results: [{ id: 10, title: "Filme Acao", genre_ids: [28] }] },

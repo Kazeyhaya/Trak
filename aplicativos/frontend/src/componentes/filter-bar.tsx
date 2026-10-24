@@ -29,7 +29,7 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Documentário", value: "documentario" }
   ],
   movie: [
-    { label: "Todos os gêneros de filmes", value: "" },
+    { label: "Todos os gêneros", value: "" },
     { label: "Ação", value: "acao" },
     { label: "Aventura", value: "aventura" },
     { label: "Comédia", value: "comedia" },
@@ -49,7 +49,7 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Faroeste", value: "faroeste" }
   ],
   series: [
-    { label: "Todos os gêneros de séries", value: "" },
+    { label: "Todos os gêneros", value: "" },
     { label: "Ação e Aventura", value: "acao" },
     { label: "Comédia", value: "comedia" },
     { label: "Drama", value: "drama" },
@@ -62,7 +62,7 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Faroeste", value: "faroeste" }
   ],
   anime: [
-    { label: "Todos os gêneros de anime", value: "" },
+    { label: "Todos os gêneros", value: "" },
     { label: "Ação e Aventura", value: "acao" },
     { label: "Comédia", value: "comedia" },
     { label: "Drama", value: "drama" },
@@ -72,7 +72,7 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Família", value: "familia" }
   ],
   game: [
-    { label: "Todos os gêneros de jogos", value: "" },
+    { label: "Todos os gêneros", value: "" },
     { label: "Ação", value: "acao" },
     { label: "Aventura", value: "aventura" },
     { label: "RPG", value: "rpg" },
@@ -87,7 +87,7 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Indie", value: "indie" }
   ],
   book: [
-    { label: "Todos os gêneros de livros", value: "" },
+    { label: "Todos os gêneros", value: "" },
     { label: "Fantasia", value: "fantasia" },
     { label: "Ficção Científica", value: "ficcao" },
     { label: "Romance", value: "romance" },
