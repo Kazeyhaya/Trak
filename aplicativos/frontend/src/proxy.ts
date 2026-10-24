@@ -24,12 +24,13 @@ export async function proxy(request: NextRequest) {
     }
   });
 
-  // getUser valida o token no Supabase (getSession apenas leria o cookie).
+  // getUser valida e renova o token no Supabase.
   const {
     data: { user }
   } = await supabase.auth.getUser();
+  const temCookieSessao = request.cookies.getAll().some((c) => c.name.startsWith("sb-"));
 
-  if (!user && ehRotaPrivada(request.nextUrl.pathname)) {
+  if (!user && !temCookieSessao && ehRotaPrivada(request.nextUrl.pathname)) {
     const destino = request.nextUrl.clone();
     destino.pathname = "/entrar";
     destino.search = `?next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}`;

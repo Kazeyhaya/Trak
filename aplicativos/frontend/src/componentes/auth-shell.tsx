@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contextos/auth-context";
 import { destinoSeguro } from "../lib/rotas";
 import { UiButton } from "./ui-button";
@@ -17,26 +17,14 @@ export function AuthShell({ next }: { next?: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      router.replace(destinoSeguro(next));
+    }
+  }, [user, next, router]);
+
   if (user) {
-    return (
-      <main className="auth-shell">
-        <section className="auth-hero">
-          <div className="auth-hero-copy">
-            <h1>Você já está conectado.</h1>
-            <p>Continue organizando o que você quer assistir, jogar ou ler.</p>
-          </div>
-          <aside className="auth-card">
-            <div className="panel-header">
-              <span className="panel-title">Conta</span>
-            </div>
-            <div className="auth-actions">
-              <UiButton href={destinoSeguro(next)}>Continuar</UiButton>
-              <UiButton href="/catalogo" variant="secondary">Ver catálogo</UiButton>
-            </div>
-          </aside>
-        </section>
-      </main>
-    );
+    return null;
   }
 
   async function handleSubmit(event: React.FormEvent) {
