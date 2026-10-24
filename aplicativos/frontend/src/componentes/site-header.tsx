@@ -18,7 +18,6 @@ export function SiteHeader() {
     { label: "Catálogo", href: "/catalogo" },
     ...(user
       ? [
-          { label: "Painel", href: "/painel" },
           { label: "Feed", href: "/feed" },
           { label: "Para você", href: "/recomendacoes" },
           ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
@@ -44,7 +43,13 @@ export function SiteHeader() {
 
       {user ? (
         <div className="header-user">
-          <Link className="header-user-email" href={profile ? `/u/${profile.username}` : "/perfil"}>
+          <Link
+            className="header-user-email"
+            href={profile ? `/u/${profile.username}` : "/perfil"}
+            aria-current={
+              pathname.startsWith("/u/") || pathname.startsWith("/perfil") ? "page" : undefined
+            }
+          >
             {profile ? `@${profile.username}` : "Criar perfil"}
           </Link>
           <button type="button" className="header-cta" onClick={() => void handleSignOut()}>

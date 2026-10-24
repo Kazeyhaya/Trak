@@ -369,19 +369,23 @@ export class SocialService {
         summary: null,
         achievements: [],
         inProgress: [],
+        library: [],
         favorites: [],
         activity: []
       };
     }
 
     const [tracking, favoritos, atividades] = await Promise.all([
-      this.db.from(TABELA_TRACKING).select("mediaItemId,status,personalRating,progressCurrent").eq("userId", perfil.userId),
+      this.db
+        .from(TABELA_TRACKING)
+        .select("mediaItemId,status,personalRating,progressCurrent,updatedAt")
+        .eq("userId", perfil.userId),
       this.db
         .from("Favorite")
         .select("mediaItemId")
         .eq("userId", perfil.userId)
         .order("createdAt", { ascending: false })
-        .limit(12),
+        .limit(48),
       this.db
         .from("Activity")
         .select("id,userId,type,mediaItemId,data,createdAt")
@@ -396,6 +400,7 @@ export class SocialService {
       status: string;
       personalRating: number | null;
       progressCurrent?: number | null;
+      updatedAt?: string | null;
     }>;
     const notas = registros.flatMap((r) => (r.personalRating ? [r.personalRating] : []));
     const porStatus = registros.reduce<Record<string, number>>((acc, r) => {
@@ -439,6 +444,17 @@ export class SocialService {
         rating: r.personalRating ?? null
       }));
 
+    const library = registros
+      .filter((r) => r.mediaItemId && itensMapa.has(r.mediaItemId))
+      .map((r) => ({
+        mediaItemId: r.mediaItemId!,
+        status: statusDoBanco(r.status),
+        rating: r.personalRating ?? null,
+        progress: r.progressCurrent ?? 0,
+        updatedAt: r.updatedAt ?? null,
+        item: itensMapa.get(r.mediaItemId!)!
+      }));
+
     return {
       ...base,
       isPrivate: false,
@@ -450,6 +466,7 @@ export class SocialService {
       summary,
       achievements,
       inProgress,
+      library,
       favorites: idsFavoritos.flatMap((id) => {
         const item = itensMapa.get(id);
         return item ? [item] : [];

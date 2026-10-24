@@ -255,6 +255,15 @@ export type ProfileInProgressItem = {
   rating: number | null;
 };
 
+export type ProfileLibraryItem = {
+  mediaItemId: string;
+  status: TrackingStatus;
+  rating: number | null;
+  progress: number;
+  updatedAt?: string | null;
+  item: CatalogItem;
+};
+
 export type ProfileAchievement = {
   id: string;
   title: string;
@@ -276,6 +285,7 @@ export type PublicProfile = {
   summary?: ProfileSummary | null;
   achievements?: ProfileAchievement[];
   inProgress?: ProfileInProgressItem[];
+  library?: ProfileLibraryItem[];
   favorites: CatalogItem[];
   activity: Activity[];
 };

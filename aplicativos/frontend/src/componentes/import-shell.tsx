@@ -82,10 +82,10 @@ export function ImportShell() {
         </div>
         <div className="item-next-actions">
           <UiButton href="/painel" variant="secondary">
-            Ir para meu painel
+            Ver minha estante
           </UiButton>
           <UiButton href="/perfil" variant="secondary">
-            Voltar ao perfil
+            Editar perfil
           </UiButton>
         </div>
       </section>
@@ -120,9 +120,9 @@ export function ImportShell() {
           <h3>Todas as fontes já foram importadas</h3>
           <p>Você já concluiu a importação inicial do seu histórico no Trak.</p>
           <div className="item-next-actions">
-            <UiButton href="/painel">Ver meu painel</UiButton>
+            <UiButton href="/painel">Ver minha estante</UiButton>
             <UiButton href="/perfil" variant="secondary">
-              Voltar ao perfil
+              Editar perfil
             </UiButton>
           </div>
         </UiCard>

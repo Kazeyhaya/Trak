@@ -138,6 +138,65 @@
   }
 }
 
+/* Abas do Hub de Perfil Unificado */
+.profile-hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(160, 184, 214, 0.14);
+  background: rgba(8, 16, 28, 0.56);
+  backdrop-filter: blur(14px);
+}
+
+.profile-hub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.profile-hub-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profile-hub-tab.is-active {
+  color: var(--primary);
+  background: rgba(124, 225, 199, 0.14);
+  border-color: rgba(124, 225, 199, 0.28);
+}
+
+.profile-hub-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.profile-hub-tab.is-active .profile-hub-tab-count {
+  background: rgba(124, 225, 199, 0.22);
+  color: var(--primary);
+}
+
 /* Meta anual no painel */
 .annual-goal-panel {
   display: grid;
