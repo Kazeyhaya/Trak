@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
+import { HomeHeroCta } from "../componentes/home-hero-cta";
 import { MediaGrid } from "../componentes/media-grid";
 import { SectionHeading } from "../componentes/section-heading";
 import { SiteHeader } from "../componentes/site-header";
 import { UiBadge } from "../componentes/ui-badge";
-import { UiButton } from "../componentes/ui-button";
 import { UiCard } from "../componentes/ui-card";
 import { getCatalogItems } from "../lib/catalogo-api";
+import { usuarioDoServidor } from "../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ const features = [
 ];
 
 export default async function Home() {
-  const { items, offline } = await getCatalogItems();
+  const [{ items, offline }, usuario] = await Promise.all([getCatalogItems(), usuarioDoServidor()]);
   const destaques = offline ? [] : items.filter((item) => item.coverUrl).slice(0, 8);
 
   return (
@@ -64,19 +65,14 @@ export default async function Home() {
 
       <section className="hero-card">
         <div className="hero-copy">
-          <UiBadge tone="primary">Grátis</UiBadge>
+          <UiBadge tone="primary">{usuario ? "Bem-vindo de volta" : "Grátis"}</UiBadge>
           <h1>Tudo o que você assiste, joga e lê.</h1>
           <p>
             O Trak organiza filmes, séries, jogos e livros num só lugar: marque onde parou, dê notas, siga amigos e
             descubra o próximo favorito.
           </p>
 
-          <div className="cta-row">
-            <UiButton href="/entrar">Criar conta grátis</UiButton>
-            <UiButton href="/catalogo" variant="secondary">
-              Explorar o catálogo
-            </UiButton>
-          </div>
+          <HomeHeroCta initialLoggedIn={Boolean(usuario)} />
         </div>
       </section>
 
