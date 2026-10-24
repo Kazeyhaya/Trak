@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -656,66 +655,53 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                   {filteredFavorites.map((item) => {
                     const globalIndex = favorites.findIndex((f) => f.id === item.id);
                     return (
-                      <UiCard key={item.id} className="favorite-manage-card">
-                        <div className="favorite-manage-rank">#{globalIndex + 1}</div>
-                        <Link href={`/itens/${item.id}`} className="favorite-manage-cover">
-                          {item.coverUrl ? (
-                            <Image
-                              src={item.coverUrl}
-                              alt={`Capa de ${item.title}`}
-                              fill
-                              sizes="120px"
-                              unoptimized={item.source === "rawg"}
-                            />
-                          ) : (
-                            <span className="media-card-orb" />
-                          )}
+                      <div key={item.id} className="favorite-manage-slot">
+                        <Link href={`/itens/${item.id}`} className="favorite-manage-card-link">
+                          <MediaCard
+                            type={`#${globalIndex + 1} · ${getMediaTypeLabel(item.type)}`}
+                            title={item.title}
+                            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
+                            coverUrl={item.coverUrl}
+                          />
                         </Link>
-                        <div className="favorite-manage-body">
-                          <UiBadge tone="secondary">{getMediaTypeLabel(item.type)}</UiBadge>
-                          <Link href={`/itens/${item.id}`}>
-                            <h3>{item.title}</h3>
-                          </Link>
-                          <span className="favorite-manage-meta">{item.releaseYear ?? "Sem ano"}</span>
-                          <div className="favorite-manage-actions">
-                            <button
-                              type="button"
-                              className="filter-chip"
-                              disabled={busyFav || globalIndex === 0}
-                              onClick={() => void handleMoveFavorite(item.id, "top")}
-                              title="Colocar no topo dos favoritos"
-                            >
-                              Topo
-                            </button>
-                            <button
-                              type="button"
-                              className="filter-chip"
-                              disabled={busyFav || globalIndex === 0}
-                              onClick={() => void handleMoveFavorite(item.id, -1)}
-                              title="Mover para trás"
-                            >
-                              ←
-                            </button>
-                            <button
-                              type="button"
-                              className="filter-chip"
-                              disabled={busyFav || globalIndex === favorites.length - 1}
-                              onClick={() => void handleMoveFavorite(item.id, 1)}
-                              title="Mover para frente"
-                            >
-                              →
-                            </button>
-                            <button
-                              type="button"
-                              className="filter-chip"
-                              disabled={busyFav}
-                              onClick={() => void handleRemoveFavorite(item.id)}
-                            >
-                              Remover
-                            </button>
-                          </div>
+                        <div className="favorite-manage-actions">
+                          <button
+                            type="button"
+                            className="filter-chip"
+                            disabled={busyFav || globalIndex === 0}
+                            onClick={() => void handleMoveFavorite(item.id, "top")}
+                            title="Colocar no topo dos favoritos"
+                          >
+                            Topo
+                          </button>
+                          <button
+                            type="button"
+                            className="filter-chip"
+                            disabled={busyFav || globalIndex === 0}
+                            onClick={() => void handleMoveFavorite(item.id, -1)}
+                            title="Mover para trás"
+                          >
+                            ←
+                          </button>
+                          <button
+                            type="button"
+                            className="filter-chip"
+                            disabled={busyFav || globalIndex === favorites.length - 1}
+                            onClick={() => void handleMoveFavorite(item.id, 1)}
+                            title="Mover para frente"
+                          >
+                            →
+                          </button>
+                          <button
+                            type="button"
+                            className="filter-chip"
+                            disabled={busyFav}
+                            onClick={() => void handleRemoveFavorite(item.id)}
+                          >
+                            Remover
+                          </button>
                         </div>
-                      </UiCard>
+                      </div>
                     );
                   })}
                 </div>

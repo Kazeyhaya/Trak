@@ -16,11 +16,16 @@ type ProfileActionsProps = {
 // O servidor ja envia isMe e isFollowing quando ha cookie de sessao;
 // fazemos fallback no cliente apenas se o usuario logou sem cookie no SSR.
 export function ProfileActions({ username, initialIsMe, initialFollowing }: ProfileActionsProps) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const temEstadoInicial = initialIsMe !== undefined && initialFollowing !== undefined;
   const [state, setState] = useState<{ isMe: boolean; isFollowing: boolean } | null>(
     temEstadoInicial ? { isMe: initialIsMe, isFollowing: initialFollowing } : null
   );
+
+  const isMeByAuth = Boolean(user && profile?.username.toLowerCase() === username.toLowerCase());
+  const isMe = Boolean(initialIsMe || isMeByAuth || state?.isMe);
+  const isRecapSeason = new Date().getMonth() === 11;
+  const canImport = !profile?.hasImported;
 
   useEffect(() => {
     if (!user || temEstadoInicial) {
@@ -39,17 +44,19 @@ export function ProfileActions({ username, initialIsMe, initialFollowing }: Prof
     return null;
   }
 
-  if (user && !state) {
+  if (user && !state && !temEstadoInicial && !isMeByAuth) {
     return null;
   }
 
-  if (user && state?.isMe) {
+  if (user && isMe) {
     return (
       <div className="item-next-actions">
-        <UiButton href="/recap">Retrospectiva (Recap)</UiButton>
-        <UiButton href="/importar" variant="secondary">
-          Importar histórico
-        </UiButton>
+        {isRecapSeason && <UiButton href="/recap">Retrospectiva (Recap)</UiButton>}
+        {canImport && (
+          <UiButton href="/importar" variant="secondary">
+            Importar histórico
+          </UiButton>
+        )}
         <UiButton href="/perfil" variant="secondary">
           Editar perfil
         </UiButton>
@@ -57,5 +64,5 @@ export function ProfileActions({ username, initialIsMe, initialFollowing }: Prof
     );
   }
 
-  return <FollowButton username={username} initialFollowing={user ? (state?.isFollowing ?? false) : false} />;
+  return <FollowButton username={username} initialFollowing={user ? (state?.isFollowing ?? initialFollowing ?? false) : false} />;
 }
