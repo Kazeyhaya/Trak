@@ -1,7 +1,8 @@
 -- Perfil personalizavel, controle de importacao por fonte e duracao das obras.
 -- Idempotente: pode ser executada mais de uma vez sem efeito colateral.
 
--- 1. Perfil: capa, tema e importacoes ja feitas (colunas proprias em "User").
+-- 1. Perfil: foto, capa, tema e importacoes ja feitas (colunas proprias em "User").
+alter table public."User" add column if not exists "avatarUrl" text;
 alter table public."User" add column if not exists "bannerUrl" text;
 alter table public."User" add column if not exists "theme" text not null default 'emerald';
 alter table public."User" add column if not exists "importedSources" text[] not null default '{}';
@@ -14,6 +15,7 @@ alter table public."MediaItem" add column if not exists "durationMinutes" intege
 --    (linhas com data->>'kind' = 'PROFILE_META') e remove essas linhas.
 update public."User" u
 set
+  "avatarUrl" = coalesce(nullif(a.data->>'avatarUrl', ''), u."avatarUrl"),
   "bannerUrl" = coalesce(nullif(a.data->>'bannerUrl', ''), u."bannerUrl"),
   "theme" = coalesce(nullif(a.data->>'theme', ''), u."theme")
 from public."Activity" a

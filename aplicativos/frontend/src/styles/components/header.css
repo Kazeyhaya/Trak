@@ -69,11 +69,55 @@
   gap: 10px;
 }
 
-.header-user-email {
-  font-size: 0.86rem;
-  color: var(--muted);
-  max-width: 160px;
+.header-avatar-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid rgba(124, 225, 199, 0.32);
+  background: linear-gradient(135deg, rgba(124, 225, 199, 0.22), rgba(122, 167, 255, 0.22));
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.95rem;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.header-avatar-link:hover,
+.header-avatar-link.is-active {
+  transform: translateY(-1px);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124, 225, 199, 0.18);
+}
+
+.header-avatar-link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.header-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(160, 184, 214, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.header-logout-btn:hover {
+  transform: translateY(-1px);
+  color: #ff9090;
+  border-color: rgba(255, 120, 120, 0.34);
+  background: rgba(255, 80, 80, 0.1);
 }

@@ -222,6 +222,7 @@ export type Profile = {
   displayName: string | null;
   bio: string | null;
   isPublic: boolean;
+  avatarUrl?: string | null;
   bannerUrl?: string | null;
   theme?: ProfileTheme | string | null;
   importedSources?: string[];

@@ -29,6 +29,12 @@ export class SalvarPerfilDto {
   @IsOptional()
   @Transform(aparar)
   @IsString()
+  @MaxLength(60000)
+  avatarUrl?: string;
+
+  @IsOptional()
+  @Transform(aparar)
+  @IsString()
   @MaxLength(500)
   bannerUrl?: string;
 

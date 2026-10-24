@@ -195,7 +195,12 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
           <div className="profile-showcase-top">
             <div className="profile-identity-row">
               <div className="profile-avatar-badge" aria-hidden="true">
-                {avatarInitial}
+                {profile.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatarUrl} alt="" />
+                ) : (
+                  avatarInitial
+                )}
               </div>
               <div className="profile-identity-copy">
                 <h1>{profile.displayName || `@${profile.username}`}</h1>

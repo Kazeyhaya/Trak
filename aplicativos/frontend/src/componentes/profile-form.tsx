@@ -69,6 +69,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [isPublic, setIsPublic] = useState(profile?.isPublic ?? true);
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? "");
   const [bannerUrl, setBannerUrl] = useState(profile?.bannerUrl ?? "");
   const [theme, setTheme] = useState<string>(profile?.theme ?? "emerald");
   const [mediaOptions, setMediaOptions] = useState<CatalogItem[]>([]);
@@ -143,6 +144,41 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
   const activeBanner = bannerUrl.trim() || mediaOptions[0]?.coverUrl || null;
   const avatarInitial = (displayName.trim() || normalized || "T").charAt(0).toUpperCase();
 
+  function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Escolha um arquivo de imagem válido (PNG, JPG ou WebP).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const size = 160;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return;
+        }
+        const minSide = Math.min(img.width, img.height);
+        const sx = (img.width - minSide) / 2;
+        const sy = (img.height - minSide) / 2;
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        setAvatarUrl(dataUrl);
+        setError(null);
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -154,6 +190,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
         displayName,
         bio,
         isPublic,
+        avatarUrl: avatarUrl.trim(),
         bannerUrl: bannerUrl.trim(),
         theme
       });
@@ -183,7 +220,12 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
         <div className="profile-showcase-content">
           <div className="profile-identity-row">
             <div className="profile-avatar-badge" aria-hidden="true">
-              {avatarInitial}
+              {avatarUrl.trim() ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl.trim()} alt="" />
+              ) : (
+                avatarInitial
+              )}
             </div>
             <div className="profile-identity-copy">
               <div className="status-chips">
@@ -272,10 +314,52 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
           </label>
 
           <div className="profile-visual-section">
-            <h3>Identidade Visual e Tema</h3>
+            <h3>Foto de Perfil, Tema e Capa</h3>
             <p className="panel-note">
-              Escolha a paleta de destaque do seu perfil e personalize a capa de fundo com uma das suas obras favoritas.
+              Envie sua foto de perfil, escolha a paleta de destaque e personalize a capa de fundo com uma das suas obras favoritas.
             </p>
+
+            <div className="avatar-picker-row">
+              <div className="avatar-picker-preview" aria-hidden="true">
+                {avatarUrl.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl.trim()} alt="" />
+                ) : (
+                  avatarInitial
+                )}
+              </div>
+              <div className="avatar-picker-actions">
+                <label className="secondary-button" style={{ cursor: "pointer", minHeight: "40px" }}>
+                  Escolher foto do dispositivo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => void handleAvatarUpload(e)}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    className="filter-chip"
+                    onClick={() => setAvatarUrl("")}
+                  >
+                    Remover foto
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <label>
+              Ou cole o link de uma foto de perfil (opcional)
+              <input
+                type="url"
+                value={avatarUrl.startsWith("data:") ? "" : avatarUrl}
+                maxLength={500}
+                placeholder="https://exemplo.com/minha-foto.jpg"
+                onChange={(event) => setAvatarUrl(event.target.value)}
+              />
+            </label>
 
             <div className="theme-selector" role="radiogroup" aria-label="Tema do perfil">
               {THEMES.map((item) => (

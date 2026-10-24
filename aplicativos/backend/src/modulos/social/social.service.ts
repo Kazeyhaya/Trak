@@ -14,7 +14,7 @@ import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
 
 // O perfil publico mora na propria tabela "User" (id = id do Supabase Auth).
-const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,bannerUrl,theme,importedSources,createdAt";
+const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,avatarUrl,bannerUrl,theme,importedSources,createdAt";
 const CAMPOS_PERFIL_LEGADO = "id,username,displayName,bio,isPublic,createdAt";
 
 const TEMA_PADRAO = "emerald";
@@ -24,6 +24,7 @@ type LinhaUser = Omit<Perfil, "userId" | "hasImported"> & { id: string };
 
 type MetaPerfil = {
   kind: "PROFILE_META";
+  avatarUrl?: string | null;
   bannerUrl?: string | null;
   theme?: string | null;
   importedSources?: string[];
@@ -50,6 +51,7 @@ function perfilDe(linha: LinhaUser, meta?: MetaPerfil | null): Perfil {
     ...resto,
     userId: id,
     isPublic: linha.isPublic ?? true,
+    avatarUrl: linha.avatarUrl ?? meta?.avatarUrl ?? null,
     bannerUrl: linha.bannerUrl ?? meta?.bannerUrl ?? null,
     theme: linha.theme || meta?.theme || TEMA_PADRAO,
     importedSources,
@@ -68,6 +70,7 @@ type Perfil = {
   displayName: string | null;
   bio: string | null;
   isPublic: boolean;
+  avatarUrl: string | null;
   bannerUrl: string | null;
   theme: string;
   importedSources: string[];
@@ -111,6 +114,7 @@ export class SocialService {
     const atual = (await this.lerMetaLegado(userId)) ?? { kind: "PROFILE_META" };
     const novo: MetaPerfil = {
       kind: "PROFILE_META",
+      avatarUrl: parcial.avatarUrl !== undefined ? parcial.avatarUrl : (atual.avatarUrl ?? null),
       bannerUrl: parcial.bannerUrl !== undefined ? parcial.bannerUrl : (atual.bannerUrl ?? null),
       theme: parcial.theme !== undefined ? parcial.theme : (atual.theme ?? TEMA_PADRAO),
       importedSources: parcial.importedSources ?? atual.importedSources ?? [],
@@ -247,7 +251,8 @@ export class SocialService {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const normalizado = {
       ...payload,
-      // String vazia limpa a capa / volta ao tema padrao.
+      // String vazia limpa a foto / capa / volta ao tema padrao.
+      ...(payload.avatarUrl !== undefined ? { avatarUrl: payload.avatarUrl || null } : {}),
       ...(payload.bannerUrl !== undefined ? { bannerUrl: payload.bannerUrl || null } : {}),
       ...(payload.theme !== undefined ? { theme: payload.theme || TEMA_PADRAO } : {})
     };
@@ -267,7 +272,7 @@ export class SocialService {
     let metaLegado: MetaPerfil | null = null;
 
     if (erroColunaAusente(error)) {
-      const { bannerUrl, theme, ...camposLegados } = normalizado;
+      const { avatarUrl, bannerUrl, theme, ...camposLegados } = normalizado;
       const valoresLegados = Object.fromEntries(
         Object.entries(camposLegados).filter(([, valor]) => valor !== undefined)
       );
@@ -280,8 +285,8 @@ export class SocialService {
       data = legado.data;
       error = legado.error;
 
-      if (bannerUrl !== undefined || theme !== undefined) {
-        metaLegado = await this.salvarMetaLegado(userId, { bannerUrl, theme });
+      if (avatarUrl !== undefined || bannerUrl !== undefined || theme !== undefined) {
+        metaLegado = await this.salvarMetaLegado(userId, { avatarUrl, bannerUrl, theme });
       }
     }
 
@@ -352,6 +357,7 @@ export class SocialService {
         displayName: perfil.displayName,
         bio: perfil.bio,
         isPublic: perfil.isPublic,
+        avatarUrl: perfil.avatarUrl,
         bannerUrl: perfil.bannerUrl,
         theme: perfil.theme
       },
