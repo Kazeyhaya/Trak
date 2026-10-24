@@ -327,18 +327,21 @@
   overflow: hidden;
 }
 
-/* Estado selecionado dos chips (filtros, status, temporadas). Antes nao havia
-   estilo, entao o status escolhido nao aparecia selecionado. */
+/* Estado selecionado dos chips (filtros, status, temporadas). */
 .filter-chip {
   cursor: pointer;
 }
 
 .filter-chip.is-active,
+.filter-chip[aria-pressed="true"],
 .filter-chip[aria-selected="true"] {
-  color: #06101c;
-  background: var(--primary);
-  border-color: var(--primary);
-  font-weight: 700;
+  background: linear-gradient(135deg, #8af0d6 0%, var(--primary) 50%, var(--primary-strong) 100%);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: #04121a;
+  font-weight: 800;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 4px 16px rgba(124, 225, 199, 0.28);
 }
 
 .filter-chip:disabled {

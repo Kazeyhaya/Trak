@@ -395,18 +395,20 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
         )}
 
         {(item.type === "GAME" || item.type === "BOOK") && (
-          <label className="progress-control">
-            <span>Progresso pessoal: {progress}%</span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={progress}
-              disabled={loading}
-              onChange={(event) => handleProgress(Number(event.target.value))}
-            />
-          </label>
+          <MediaProgressTracker
+            item={item}
+            progress={progress}
+            status={tracking?.status ?? null}
+            disabled={loading || saving}
+            onProgressChange={handleProgress}
+            onMilestoneSelect={(nextProgress, nextStatus) => {
+              setProgress(nextProgress);
+              if (progressTimer.current) {
+                clearTimeout(progressTimer.current);
+              }
+              void save({ progress: nextProgress, status: nextStatus });
+            }}
+          />
         )}
 
         <div className="rating-row">
@@ -460,5 +462,394 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
 
       {isSeries && !loading && <EpisodesPanel mediaItemId={item.id} onTrackingChange={applyTracking} />}
     </>
+  );
+}
+
+type CheckpointMeta = {
+  hoursPlayed?: number;
+  platform?: string;
+  platinum?: boolean;
+  currentPage?: number;
+  totalPages?: number;
+};
+
+const GAME_PLATFORMS = ["PC / Steam", "PlayStation", "Xbox", "Nintendo Switch", "Portátil / Mobile"];
+
+function MediaProgressTracker({
+  item,
+  progress,
+  status,
+  disabled,
+  onProgressChange,
+  onMilestoneSelect
+}: {
+  item: CatalogItem;
+  progress: number;
+  status: TrackingStatus | null;
+  disabled: boolean;
+  onProgressChange: (value: number) => void;
+  onMilestoneSelect: (progress: number, status: TrackingStatus) => void;
+}) {
+  const isGame = item.type === "GAME";
+  const storageKey = `trak:checkpoint:${item.id}`;
+  const [meta, setMeta] = useState<CheckpointMeta>({
+    hoursPlayed: 0,
+    platform: "PC / Steam",
+    platinum: false,
+    currentPage: 0,
+    totalPages: 320
+  });
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as CheckpointMeta;
+        setMeta((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch {
+      // ignora
+    }
+  }, [storageKey]);
+
+  function updateMeta(patch: Partial<CheckpointMeta>) {
+    setMeta((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {
+        // ignora
+      }
+      return next;
+    });
+  }
+
+  if (isGame) {
+    const hours = meta.hoursPlayed ?? 0;
+    const isCompleted = status === "COMPLETED" || progress >= 100;
+
+    return (
+      <div className="trak-progress-panel">
+        <div className="trak-progress-header">
+          <div>
+            <span className="eyebrow">Checkpoint Gamer</span>
+            <strong>
+              {meta.platinum
+                ? "💎 Platina / 100% Completo"
+                : isCompleted
+                  ? "🏆 Campanha Zerada"
+                  : `Progresso da jornada: ${progress}%`}
+            </strong>
+          </div>
+          <div className="trak-progress-step-btns">
+            <button
+              type="button"
+              className="filter-chip"
+              disabled={disabled || progress <= 0}
+              onClick={() => onProgressChange(Math.max(0, progress - 5))}
+            >
+              −5%
+            </button>
+            <button
+              type="button"
+              className="filter-chip"
+              disabled={disabled || progress >= 100}
+              onClick={() => onProgressChange(Math.min(100, progress + 5))}
+            >
+              +5%
+            </button>
+          </div>
+        </div>
+
+        <div className="trak-progress-bar-wrap">
+          <div className="trak-progress-bar-fill" style={{ width: `${Math.min(100, progress)}%` }} />
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={progress}
+            disabled={disabled}
+            aria-label="Porcentagem do jogo"
+            onChange={(event) => {
+              const val = Number(event.target.value);
+              if (val < 100 && meta.platinum) {
+                updateMeta({ platinum: false });
+              }
+              onProgressChange(val);
+            }}
+          />
+        </div>
+
+        <div className="trak-milestones-row" role="group" aria-label="Marcos de progresso do jogo">
+          <button
+            type="button"
+            className={`filter-chip${progress === 15 && !meta.platinum ? " is-active" : ""}`}
+            disabled={disabled}
+            onClick={() => {
+              updateMeta({ platinum: false });
+              onMilestoneSelect(15, "WATCHING");
+            }}
+          >
+            🌱 Início (15%)
+          </button>
+          <button
+            type="button"
+            className={`filter-chip${progress === 50 && !meta.platinum ? " is-active" : ""}`}
+            disabled={disabled}
+            onClick={() => {
+              updateMeta({ platinum: false });
+              onMilestoneSelect(50, "WATCHING");
+            }}
+          >
+            ⚔️ Metade (50%)
+          </button>
+          <button
+            type="button"
+            className={`filter-chip${progress === 85 && !meta.platinum ? " is-active" : ""}`}
+            disabled={disabled}
+            onClick={() => {
+              updateMeta({ platinum: false });
+              onMilestoneSelect(85, "WATCHING");
+            }}
+          >
+            🔥 Reta Final (85%)
+          </button>
+          <button
+            type="button"
+            className={`filter-chip${progress === 100 && !meta.platinum && status === "COMPLETED" ? " is-active" : ""}`}
+            disabled={disabled}
+            onClick={() => {
+              updateMeta({ platinum: false });
+              onMilestoneSelect(100, "COMPLETED");
+            }}
+          >
+            🏆 História Zerada
+          </button>
+          <button
+            type="button"
+            className={`filter-chip${meta.platinum ? " is-active" : ""}`}
+            disabled={disabled}
+            onClick={() => {
+              updateMeta({ platinum: true });
+              onMilestoneSelect(100, "COMPLETED");
+            }}
+          >
+            💎 Platina / 100%
+          </button>
+        </div>
+
+        <div className="trak-session-grid">
+          <div className="trak-session-box">
+            <span className="trak-session-label">Horas jogadas ({hours}h)</span>
+            <div className="trak-session-controls">
+              <button
+                type="button"
+                className="filter-chip"
+                onClick={() => updateMeta({ hoursPlayed: Math.max(0, hours - 1) })}
+              >
+                −1h
+              </button>
+              <button
+                type="button"
+                className="filter-chip"
+                onClick={() => updateMeta({ hoursPlayed: hours + 1 })}
+              >
+                +1h
+              </button>
+              <button
+                type="button"
+                className="filter-chip"
+                onClick={() => updateMeta({ hoursPlayed: hours + 2 })}
+              >
+                +2h
+              </button>
+              <button
+                type="button"
+                className="filter-chip"
+                onClick={() => updateMeta({ hoursPlayed: hours + 5 })}
+              >
+                +5h
+              </button>
+            </div>
+          </div>
+
+          <label className="trak-session-box">
+            <span className="trak-session-label">Plataforma</span>
+            <select
+              value={meta.platform ?? "PC / Steam"}
+              onChange={(e) => updateMeta({ platform: e.target.value })}
+            >
+              {GAME_PLATFORMS.map((plat) => (
+                <option key={plat} value={plat}>
+                  {plat}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+    );
+  }
+
+  // Livro: Marcador de Leitura por Paginas + Ritmo + Marcos
+  const totalPages = Math.max(1, meta.totalPages ?? 320);
+  const currentPage = Math.min(totalPages, Math.max(0, meta.currentPage ?? Math.round((progress / 100) * totalPages)));
+  const remainingPages = Math.max(0, totalPages - currentPage);
+  const remainingMinutes = Math.round(remainingPages * 1.5);
+  const remainingHoursText =
+    remainingPages === 0
+      ? "Leitura concluída!"
+      : remainingMinutes < 60
+        ? `~${remainingMinutes} min restantes`
+        : `~${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}min restantes`;
+
+  function applyPageChange(nextPage: number, nextTotal = totalPages) {
+    const safeTotal = Math.max(1, nextTotal);
+    const clampedPage = Math.max(0, Math.min(safeTotal, nextPage));
+    const pct = Math.min(100, Math.round((clampedPage / safeTotal) * 100));
+    updateMeta({ currentPage: clampedPage, totalPages: safeTotal });
+    if (pct >= 100) {
+      onMilestoneSelect(100, "COMPLETED");
+    } else {
+      onProgressChange(pct);
+    }
+  }
+
+  return (
+    <div className="trak-progress-panel">
+      <div className="trak-progress-header">
+        <div>
+          <span className="eyebrow">Marcador de Leitura</span>
+          <strong>
+            Página {currentPage} de {totalPages} ({progress}%)
+          </strong>
+        </div>
+        <span className="trak-reading-pace">📖 Faltam {remainingPages} págs · {remainingHoursText}</span>
+      </div>
+
+      <div className="trak-progress-bar-wrap">
+        <div className="trak-progress-bar-fill" style={{ width: `${Math.min(100, progress)}%` }} />
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={progress}
+          disabled={disabled}
+          aria-label="Porcentagem de leitura"
+          onChange={(event) => {
+            const pct = Number(event.target.value);
+            updateMeta({ currentPage: Math.round((pct / 100) * totalPages) });
+            onProgressChange(pct);
+          }}
+        />
+      </div>
+
+      <div className="trak-session-grid">
+        <div className="trak-session-box">
+          <span className="trak-session-label">Páginas lidas / Total da edição</span>
+          <div className="trak-book-pages-inputs">
+            <input
+              type="number"
+              min={0}
+              max={totalPages}
+              value={currentPage}
+              disabled={disabled}
+              aria-label="Página atual"
+              onChange={(e) => applyPageChange(Number(e.target.value), totalPages)}
+            />
+            <span>de</span>
+            <input
+              type="number"
+              min={1}
+              max={10000}
+              value={totalPages}
+              disabled={disabled}
+              aria-label="Total de páginas do livro"
+              onChange={(e) => applyPageChange(currentPage, Number(e.target.value))}
+            />
+            <span>págs</span>
+          </div>
+        </div>
+
+        <div className="trak-session-box">
+          <span className="trak-session-label">Registrar sessão de leitura</span>
+          <div className="trak-session-controls">
+            <button
+              type="button"
+              className="filter-chip"
+              disabled={disabled}
+              onClick={() => applyPageChange(currentPage + 10)}
+            >
+              +10 págs
+            </button>
+            <button
+              type="button"
+              className="filter-chip"
+              disabled={disabled}
+              onClick={() => applyPageChange(currentPage + 25)}
+            >
+              +25 págs
+            </button>
+            <button
+              type="button"
+              className="filter-chip"
+              disabled={disabled}
+              onClick={() => applyPageChange(currentPage + 50)}
+            >
+              +50 págs
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="trak-milestones-row" role="group" aria-label="Marcos de leitura">
+        <button
+          type="button"
+          className={`filter-chip${progress === 15 ? " is-active" : ""}`}
+          disabled={disabled}
+          onClick={() => {
+            updateMeta({ currentPage: Math.round(totalPages * 0.15) });
+            onMilestoneSelect(15, "WATCHING");
+          }}
+        >
+          📖 Início (15%)
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${progress === 50 ? " is-active" : ""}`}
+          disabled={disabled}
+          onClick={() => {
+            updateMeta({ currentPage: Math.round(totalPages * 0.5) });
+            onMilestoneSelect(50, "WATCHING");
+          }}
+        >
+          🔖 Metade (50%)
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${progress === 80 ? " is-active" : ""}`}
+          disabled={disabled}
+          onClick={() => {
+            updateMeta({ currentPage: Math.round(totalPages * 0.8) });
+            onMilestoneSelect(80, "WATCHING");
+          }}
+        >
+          ⚡ Clímax (80%)
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${progress === 100 && status === "COMPLETED" ? " is-active" : ""}`}
+          disabled={disabled}
+          onClick={() => {
+            updateMeta({ currentPage: totalPages });
+            onMilestoneSelect(100, "COMPLETED");
+          }}
+        >
+          ✨ Livro Lido (100%)
+        </button>
+      </div>
+    </div>
   );
 }
