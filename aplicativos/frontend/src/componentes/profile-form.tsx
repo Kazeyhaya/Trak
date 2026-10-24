@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { SiteHeader } from "./site-header";
@@ -65,6 +66,7 @@ export function ProfileForm() {
 
 function ProfileFields({ profile }: { profile: Profile | null }) {
   const { refreshProfile } = useAuth();
+  const router = useRouter();
   const [username, setUsername] = useState(profile?.username ?? "");
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
@@ -196,6 +198,8 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
       });
       await refreshProfile();
       setSaved(result.username);
+      router.push(`/u/${result.username}`);
+      router.refresh();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
