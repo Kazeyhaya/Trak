@@ -255,6 +255,16 @@ export type ProfileInProgressItem = {
   rating: number | null;
 };
 
+export type ProfileAchievement = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  current: number;
+  target: number;
+};
+
 export type PublicProfile = {
   profile: Profile;
   followers: number;
@@ -264,6 +274,7 @@ export type PublicProfile = {
   isPrivate: boolean;
   stats: { total: number; byStatus: Partial<Record<TrackingStatus, number>>; averageRating: number | null } | null;
   summary?: ProfileSummary | null;
+  achievements?: ProfileAchievement[];
   inProgress?: ProfileInProgressItem[];
   favorites: CatalogItem[];
   activity: Activity[];

@@ -62,6 +62,33 @@ export function TrackingShell() {
   const [typeFilter, setTypeFilter] = useState<MediaType | "">("");
   const [favTypeFilter, setFavTypeFilter] = useState<MediaType | "">("");
   const [busyFav, setBusyFav] = useState(false);
+  const currentYear = new Date().getFullYear();
+  const isRecapSeason = new Date().getMonth() === 11;
+  const [annualGoal, setAnnualGoal] = useState<number>(24);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(`trak:goal:${currentYear}`);
+      if (saved) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 500) {
+          setAnnualGoal(parsed);
+        }
+      }
+    } catch {
+      // ignora indisponibilidade de localStorage
+    }
+  }, [currentYear]);
+
+  function handleGoalChange(nextGoal: number) {
+    const clamped = Math.max(1, Math.min(500, Math.round(nextGoal) || 1));
+    setAnnualGoal(clamped);
+    try {
+      window.localStorage.setItem(`trak:goal:${currentYear}`, String(clamped));
+    } catch {
+      // ignora
+    }
+  }
 
   useEffect(() => {
     Promise.all([getTrackingItems(), getFavorites()])
@@ -74,6 +101,20 @@ export function TrackingShell() {
   }, []);
 
   const stats = loaded && !error ? deriveStats(items, favorites) : emptyStats;
+
+  const completedThisYear = useMemo(() => {
+    return items.filter((entry) => {
+      if (entry.status !== "COMPLETED") {
+        return false;
+      }
+      if (!entry.updatedAt) {
+        return true;
+      }
+      return new Date(entry.updatedAt).getFullYear() === currentYear;
+    });
+  }, [items, currentYear]);
+
+  const goalPct = Math.min(100, Math.round((completedThisYear.length / Math.max(1, annualGoal)) * 100));
 
   const filteredItems = useMemo(() => {
     return items.filter((entry) => {
@@ -146,13 +187,15 @@ export function TrackingShell() {
 
         <div className="content-summary">
           <UiBadge tone="secondary">{loaded ? `${items.length} na biblioteca` : "Carregando…"}</UiBadge>
-          <strong>Biblioteca + Favoritos + Retrospectiva</strong>
-          <p>Acompanhe suas estatísticas e veja sua retrospectiva do ano.</p>
-          <div className="item-next-actions" style={{ marginTop: "12px" }}>
-            <UiButton href="/recap" variant="secondary">
-              Ver Retrospectiva (Recap)
-            </UiButton>
-          </div>
+          <strong>Biblioteca + Favoritos + Metas</strong>
+          <p>Acompanhe suas estatísticas, organize sua estante e bata sua meta cultural do ano.</p>
+          {isRecapSeason && (
+            <div className="item-next-actions" style={{ marginTop: "12px" }}>
+              <UiButton href="/recap" variant="secondary">
+                Ver Retrospectiva (Recap)
+              </UiButton>
+            </div>
+          )}
         </div>
       </section>
 
@@ -169,6 +212,40 @@ export function TrackingShell() {
             <strong>{stat.value}</strong>
           </UiCard>
         ))}
+      </section>
+
+      <section className="content-panel annual-goal-panel">
+        <div className="annual-goal-header">
+          <div>
+            <span className="eyebrow">Desafio {currentYear}</span>
+            <h2>Meta anual de cultura</h2>
+            <p className="panel-note">
+              Você já concluiu <strong>{completedThisYear.length}</strong> de <strong>{annualGoal}</strong> obras em{" "}
+              {currentYear} ({goalPct}%).
+            </p>
+          </div>
+          <div className="annual-goal-controls" role="group" aria-label="Escolher meta anual">
+            {[12, 24, 36, 50, 100].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={`filter-chip${annualGoal === preset ? " is-active" : ""}`}
+                onClick={() => handleGoalChange(preset)}
+              >
+                {preset} obras
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="annual-goal-bar" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}>
+          <span style={{ width: `${goalPct}%` }} />
+        </div>
+        <div className="annual-goal-breakdown">
+          <span>🎬 {completedThisYear.filter((i) => i.item?.type === "MOVIE").length} filmes</span>
+          <span>📺 {completedThisYear.filter((i) => i.item?.type === "SERIES").length} séries</span>
+          <span>🎮 {completedThisYear.filter((i) => i.item?.type === "GAME").length} jogos</span>
+          <span>📚 {completedThisYear.filter((i) => i.item?.type === "BOOK").length} livros</span>
+        </div>
       </section>
 
       <AlertsSection />

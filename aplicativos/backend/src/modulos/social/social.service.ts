@@ -11,7 +11,7 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { statusDoBanco, TABELA_TRACKING } from "../tracking/tracking.banco";
 import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
-import { resumoCultural } from "./perfil.estatisticas";
+import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
 
 // O perfil publico mora na propria tabela "User" (id = id do Supabase Auth).
 const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,bannerUrl,theme,importedSources,createdAt";
@@ -362,7 +362,16 @@ export class SocialService {
     };
 
     if (!perfil.isPublic && !isMe) {
-      return { ...base, isPrivate: true, stats: null, summary: null, inProgress: [], favorites: [], activity: [] };
+      return {
+        ...base,
+        isPrivate: true,
+        stats: null,
+        summary: null,
+        achievements: [],
+        inProgress: [],
+        favorites: [],
+        activity: []
+      };
     }
 
     const [tracking, favoritos, atividades] = await Promise.all([
@@ -415,6 +424,10 @@ export class SocialService {
         durationMinutes: r.mediaItemId ? duracoes.get(r.mediaItemId) : null
       }))
     );
+    const achievements = calcularConquistas(summary, {
+      ratingsCount: notas.length,
+      favoritesCount: idsFavoritos.length
+    });
 
     const inProgress = registros
       .filter((r) => statusDoBanco(r.status) === "WATCHING" && r.mediaItemId && itensMapa.has(r.mediaItemId))
@@ -435,6 +448,7 @@ export class SocialService {
         averageRating: notas.length ? Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10 : null
       },
       summary,
+      achievements,
       inProgress,
       favorites: idsFavoritos.flatMap((id) => {
         const item = itensMapa.get(id);

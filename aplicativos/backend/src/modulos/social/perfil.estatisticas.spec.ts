@@ -1,4 +1,4 @@
-import { DURACAO_PADRAO_MIN, fracaoConsumida, resumoCultural } from "./perfil.estatisticas";
+import { calcularConquistas, DURACAO_PADRAO_MIN, fracaoConsumida, resumoCultural } from "./perfil.estatisticas";
 
 describe("fracaoConsumida", () => {
   it("concluido conta inteiro e 'quero' nao conta", () => {
@@ -40,5 +40,31 @@ describe("resumoCultural", () => {
 
   it("ignora registros sem tipo (item fora do catalogo salvo)", () => {
     expect(resumoCultural([{ status: "COMPLETED", progress: 100 }]).estimatedHours).toBe(0);
+  });
+});
+
+describe("calcularConquistas", () => {
+  it("desbloqueia conquistas conforme o resumo cultural e favoritos/notas", () => {
+    const conquistas = calcularConquistas(
+      {
+        gamesCompleted: 5,
+        booksRead: 1,
+        moviesWatched: 10,
+        seriesCompleted: 1,
+        estimatedHours: 120
+      },
+      { ratingsCount: 12, favoritesCount: 4 }
+    );
+
+    const desbloqueadas = conquistas.filter((c) => c.unlocked).map((c) => c.id);
+    expect(desbloqueadas).toEqual([
+      "primeira_obra",
+      "cinefilo",
+      "gamer_dedicado",
+      "explorador_cultural",
+      "cem_horas",
+      "curador",
+      "critico"
+    ]);
   });
 });

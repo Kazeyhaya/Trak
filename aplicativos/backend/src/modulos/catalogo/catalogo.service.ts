@@ -50,6 +50,7 @@ const TMDB = "https://api.themoviedb.org/3";
 const RAWG = "https://api.rawg.io/api";
 const OPEN_LIBRARY = "https://openlibrary.org";
 const OMDB = "https://www.omdbapi.com";
+const STEAMGRIDDB = "https://www.steamgriddb.com/api/v2";
 const DIA_MS = 24 * 60 * 60 * 1000;
 const LIMITE_POR_FONTE = 20;
 
@@ -152,6 +153,48 @@ export class CatalogoService implements OnModuleInit {
     return this.comCache(`omdb:${new URLSearchParams(params)}`, () => this.fetchJson<T>(`${OMDB}/?${query}`));
   }
 
+  private async capaSteamGridDb(nomeJogo: string): Promise<string | null> {
+    const apiKey = process.env.STEAMGRIDDB_API_KEY?.trim();
+    if (!apiKey || !nomeJogo.trim()) {
+      return null;
+    }
+    const chave = `sgdb:${normalizarTitulo(nomeJogo)}`;
+    return this.comCache(chave, async () => {
+      try {
+        const headers = {
+          Authorization: `Bearer ${apiKey}`,
+          "User-Agent": "Trak (https://github.com/Kazeyhaya/Trak)"
+        };
+        const buscaRes = await fetch(
+          `${STEAMGRIDDB}/search/autocomplete/${encodeURIComponent(nomeJogo.trim())}`,
+          { signal: AbortSignal.timeout(3500), headers }
+        );
+        if (!buscaRes.ok) {
+          return null;
+        }
+        const busca = (await buscaRes.json()) as { data?: Array<{ id: number; name: string }> };
+        const alvo = normalizarTitulo(nomeJogo);
+        const escolhido =
+          busca.data?.find((g) => normalizarTitulo(g.name) === alvo) ?? busca.data?.[0];
+        if (!escolhido?.id) {
+          return null;
+        }
+
+        const gridsRes = await fetch(
+          `${STEAMGRIDDB}/grids/game/${escolhido.id}?dimensions=600x900&types=static`,
+          { signal: AbortSignal.timeout(3500), headers }
+        );
+        if (!gridsRes.ok) {
+          return null;
+        }
+        const grids = (await gridsRes.json()) as { data?: Array<{ url?: string }> };
+        return grids.data?.[0]?.url ?? null;
+      } catch {
+        return null;
+      }
+    });
+  }
+
   // Listagem e busca
 
   async listar(query?: string, tipo?: string, genero?: string) {
@@ -246,8 +289,17 @@ export class CatalogoService implements OnModuleInit {
 
     const data = await this.rawg<{ results: RawgItem[] }>("/games", params);
 
-    // A listagem do RAWG nao traz descricao.
-    return (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
+    // A listagem do RAWG nao traz descricao. Se STEAMGRIDDB_API_KEY estiver ativa, busca capas verticais 2:3.
+    const brutos = (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
+    if (!process.env.STEAMGRIDDB_API_KEY?.trim()) {
+      return brutos;
+    }
+    return Promise.all(
+      brutos.map(async (jogo) => ({
+        ...jogo,
+        coverUrl: (await this.capaSteamGridDb(jogo.title)) ?? jogo.coverUrl
+      }))
+    );
   }
 
   private async listarLivros(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
@@ -531,9 +583,14 @@ export class CatalogoService implements OnModuleInit {
         return null;
       }
       const mapeado = mapearRawg(item);
+      const [synopsis, capaVertical] = await Promise.all([
+        this.traduzirParaPtBr(mapeado.synopsis),
+        this.capaSteamGridDb(mapeado.title)
+      ]);
       return {
         ...mapeado,
-        synopsis: await this.traduzirParaPtBr(mapeado.synopsis)
+        coverUrl: capaVertical ?? mapeado.coverUrl,
+        synopsis
       };
     }
 

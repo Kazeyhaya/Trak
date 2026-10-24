@@ -47,7 +47,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     notFound();
   }
 
-  const { profile, stats, summary, inProgress = [] } = data;
+  const { profile, stats, summary, achievements = [], inProgress = [] } = data;
   const theme = profile.theme || "emerald";
   const bannerUrl =
     profile.bannerUrl ||
@@ -211,6 +211,43 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   <MediaGrid items={moreFavorites} label="Outros favoritos" />
                 </div>
               )}
+            </section>
+          )}
+
+          {achievements.length > 0 && (
+            <section className="content-panel">
+              <SectionHeading
+                eyebrow="Conquistas"
+                title={`Insígnias culturais (${achievements.filter((a) => a.unlocked).length}/${achievements.length})`}
+                description="Marcos desbloqueados automaticamente conforme obras são concluídas e avaliadas."
+              />
+              <div className="achievements-grid">
+                {achievements.map((badge) => {
+                  const pct = Math.min(100, Math.round((badge.current / Math.max(1, badge.target)) * 100));
+                  return (
+                    <div
+                      key={badge.id}
+                      className={`achievement-card${badge.unlocked ? " is-unlocked" : " is-locked"}`}
+                    >
+                      <div className="achievement-icon" aria-hidden="true">
+                        {badge.icon}
+                      </div>
+                      <div className="achievement-body">
+                        <div className="achievement-header">
+                          <strong>{badge.title}</strong>
+                          <span className="achievement-counter">
+                            {badge.current}/{badge.target}
+                          </span>
+                        </div>
+                        <p>{badge.description}</p>
+                        <div className="achievement-progress-bar">
+                          <span style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           )}
 

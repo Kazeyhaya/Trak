@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "image.tmdb.org", pathname: "/t/p/**" },
       { protocol: "https", hostname: "media.rawg.io", pathname: "/media/**" },
-      { protocol: "https", hostname: "covers.openlibrary.org", pathname: "/b/**" }
+      { protocol: "https", hostname: "covers.openlibrary.org", pathname: "/b/**" },
+      { protocol: "https", hostname: "cdn2.steamgriddb.com", pathname: "/**" }
     ]
   },
   async headers() {
