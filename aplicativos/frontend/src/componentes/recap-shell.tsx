@@ -286,7 +286,7 @@ export function RecapShell() {
             {topRated.map((entry) => (
               <Link key={entry.id} href={`/itens/${entry.mediaItemId}`}>
                 <MediaCard
-                  type={entry.item ? getMediaTypeLabel(entry.item.type) : "Item"}
+                  type={entry.item ? getMediaTypeLabel(entry.item.type, entry.item.subtype) : "Item"}
                   title={entry.item?.title ?? entry.mediaItemId}
                   meta={entry.item?.releaseYear ? String(entry.item.releaseYear) : "Sem ano"}
                   coverUrl={entry.item?.coverUrl}

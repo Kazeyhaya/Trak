@@ -306,7 +306,7 @@ export class CatalogoService implements OnModuleInit {
           (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO) && (!tmdbGenre || item.genre_ids?.includes(tmdbGenre)))
       )
       .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, type));
+      .map((item) => mapearTmdb(item, type, "ANIME"));
   }
 
   private async listarNovelas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
@@ -332,7 +332,7 @@ export class CatalogoService implements OnModuleInit {
           return Boolean(ehSoap || ehPaisNovela);
         })
         .slice(0, LIMITE_POR_FONTE)
-        .map((item) => mapearTmdb(item, "SERIES"));
+        .map((item) => mapearTmdb(item, "SERIES", "NOVELA"));
     }
 
     const soapGenres = tmdbGenre
@@ -364,7 +364,7 @@ export class CatalogoService implements OnModuleInit {
       }
     }
 
-    return combinados.slice(0, LIMITE_POR_FONTE).map((item) => mapearTmdb(item, "SERIES"));
+    return combinados.slice(0, LIMITE_POR_FONTE).map((item) => mapearTmdb(item, "SERIES", "NOVELA"));
   }
 
   private async listarDoramas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
@@ -390,7 +390,7 @@ export class CatalogoService implements OnModuleInit {
           return Boolean(ehPaisAsiatico || ehIdiomaAsiatico);
         })
         .slice(0, LIMITE_POR_FONTE)
-        .map((item) => mapearTmdb(item, "SERIES"));
+        .map((item) => mapearTmdb(item, "SERIES", "DORAMA"));
     }
 
     const withGenres = tmdbGenre ? String(tmdbGenre) : "18";
@@ -406,7 +406,7 @@ export class CatalogoService implements OnModuleInit {
     return (data?.results ?? [])
       .filter((item) => !item.genre_ids?.includes(TMDB_GENERO_ANIMACAO))
       .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, "SERIES"));
+      .map((item) => mapearTmdb(item, "SERIES", "DORAMA"));
   }
 
   private async listarRawg(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
@@ -1035,9 +1035,10 @@ export class CatalogoService implements OnModuleInit {
 
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
+    const { subtype, ...itemParaSalvar } = item;
     const { error: insertError } = await supabase
       .from("MediaItem")
-      .upsert({ ...item, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
+      .upsert({ ...itemParaSalvar, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
 
     if (insertError) {
       this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${insertError.message}`);

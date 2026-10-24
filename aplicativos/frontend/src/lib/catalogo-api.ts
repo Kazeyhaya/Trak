@@ -2,11 +2,14 @@ import { API_BASE_URL } from "./api-base";
 
 export type MediaType = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
+export type SubtipoMidia = "ANIME" | "NOVELA" | "DORAMA";
+
 export type CatalogItem = {
   id: string;
   externalId: string;
   source: string;
   type: MediaType;
+  subtype?: SubtipoMidia | null;
   title: string;
   coverUrl: string | null;
   synopsis: string | null;
@@ -118,7 +121,16 @@ export async function getCatalogItemById(id: string) {
   return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }
 
-export function getMediaTypeLabel(type: MediaType) {
+export function getMediaTypeLabel(type: MediaType, subtype?: string | null) {
+  if (subtype === "NOVELA") {
+    return "Novela";
+  }
+  if (subtype === "DORAMA") {
+    return "Dorama";
+  }
+  if (subtype === "ANIME") {
+    return "Anime";
+  }
   switch (type) {
     case "MOVIE":
       return "Filme";

@@ -1,5 +1,7 @@
 export type TipoMidia = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
+export type SubtipoMidia = "ANIME" | "NOVELA" | "DORAMA";
+
 export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary";
 
 export interface ItemCatalogo {
@@ -7,6 +9,7 @@ export interface ItemCatalogo {
   externalId: string;
   source: FonteCatalogo;
   type: TipoMidia;
+  subtype?: SubtipoMidia | null;
   title: string;
   coverUrl: string | null;
   synopsis: string | null;

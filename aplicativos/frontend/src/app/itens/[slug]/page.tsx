@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: ItemPageProps): Promise<Metad
   }
 
   const title = `${item.title}${item.releaseYear ? ` (${item.releaseYear})` : ""} | Trak`;
-  const description = item.synopsis?.slice(0, 200) ?? `${getMediaTypeLabel(item.type)} para acompanhar no Trak.`;
+  const description = item.synopsis?.slice(0, 200) ?? `${getMediaTypeLabel(item.type, item.subtype)} para acompanhar no Trak.`;
 
   return {
     title,

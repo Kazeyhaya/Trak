@@ -1,5 +1,5 @@
 // Funcoes puras de formato de id e mapeamento das APIs externas.
-import { FonteCatalogo, ItemCatalogo, TipoMidia } from "./catalogo.types";
+import { FonteCatalogo, ItemCatalogo, SubtipoMidia, TipoMidia } from "./catalogo.types";
 
 export type TmdbItem = {
   id: number;
@@ -167,12 +167,71 @@ export function anoDe(date?: string | null) {
   return year ? Number(year) : null;
 }
 
-export function mapearTmdb(item: TmdbItem, type: "MOVIE" | "SERIES"): ItemCatalogo {
+export function extrairGenreIds(item: TmdbItem): number[] {
+  const ids = new Set<number>();
+  if (Array.isArray(item.genre_ids)) {
+    for (const id of item.genre_ids) {
+      if (typeof id === "number") ids.add(id);
+    }
+  }
+  if (Array.isArray(item.genres)) {
+    for (const g of item.genres) {
+      if (typeof g?.id === "number") ids.add(g.id);
+    }
+  }
+  return Array.from(ids);
+}
+
+export function detectarSubtipoTmdb(
+  item: TmdbItem,
+  type: "MOVIE" | "SERIES",
+  override?: SubtipoMidia | null
+): SubtipoMidia | null {
+  if (override) {
+    return override;
+  }
+
+  const genres = extrairGenreIds(item);
+
+  // Animacao / Anime
+  if (genres.includes(TMDB_GENERO_ANIMACAO)) {
+    return "ANIME";
+  }
+
+  // Apenas series podem ser classificadas como Novela ou Dorama
+  if (type === "SERIES") {
+    const ehSoap = genres.includes(TMDB_GENERO_NOVELA);
+    const paisesNovelaSet = new Set<string>(PAISES_NOVELA);
+    const ehPaisNovela = item.origin_country?.some((c) => paisesNovelaSet.has(c)) && genres.includes(18);
+    if (ehSoap || ehPaisNovela) {
+      return "NOVELA";
+    }
+
+    const paisesDoramaSet = new Set<string>(PAISES_DORAMA);
+    const idiomasDoramaSet = new Set<string>(IDIOMAS_DORAMA);
+    const ehPaisDorama = item.origin_country?.some((c) => paisesDoramaSet.has(c));
+    const ehIdiomaDorama = item.original_language ? idiomasDoramaSet.has(item.original_language) : false;
+    if (ehPaisDorama || ehIdiomaDorama) {
+      return "DORAMA";
+    }
+  }
+
+  return null;
+}
+
+export function mapearTmdb(
+  item: TmdbItem,
+  type: "MOVIE" | "SERIES",
+  subtypeOverride?: SubtipoMidia | null
+): ItemCatalogo {
+  const subtype = detectarSubtipoTmdb(item, type, subtypeOverride);
+
   return {
     id: montarId("tmdb", type, item.id),
     externalId: String(item.id),
     source: "tmdb",
     type,
+    subtype: subtype ?? undefined,
     title: item.title ?? item.name ?? "Sem titulo",
     coverUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     synopsis: item.overview || null,

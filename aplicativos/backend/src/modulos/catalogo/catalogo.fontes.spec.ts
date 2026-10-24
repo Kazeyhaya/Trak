@@ -1,5 +1,6 @@
 import {
   anoDe,
+  detectarSubtipoTmdb,
   mapearOpenLibrary,
   mapearRawg,
   mapearTmdb,
@@ -43,6 +44,27 @@ describe("mapeadores", () => {
       coverUrl: "https://image.tmdb.org/t/p/w500/p.jpg",
       synopsis: null
     });
+  });
+
+  it("detectarSubtipoTmdb classifica anime, novela e dorama corretamente", () => {
+    // Animacao
+    expect(detectarSubtipoTmdb({ id: 1, genre_ids: [16] }, "SERIES")).toBe("ANIME");
+    expect(detectarSubtipoTmdb({ id: 2, genres: [{ id: 16, name: "Animation" }] }, "MOVIE")).toBe("ANIME");
+
+    // Novela (soap ou pais latino/turco com drama)
+    expect(detectarSubtipoTmdb({ id: 3, genre_ids: [10766] }, "SERIES")).toBe("NOVELA");
+    expect(detectarSubtipoTmdb({ id: 4, origin_country: ["BR"], genre_ids: [18] }, "SERIES")).toBe("NOVELA");
+    expect(detectarSubtipoTmdb({ id: 5, origin_country: ["TR"], genres: [{ id: 18, name: "Drama" }] }, "SERIES")).toBe("NOVELA");
+
+    // Dorama (pais ou idioma asiatico)
+    expect(detectarSubtipoTmdb({ id: 6, origin_country: ["KR"], genre_ids: [18] }, "SERIES")).toBe("DORAMA");
+    expect(detectarSubtipoTmdb({ id: 7, original_language: "ja", genre_ids: [18] }, "SERIES")).toBe("DORAMA");
+
+    // Serie ocidental normal
+    expect(detectarSubtipoTmdb({ id: 8, origin_country: ["US"], genre_ids: [18] }, "SERIES")).toBeNull();
+
+    // Override manual
+    expect(detectarSubtipoTmdb({ id: 9 }, "SERIES", "NOVELA")).toBe("NOVELA");
   });
 
   it("RAWG preserva a imagem em alta resolucao", () => {
