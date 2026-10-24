@@ -132,7 +132,7 @@ describe("TrackingService.marcarEpisodios", () => {
       { season: 1, episode: 1 },
       { season: 1, episode: 2 }
     ];
-    const { service, chamadas } = montar((op) => {
+    const { service, chamadas, catalogo } = montar((op) => {
       if (op.table === "EpisodeProgress" && op.action === "select") {
         return { data: assistidos };
       }
@@ -144,6 +144,7 @@ describe("TrackingService.marcarEpisodios", () => {
 
     const resultado = await service.marcarEpisodios("u1", "tmdb_series_1", { season: 1, episodes: [1, 2, 2], watched: true });
 
+    expect(catalogo.garantirNoBanco).toHaveBeenCalledWith("tmdb_series_1");
     const upsert = chamadas.find((c) => c.table === "EpisodeProgress" && c.action === "upsert")!;
     // Episodio repetido e enviado uma vez so.
     expect(upsert.payload).toHaveLength(2);

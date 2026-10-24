@@ -213,6 +213,7 @@ export class TrackingService {
 
   // Grava episodios em lote (importacao) e recalcula o progresso, sem gerar atividade.
   async importarEpisodios(userId: string, mediaItemId: string, episodios: Array<{ season: number; episode: number }>) {
+    await this.catalogoService.garantirNoBanco(mediaItemId);
     const unicos = [
       ...new Map(episodios.map((e) => [`${e.season}:${e.episode}`, e])).values()
     ];
@@ -237,8 +238,11 @@ export class TrackingService {
 
   async marcarEpisodios(authUserId: string, mediaItemId: string, payload: MarcarEpisodiosDto) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    // Valida que e uma serie antes de gravar qualquer coisa.
-    const total = await this.catalogoService.totalEpisodiosExibidos(mediaItemId);
+    // Valida que e uma serie e garante que o MediaItem exista no banco antes de gravar EpisodeProgress.
+    const [total] = await Promise.all([
+      this.catalogoService.totalEpisodiosExibidos(mediaItemId),
+      this.catalogoService.garantirNoBanco(mediaItemId)
+    ]);
     const episodios = [...new Set(payload.episodes)];
 
     if (payload.watched) {

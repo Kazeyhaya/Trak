@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contextos/auth-context";
-import { ehRotaPrivada } from "../lib/rotas";
 
 export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
@@ -12,9 +11,7 @@ export function SiteHeader() {
 
   async function handleSignOut() {
     await signOut();
-    if (ehRotaPrivada(pathname)) {
-      router.replace("/entrar");
-    }
+    router.replace("/entrar");
     router.refresh();
   }
   const navItems = [

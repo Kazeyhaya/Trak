@@ -1,9 +1,5 @@
 /* Navegacao */
 
-.site-nav {
-  flex-wrap: wrap;
-}
-
 .site-nav a[aria-current="page"] {
   color: var(--text);
   background: rgba(124, 225, 199, 0.1);
