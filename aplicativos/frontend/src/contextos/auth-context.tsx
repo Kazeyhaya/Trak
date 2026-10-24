@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: naoConfigurado, hasSession: false };
     }
     const emailLimpo = email.trim().toLowerCase();
-    const emailRedirectTo = typeof window !== "undefined" ? `${window.location.origin}/painel` : undefined;
+    const emailRedirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
     const { data, error } = await supabase.auth.signUp({
       email: emailLimpo,
       password,

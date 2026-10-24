@@ -25,7 +25,7 @@ describe("destinoSeguro", () => {
   it.each([undefined, null, "", "https://evil.com", "//evil.com", "/\\evil.com", "javascript:alert(1)"])(
     "bloqueia redirecionamento aberto: %p",
     (next) => {
-      expect(destinoSeguro(next)).toBe("/painel");
+      expect(destinoSeguro(next)).toBe("/");
     }
   );
 

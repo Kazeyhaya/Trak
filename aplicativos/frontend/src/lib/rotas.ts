@@ -6,7 +6,7 @@ export function ehRotaPrivada(pathname: string) {
 }
 
 // So aceita caminhos internos, para o ?next= nao virar um redirecionamento aberto.
-export function destinoSeguro(next: string | null | undefined, padrao = "/painel") {
+export function destinoSeguro(next: string | null | undefined, padrao = "/") {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
     return padrao;
   }

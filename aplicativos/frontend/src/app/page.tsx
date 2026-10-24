@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { MediaGrid } from "../componentes/media-grid";
 import { SectionHeading } from "../componentes/section-heading";
@@ -8,7 +7,6 @@ import { UiBadge } from "../componentes/ui-badge";
 import { UiButton } from "../componentes/ui-button";
 import { UiCard } from "../componentes/ui-card";
 import { getCatalogItems } from "../lib/catalogo-api";
-import { usuarioDoServidor } from "../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +55,6 @@ const features = [
 ];
 
 export default async function Home() {
-  if (await usuarioDoServidor()) {
-    redirect("/painel");
-  }
-
   const { items, offline } = await getCatalogItems();
   const destaques = offline ? [] : items.filter((item) => item.coverUrl).slice(0, 8);
 

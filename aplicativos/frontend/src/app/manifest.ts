@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Trak",
     description: "Acompanhe o que você assiste, joga e lê.",
     lang: "pt-BR",
-    start_url: "/painel",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     background_color: "#06101c",
