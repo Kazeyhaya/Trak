@@ -35,6 +35,7 @@
   }
 
   .item-poster--landscape {
+    aspect-ratio: 16 / 9;
     width: min(100%, 460px);
   }
 }
