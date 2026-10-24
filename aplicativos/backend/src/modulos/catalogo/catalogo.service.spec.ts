@@ -268,8 +268,8 @@ describe("CatalogoService.extras", () => {
     expect(extras.genres).toEqual(["Drama"]);
     expect(extras.trakRating).toEqual({ average: 4.5, count: 2 });
     expect(extras.watchProviders).toEqual([
-      { name: "Netflix", category: "STREAMING", url: "https://tmdb.org/watch" },
-      { name: "Apple TV", category: "RENT", url: "https://tmdb.org/watch" }
+      { name: "Netflix", category: "STREAMING", url: "https://www.netflix.com/search?q=Clube%20da%20Luta" },
+      { name: "Apple TV", category: "RENT", url: "https://tv.apple.com/br/search?term=Clube%20da%20Luta" }
     ]);
     expect(extras.externalRatings).toEqual([
       { source: "IMDb", value: "8.8/10" },

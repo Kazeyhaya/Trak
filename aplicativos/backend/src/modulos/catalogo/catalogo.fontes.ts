@@ -100,7 +100,7 @@ export type RawgItem = {
   rating?: number;
   metacritic?: number | null;
   genres?: Array<{ name: string; slug: string }>;
-  stores?: Array<{ url?: string; store?: { name: string; domain?: string } }>;
+  stores?: Array<{ id?: number; url?: string; store?: { id?: number; name: string; domain?: string } }>;
 };
 
 export type OpenLibraryDoc = {
@@ -211,4 +211,132 @@ export function normalizarTitulo(titulo: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+export function urlProvedorStreaming(providerName: string, titulo: string, fallbackUrl?: string | null): string {
+  const n = providerName.toLowerCase();
+  const q = encodeURIComponent(titulo.trim());
+
+  if (n.includes("netflix")) {
+    return `https://www.netflix.com/search?q=${q}`;
+  }
+  if (n.includes("amazon") || n.includes("prime video")) {
+    return `https://www.primevideo.com/search?phrase=${q}`;
+  }
+  if (n.includes("apple tv") || n.includes("itunes")) {
+    return `https://tv.apple.com/br/search?term=${q}`;
+  }
+  if (n.includes("disney")) {
+    return `https://www.disneyplus.com/pt-br`;
+  }
+  if (n === "max" || n.includes("hbo max") || n.includes("max amazon")) {
+    return `https://play.max.com/search?q=${q}`;
+  }
+  if (n.includes("globoplay") || n.includes("telecine")) {
+    return `https://globoplay.globo.com/busca/?q=${q}`;
+  }
+  if (n.includes("crunchyroll")) {
+    return `https://www.crunchyroll.com/pt-br/search?q=${q}`;
+  }
+  if (n.includes("paramount")) {
+    return `https://www.paramountplus.com/br/`;
+  }
+  if (n.includes("claro")) {
+    return `https://www.clarotvmais.com.br/`;
+  }
+  if (n.includes("google play") || n.includes("google tv")) {
+    return `https://tv.google/search?q=${q}`;
+  }
+  if (n.includes("youtube")) {
+    return `https://www.youtube.com/results?search_query=${q}`;
+  }
+  if (n.includes("microsoft")) {
+    return `https://www.microsoft.com/pt-br/search/explore?q=${q}`;
+  }
+  if (n.includes("plex")) {
+    return `https://watch.plex.tv/search?q=${q}`;
+  }
+  if (n.includes("fandango") || n.includes("vudu")) {
+    return `https://athome.fandango.com/content/browse/search?searchString=${q}`;
+  }
+  if (n.includes("mubi")) {
+    return `https://mubi.com/pt/search/films?query=${q}`;
+  }
+  if (n.includes("looke")) {
+    return `https://www.looke.com.br/search/${q}`;
+  }
+  if (n.includes("pluto")) {
+    return `https://pluto.tv/br/search`;
+  }
+  if (n.includes("mercado play") || n.includes("mercado livre")) {
+    return `https://play.mercadolivre.com.br/`;
+  }
+  if (n.includes("oldflix")) {
+    return `https://www.oldflix.com.br/`;
+  }
+  if (n.includes("filmicca")) {
+    return `https://filmicca.com.br/`;
+  }
+  if (n.includes("belas artes")) {
+    return `https://www.belasartesalacarte.com.br/`;
+  }
+  if (n.includes("imovision")) {
+    return `https://www.reservaimovision.com.br/`;
+  }
+  if (n.includes("hulu")) {
+    return `https://www.hulu.com/`;
+  }
+  if (n.includes("peacock")) {
+    return `https://www.peacocktv.com/`;
+  }
+  if (n.includes("mgm")) {
+    return `https://www.mgmplus.com/`;
+  }
+
+  return fallbackUrl || `https://www.google.com/search?q=${encodeURIComponent(`Assistir ${titulo} ${providerName}`)}`;
+}
+
+export function urlLojaJogo(
+  storeName: string,
+  titulo: string,
+  directUrl?: string | null,
+  domain?: string | null
+): string {
+  if (directUrl && directUrl.startsWith("http")) {
+    return directUrl;
+  }
+  const n = storeName.toLowerCase();
+  const q = encodeURIComponent(titulo.trim());
+
+  if (n.includes("steam")) {
+    return `https://store.steampowered.com/search/?term=${q}`;
+  }
+  if (n.includes("playstation")) {
+    return `https://store.playstation.com/pt-br/search/${q}`;
+  }
+  if (n.includes("xbox")) {
+    return `https://www.xbox.com/pt-br/Search/Results?q=${q}`;
+  }
+  if (n.includes("nintendo")) {
+    return `https://www.nintendo.com/pt-br/search/#q=${q}`;
+  }
+  if (n.includes("epic")) {
+    return `https://store.epicgames.com/pt-BR/browse?q=${q}`;
+  }
+  if (n.includes("gog")) {
+    return `https://www.gog.com/en/games?query=${q}`;
+  }
+  if (n.includes("itch")) {
+    return `https://itch.io/search?q=${q}`;
+  }
+  if (n.includes("app store") || n.includes("apple")) {
+    return `https://www.apple.com/br/search/${q}?src=serp`;
+  }
+  if (n.includes("google play")) {
+    return `https://play.google.com/store/search?q=${q}&c=apps`;
+  }
+  if (domain) {
+    return domain.startsWith("http") ? domain : `https://${domain}`;
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent(`${titulo} ${storeName}`)}`;
 }

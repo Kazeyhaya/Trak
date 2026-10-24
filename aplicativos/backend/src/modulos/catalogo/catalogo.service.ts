@@ -18,7 +18,9 @@ import {
   parsearId,
   RawgItem,
   TMDB_GENERO_ANIMACAO,
-  TmdbItem
+  TmdbItem,
+  urlLojaJogo,
+  urlProvedorStreaming
 } from "./catalogo.fontes";
 import { Episodio, ExtrasCatalogo, ItemCatalogo, NotaExterna, Novidade, ProvedorOndeAssistir, Temporada } from "./catalogo.types";
 
@@ -380,13 +382,18 @@ export class CatalogoService implements OnModuleInit {
       }
 
       const br = providersData?.results?.BR ?? providersData?.results?.US;
+      const tituloMidia = item?.title ?? item?.name ?? "";
       const vistos = new Set<string>();
       const watchProviders: ProvedorOndeAssistir[] = [];
       const adicionar = (lista: Array<{ provider_name: string }> | undefined, category: ProvedorOndeAssistir["category"]) => {
         for (const p of lista ?? []) {
           if (!vistos.has(p.provider_name)) {
             vistos.add(p.provider_name);
-            watchProviders.push({ name: p.provider_name, category, url: br?.link ?? null });
+            watchProviders.push({
+              name: p.provider_name,
+              category,
+              url: urlProvedorStreaming(p.provider_name, tituloMidia, br?.link ?? null)
+            });
           }
         }
       };
@@ -399,7 +406,7 @@ export class CatalogoService implements OnModuleInit {
       return {
         genres: (item?.genres ?? []).map((g) => g.name),
         watchProviders,
-        watchLink: br?.link ?? null,
+        watchLink: watchProviders[0]?.url ?? br?.link ?? null,
         trakRating,
         externalRatings
       };
@@ -420,20 +427,24 @@ export class CatalogoService implements OnModuleInit {
         externalRatings.push({ source: "RAWG", value: `${jogo.rating.toFixed(1)}/5` });
       }
 
-      const urlsPorNome = new Map<string, string>();
+      const urlPorStoreId = new Map<number, string>();
       for (const s of lojasData?.results ?? []) {
-        if (s.url) {
-          urlsPorNome.set(s.url, s.url);
+        if (s.store_id && s.url) {
+          urlPorStoreId.set(s.store_id, s.url);
         }
       }
 
+      const tituloJogo = jogo?.name ?? "";
       const watchProviders: ProvedorOndeAssistir[] = (jogo?.stores ?? [])
         .filter((s) => s.store?.name)
-        .map((s) => ({
-          name: s.store!.name,
-          category: "STORE" as const,
-          url: s.url || (s.store?.domain ? `https://${s.store.domain}` : null)
-        }));
+        .map((s) => {
+          const directUrl = (s.store?.id ? urlPorStoreId.get(s.store.id) : undefined) || s.url || null;
+          return {
+            name: s.store!.name,
+            category: "STORE" as const,
+            url: urlLojaJogo(s.store!.name, tituloJogo, directUrl, s.store?.domain)
+          };
+        });
 
       return {
         genres: (jogo?.genres ?? []).map((g) => g.name),
@@ -457,9 +468,27 @@ export class CatalogoService implements OnModuleInit {
     }
 
     const openLibraryUrl = `https://openlibrary.org/works/${parsed.externalId}`;
+    const tituloLivro = livro?.title ?? "";
+    const watchProviders: ProvedorOndeAssistir[] = [
+      { name: "Open Library", category: "READ", url: openLibraryUrl },
+      ...(tituloLivro
+        ? [
+            {
+              name: "Amazon Livros",
+              category: "STORE" as const,
+              url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
+            },
+            {
+              name: "Google Livros",
+              category: "READ" as const,
+              url: `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(tituloLivro)}`
+            }
+          ]
+        : [])
+    ];
     return {
       genres: (livro?.subjects ?? []).slice(0, 5),
-      watchProviders: [{ name: "Open Library", category: "READ", url: openLibraryUrl }],
+      watchProviders,
       watchLink: openLibraryUrl,
       trakRating,
       externalRatings
