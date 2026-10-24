@@ -64,7 +64,7 @@ export function CatalogShell({
         </div>
       </section>
 
-      <FilterBar key={`${query}|${typeFilter}|${genreFilter}`} />
+      <FilterBar />
 
       {offline && (
         <p className="auth-notice" role="status">

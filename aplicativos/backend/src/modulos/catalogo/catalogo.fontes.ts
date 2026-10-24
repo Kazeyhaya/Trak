@@ -193,9 +193,10 @@ export function detectarSubtipoTmdb(
 
   const genres = extrairGenreIds(item);
 
-  // Animacao / Anime
+  // Animacao: diferencia Anime (producoes japonesas) de Animacao geral (Disney, Pixar, ocidental, etc.)
   if (genres.includes(TMDB_GENERO_ANIMACAO)) {
-    return "ANIME";
+    const ehJapones = item.origin_country?.includes("JP") || item.original_language === "ja";
+    return ehJapones ? "ANIME" : "ANIMACAO";
   }
 
   // Apenas series podem ser classificadas como Novela ou Dorama

@@ -306,7 +306,7 @@ export class CatalogoService implements OnModuleInit {
           (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO) && (!tmdbGenre || item.genre_ids?.includes(tmdbGenre)))
       )
       .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, type, "ANIME"));
+      .map((item) => mapearTmdb(item, type));
   }
 
   private async listarNovelas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {

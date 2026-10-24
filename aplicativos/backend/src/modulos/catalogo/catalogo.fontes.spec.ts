@@ -46,10 +46,15 @@ describe("mapeadores", () => {
     });
   });
 
-  it("detectarSubtipoTmdb classifica anime, novela e dorama corretamente", () => {
-    // Animacao
-    expect(detectarSubtipoTmdb({ id: 1, genre_ids: [16] }, "SERIES")).toBe("ANIME");
-    expect(detectarSubtipoTmdb({ id: 2, genres: [{ id: 16, name: "Animation" }] }, "MOVIE")).toBe("ANIME");
+  it("detectarSubtipoTmdb classifica anime, animacao, novela e dorama corretamente", () => {
+    // Animacao geral (nao japonesa: Disney, Pixar, ocidental)
+    expect(detectarSubtipoTmdb({ id: 1, genre_ids: [16] }, "SERIES")).toBe("ANIMACAO");
+    expect(detectarSubtipoTmdb({ id: 2, genres: [{ id: 16, name: "Animation" }] }, "MOVIE")).toBe("ANIMACAO");
+    expect(detectarSubtipoTmdb({ id: 21, origin_country: ["US"], genre_ids: [16] }, "MOVIE")).toBe("ANIMACAO");
+
+    // Anime (animacao japonesa)
+    expect(detectarSubtipoTmdb({ id: 22, origin_country: ["JP"], genre_ids: [16] }, "SERIES")).toBe("ANIME");
+    expect(detectarSubtipoTmdb({ id: 23, original_language: "ja", genre_ids: [16] }, "MOVIE")).toBe("ANIME");
 
     // Novela (soap ou pais latino/turco com drama)
     expect(detectarSubtipoTmdb({ id: 3, genre_ids: [10766] }, "SERIES")).toBe("NOVELA");

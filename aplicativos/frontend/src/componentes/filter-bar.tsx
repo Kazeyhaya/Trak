@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 const filters = [
   { label: "Todos", value: "" },
@@ -134,10 +134,28 @@ export function FilterBar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // O CatalogShell remonta este componente (via key) quando a URL muda.
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [activeType, setActiveType] = useState(normalizeValue(searchParams.get("type")));
-  const [activeGenre, setActiveGenre] = useState(normalizeValue(searchParams.get("genre")));
+
+  const urlQuery = searchParams.get("q") ?? "";
+  const urlType = normalizeValue(searchParams.get("type"));
+  const urlGenre = normalizeValue(searchParams.get("genre"));
+
+  const [query, setQuery] = useState(urlQuery);
+  const [activeType, setActiveType] = useState(urlType);
+  const [activeGenre, setActiveGenre] = useState(urlGenre);
+  const [isPending, startTransition] = useTransition();
+
+  // Sincroniza se a URL mudar externamente (ex: botao "Limpar busca" ou voltar no historico)
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
+
+  useEffect(() => {
+    setActiveType(urlType);
+  }, [urlType]);
+
+  useEffect(() => {
+    setActiveGenre(urlGenre);
+  }, [urlGenre]);
 
   const availableGenres = GENRES_BY_TYPE[activeType] ?? GENRES_BY_TYPE[""];
 
@@ -165,24 +183,89 @@ export function FilterBar() {
     const nextQueryString = params.toString();
     const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
 
-    router.replace(targetUrl, { scroll: false });
+    startTransition(() => {
+      router.replace(targetUrl, { scroll: false });
+    });
   }
+
+  // Busca em tempo real com debounce de 300ms enquanto o usuario digita
+  useEffect(() => {
+    const currentQ = (searchParams.get("q") ?? "").trim();
+    if (query.trim() === currentQ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      updateUrl(query, activeType, activeGenre);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     updateUrl(query, activeType, activeGenre);
   }
 
+  function handleClear() {
+    setQuery("");
+    updateUrl("", activeType, activeGenre);
+  }
+
   return (
     <form className="filter-bar" aria-label="Filtros do catálogo" onSubmit={handleSubmit}>
       <label className="filter-search">
         <span className="sr-only">Buscar no catálogo</span>
+        <svg
+          className="filter-search-icon"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              handleClear();
+            }
+          }}
           placeholder="Buscar filmes, séries, jogos e livros"
         />
+        {isPending ? (
+          <span className="filter-search-spinner" aria-label="Buscando..." />
+        ) : query ? (
+          <button
+            type="button"
+            className="filter-search-clear"
+            aria-label="Limpar busca"
+            onClick={handleClear}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        ) : null}
       </label>
 
       <div className="filter-controls-row">
