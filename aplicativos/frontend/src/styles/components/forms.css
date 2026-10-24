@@ -22,7 +22,7 @@
   font-size: 0.92rem;
 }
 
-.field-stack input {
+.field-stack input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
   width: 100%;
   min-height: 48px;
   padding: 0 14px;
@@ -30,6 +30,13 @@
   border: 1px solid rgba(160, 184, 214, 0.16);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
+}
+
+.field-stack input[type="checkbox"],
+.field-stack input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
 }
 
 .field-stack input::placeholder {

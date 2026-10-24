@@ -1,8 +1,8 @@
-import type { CatalogItem, MediaType } from "./catalogo-api";
+import { type CatalogItem, type MediaType, getMediaTypeLabel } from "./catalogo-api";
 import { API_BASE_URL } from "./api-base";
 import { supabase } from "./supabase-client";
 
-export { API_BASE_URL };
+export { API_BASE_URL, type CatalogItem, type MediaType, getMediaTypeLabel };
 
 export class ApiError extends Error {
   constructor(
@@ -215,11 +215,16 @@ export const reportComment = (commentId: string, reason: string, details?: strin
 
 // Perfis, seguidores e feed
 
+export type ProfileTheme = "emerald" | "ocean" | "cyberpunk" | "amber" | "crimson";
+
 export type Profile = {
   username: string;
   displayName: string | null;
   bio: string | null;
   isPublic: boolean;
+  bannerUrl?: string | null;
+  theme?: ProfileTheme | string | null;
+  hasImported?: boolean;
 };
 
 export type ActivityType = "STATUS" | "RATING" | "COMMENT" | "FAVORITE" | "EPISODES";
@@ -234,6 +239,21 @@ export type Activity = {
   item: CatalogItem | null;
 };
 
+export type ProfileSummary = {
+  gamesCompleted: number;
+  booksRead: number;
+  moviesWatched: number;
+  seriesCompleted: number;
+  estimatedHours: number;
+};
+
+export type ProfileInProgressItem = {
+  item: CatalogItem;
+  status: TrackingStatus;
+  progress: number;
+  rating: number | null;
+};
+
 export type PublicProfile = {
   profile: Profile;
   followers: number;
@@ -242,6 +262,8 @@ export type PublicProfile = {
   isMe: boolean;
   isPrivate: boolean;
   stats: { total: number; byStatus: Partial<Record<TrackingStatus, number>>; averageRating: number | null } | null;
+  summary?: ProfileSummary | null;
+  inProgress?: ProfileInProgressItem[];
   favorites: CatalogItem[];
   activity: Activity[];
 };

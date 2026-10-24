@@ -61,6 +61,19 @@ export class ImportacaoService {
     }
 
     const userId = await this.supabaseService.resolverUserId(authUserId);
+    const db = this.supabaseService.getClient();
+    const { data: metaLinha } = await db
+      .from("Activity")
+      .select("id,data")
+      .eq("id", userId)
+      .maybeSingle();
+    const metaAtual =
+      metaLinha && !Array.isArray(metaLinha) ? ((metaLinha as { data?: Record<string, unknown> }).data ?? {}) : {};
+
+    if (metaAtual.hasImported) {
+      throw new BadRequestException("A importacao de historico ja foi realizada para esta conta.");
+    }
+
     const existentes = new Set((await this.trackingService.listarDoUsuario(userId)).map((r) => r.mediaItemId));
     const lote = candidatos.slice(0, MAX_ITENS);
     const resultado: ResultadoImportacao = { total: candidatos.length, imported: 0, skipped: 0, notFound: [] };
@@ -89,6 +102,15 @@ export class ImportacaoService {
         await this.trackingService.importarEpisodios(userId, item.id, candidato.episodios);
       }
       resultado.imported++;
+    });
+
+    await db.from("Activity").delete().eq("id", userId);
+    await db.from("Activity").insert({
+      id: userId,
+      userId,
+      type: "STATUS",
+      mediaItemId: null,
+      data: { ...metaAtual, kind: "PROFILE_META", hasImported: true }
     });
 
     resultado.skipped += Math.max(0, candidatos.length - MAX_ITENS);

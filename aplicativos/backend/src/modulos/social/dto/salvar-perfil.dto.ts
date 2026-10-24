@@ -25,4 +25,16 @@ export class SalvarPerfilDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @Transform(aparar)
+  @IsString()
+  @MaxLength(500)
+  bannerUrl?: string;
+
+  @IsOptional()
+  @Transform(aparar)
+  @IsString()
+  @MaxLength(30)
+  theme?: string;
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
@@ -7,8 +8,9 @@ import { MediaGrid } from "../../../componentes/media-grid";
 import { ProfileActions } from "../../../componentes/profile-actions";
 import { SectionHeading } from "../../../componentes/section-heading";
 import { SiteHeader } from "../../../componentes/site-header";
+import { UiBadge } from "../../../componentes/ui-badge";
 import { UiCard } from "../../../componentes/ui-card";
-import { getStatusLabel, PublicProfile, TRACKING_STATUSES } from "../../../lib/api";
+import { getMediaTypeLabel, getStatusLabel, PublicProfile } from "../../../lib/api";
 import { fetchJson } from "../../../lib/catalogo-api";
 import { tokenDoServidor } from "../../../lib/supabase-server";
 
@@ -45,31 +47,87 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     notFound();
   }
 
-  const { profile, stats } = data;
+  const { profile, stats, summary, inProgress = [] } = data;
+  const theme = profile.theme || "emerald";
+  const bannerUrl =
+    profile.bannerUrl ||
+    data.favorites[0]?.coverUrl ||
+    inProgress[0]?.item.coverUrl ||
+    null;
+  const avatarInitial = (profile.displayName || profile.username || "T").charAt(0).toUpperCase();
+  const topFavorites = data.favorites.slice(0, 4);
+  const moreFavorites = data.favorites.slice(4);
 
   return (
     <main className="content-shell">
       <SiteHeader />
 
-      <section className="profile-hero">
-        <div>
-          <h1>{profile.displayName || `@${profile.username}`}</h1>
-          {profile.displayName && <p>@{profile.username}</p>}
-          {profile.bio && <p>{profile.bio}</p>}
-          <div className="profile-counts">
-            <span>
-              <strong>{data.followers}</strong> seguidores
-            </span>
-            <span>
-              <strong>{data.following}</strong> seguindo
-            </span>
+      <section className={`profile-showcase-banner theme-${theme}`}>
+        {bannerUrl && (
+          <div
+            className="profile-showcase-backdrop"
+            style={{ backgroundImage: `url("${bannerUrl}")` }}
+            aria-hidden="true"
+          />
+        )}
+        <div className="profile-showcase-content">
+          <div className="profile-showcase-top">
+            <div className="profile-identity-row">
+              <div className="profile-avatar-badge" aria-hidden="true">
+                {avatarInitial}
+              </div>
+              <div className="profile-identity-copy">
+                <h1>{profile.displayName || `@${profile.username}`}</h1>
+                {profile.displayName && <p className="profile-handle">@{profile.username}</p>}
+                {profile.bio && <p className="profile-bio-text">{profile.bio}</p>}
+                <div className="profile-counts">
+                  <span>
+                    <strong>{data.followers}</strong> seguidores
+                  </span>
+                  <span>
+                    <strong>{data.following}</strong> seguindo
+                  </span>
+                  {stats && (
+                    <span>
+                      <strong>{stats.total}</strong> obras no catálogo
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <ProfileActions
+              username={profile.username}
+              initialIsMe={data.isMe}
+              initialFollowing={data.isFollowing}
+            />
           </div>
+
+          {!data.isPrivate && (summary || stats) && (
+            <div className="profile-cultural-badges" aria-label="Estatísticas culturais">
+              <div className="cultural-badge">
+                <strong>{summary?.gamesCompleted ?? 0}</strong>
+                <span>Jogos zerados</span>
+              </div>
+              <div className="cultural-badge">
+                <strong>{summary?.booksRead ?? 0}</strong>
+                <span>Livros lidos</span>
+              </div>
+              <div className="cultural-badge">
+                <strong>{(summary?.moviesWatched ?? 0) + (summary?.seriesCompleted ?? 0)}</strong>
+                <span>Filmes & Séries</span>
+              </div>
+              <div className="cultural-badge">
+                <strong>~{summary?.estimatedHours ?? 0}h</strong>
+                <span>Horas totais</span>
+              </div>
+              <div className="cultural-badge">
+                <strong>{stats?.averageRating ? `${stats.averageRating.toLocaleString("pt-BR")} ★` : "—"}</strong>
+                <span>Nota média</span>
+              </div>
+            </div>
+          )}
         </div>
-        <ProfileActions
-          username={profile.username}
-          initialIsMe={data.isMe}
-          initialFollowing={data.isFollowing}
-        />
       </section>
 
       {data.isPrivate ? (
@@ -79,29 +137,80 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         </UiCard>
       ) : (
         <>
-          {stats && (
-            <section className="tracking-grid">
-              <UiCard>
-                <span>No tracking</span>
-                <strong>{stats.total}</strong>
-              </UiCard>
-              {TRACKING_STATUSES.filter((status) => status === "WATCHING" || status === "COMPLETED").map((status) => (
-                <UiCard key={status}>
-                  <span>{getStatusLabel(status)}</span>
-                  <strong>{stats.byStatus[status] ?? 0}</strong>
-                </UiCard>
-              ))}
-              <UiCard>
-                <span>Nota média</span>
-                <strong>{stats.averageRating ? `${stats.averageRating.toLocaleString("pt-BR")} ★` : "—"}</strong>
-              </UiCard>
+          {inProgress.length > 0 && (
+            <section className="content-panel">
+              <SectionHeading
+                eyebrow="Em foco agora"
+                title="Obras do momento"
+                description="O que está sendo jogado, lido ou assistido atualmente."
+              />
+              <div className="featured-showcase-grid">
+                {inProgress.map(({ item, status, progress }) => (
+                  <Link key={item.id} href={`/itens/${item.id}`} className="featured-showcase-card">
+                    <div className="featured-showcase-art">
+                      {item.coverUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.coverUrl} alt={item.title} />
+                      ) : (
+                        <span className="media-card-orb" />
+                      )}
+                      <div className="featured-showcase-overlay">
+                        <UiBadge tone="primary">{getStatusLabel(status, item.type)}</UiBadge>
+                      </div>
+                    </div>
+                    <div className="featured-showcase-body">
+                      <span className="featured-showcase-type">{getMediaTypeLabel(item.type)}</span>
+                      <h3>{item.title}</h3>
+                      {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (
+                        <div className="featured-progress-wrap">
+                          <div className="featured-progress-bar">
+                            <span style={{ width: `${Math.min(100, progress)}%` }} />
+                          </div>
+                          <small>{progress}% concluído</small>
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </section>
           )}
 
-          {data.favorites.length > 0 && (
+          {topFavorites.length > 0 && (
             <section className="content-panel">
-              <SectionHeading eyebrow="Favoritos" title="Favoritos" description="Os itens marcados com estrela." />
-              <MediaGrid items={data.favorites} label="Favoritos" />
+              <SectionHeading
+                eyebrow="Vitrine"
+                title="Favoritos em destaque"
+                description="As principais obras marcadas como favoritas."
+              />
+              <div className="featured-showcase-grid">
+                {topFavorites.map((item, index) => (
+                  <Link key={item.id} href={`/itens/${item.id}`} className="featured-showcase-card">
+                    <div className="featured-showcase-art">
+                      {item.coverUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.coverUrl} alt={item.title} />
+                      ) : (
+                        <span className="media-card-orb" />
+                      )}
+                      <div className="featured-showcase-overlay">
+                        <UiBadge tone="secondary">#{index + 1} Favorito</UiBadge>
+                      </div>
+                    </div>
+                    <div className="featured-showcase-body">
+                      <span className="featured-showcase-type">{getMediaTypeLabel(item.type)}</span>
+                      <h3>{item.title}</h3>
+                      {item.releaseYear && <small>{item.releaseYear}</small>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {moreFavorites.length > 0 && (
+                <div style={{ marginTop: "20px" }}>
+                  <MediaGrid items={moreFavorites} label="Outros favoritos" />
+                </div>
+              )}
             </section>
           )}
 

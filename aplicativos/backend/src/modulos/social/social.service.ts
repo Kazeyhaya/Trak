@@ -45,6 +45,13 @@ type Atividade = {
   createdAt: string;
 };
 
+type MetaPerfil = {
+  kind: "PROFILE_META";
+  bannerUrl?: string | null;
+  theme?: string | null;
+  hasImported?: boolean;
+};
+
 function falha(error: { message: string } | null) {
   if (error) {
     throw new InternalServerErrorException(error.message);
@@ -86,6 +93,41 @@ export class SocialService {
     return new Map(((data ?? []) as LinhaUser[]).map((linha) => [linha.id, perfilDe(linha)]));
   }
 
+  private async lerMetaPerfil(userId: string): Promise<MetaPerfil> {
+    const { data } = await this.db
+      .from("Activity")
+      .select("id,data")
+      .eq("id", userId)
+      .maybeSingle();
+    const linha = data && !Array.isArray(data) ? (data as { data?: MetaPerfil }) : null;
+    const meta = linha?.data;
+    return {
+      kind: "PROFILE_META",
+      bannerUrl: typeof meta?.bannerUrl === "string" ? meta.bannerUrl : null,
+      theme: typeof meta?.theme === "string" ? meta.theme : "emerald",
+      hasImported: Boolean(meta?.hasImported)
+    };
+  }
+
+  async salvarMetaPerfil(userId: string, parcial: Partial<Omit<MetaPerfil, "kind">>) {
+    const atual = await this.lerMetaPerfil(userId);
+    const novo: MetaPerfil = {
+      kind: "PROFILE_META",
+      bannerUrl: parcial.bannerUrl !== undefined ? (parcial.bannerUrl || null) : (atual.bannerUrl ?? null),
+      theme: parcial.theme !== undefined ? (parcial.theme || "emerald") : (atual.theme ?? "emerald"),
+      hasImported: parcial.hasImported !== undefined ? parcial.hasImported : Boolean(atual.hasImported)
+    };
+    await this.db.from("Activity").delete().eq("id", userId);
+    await this.db.from("Activity").insert({
+      id: userId,
+      userId,
+      type: "STATUS",
+      mediaItemId: null,
+      data: novo
+    });
+    return novo;
+  }
+
   private async filtrarAtividadesValidas(atividades: Atividade[]) {
     if (atividades.length === 0) {
       return [];
@@ -101,8 +143,8 @@ export class SocialService {
     const paresFavorito = new Set((favoritos ?? []).map((f) => `${f.userId}:${f.mediaItemId}`));
 
     return atividades.filter((a) => {
-      if (!a.mediaItemId) {
-        return true;
+      if (!a.mediaItemId || a.data?.kind === "PROFILE_META") {
+        return false;
       }
       if (a.type === "STATUS" || a.type === "RATING" || a.type === "EPISODES") {
         return paresTracking.has(`${a.userId}:${a.mediaItemId}`);
@@ -137,13 +179,25 @@ export class SocialService {
     const userId = await this.supabaseService.resolverUserId(usuario.id);
     const { data, error } = await this.db.from("User").select(CAMPOS_PERFIL).eq("id", userId).maybeSingle();
     falha(error);
+    const meta = data ? await this.lerMetaPerfil(userId) : null;
 
-    return { profile: data ? perfilDe(data as LinhaUser) : null, isAdmin: ehAdmin(usuario.email) };
+    return {
+      profile: data
+        ? {
+            ...perfilDe(data as LinhaUser),
+            bannerUrl: meta?.bannerUrl ?? null,
+            theme: meta?.theme ?? "emerald",
+            hasImported: Boolean(meta?.hasImported)
+          }
+        : null,
+      isAdmin: ehAdmin(usuario.email)
+    };
   }
 
   async salvarPerfil(authUserId: string, payload: SalvarPerfilDto, email?: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    const valores = Object.fromEntries(Object.entries(payload).filter(([, valor]) => valor !== undefined));
+    const { bannerUrl, theme, ...camposUser } = payload;
+    const valores = Object.fromEntries(Object.entries(camposUser).filter(([, valor]) => valor !== undefined));
     const agora = new Date().toISOString();
 
     // A linha em "User" normalmente ja existe (trigger de cadastro); se nao, e criada aqui.
@@ -174,7 +228,24 @@ export class SocialService {
       throw new ConflictException("Este nome de usuario ja esta em uso.");
     }
     falha(resultado.error);
-    return perfilDe(resultado.data as LinhaUser);
+
+    let meta: MetaPerfil | null = null;
+    if (bannerUrl !== undefined || theme !== undefined) {
+      meta = await this.salvarMetaPerfil(userId, {
+        ...(bannerUrl !== undefined ? { bannerUrl: bannerUrl || null } : {}),
+        ...(theme !== undefined ? { theme: theme || "emerald" } : {})
+      });
+    }
+
+    const perfilBase = perfilDe(resultado.data as LinhaUser);
+    return meta
+      ? {
+          ...perfilBase,
+          bannerUrl: meta.bannerUrl ?? null,
+          theme: meta.theme ?? "emerald",
+          hasImported: Boolean(meta.hasImported)
+        }
+      : perfilBase;
   }
 
   // Perfil publico
@@ -200,7 +271,7 @@ export class SocialService {
     const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
     const isMe = visitanteId === perfil.userId;
 
-    const [seguidores, seguindo, segueEle] = await Promise.all([
+    const [seguidores, seguindo, segueEle, meta] = await Promise.all([
       this.db.from("Follow").select("followerId", { count: "exact", head: true }).eq("followingId", perfil.userId),
       this.db.from("Follow").select("followingId", { count: "exact", head: true }).eq("followerId", perfil.userId),
       visitanteId && !isMe
@@ -210,11 +281,19 @@ export class SocialService {
             .eq("followerId", visitanteId)
             .eq("followingId", perfil.userId)
             .maybeSingle()
-        : Promise.resolve({ data: null, error: null })
+        : Promise.resolve({ data: null, error: null }),
+      this.lerMetaPerfil(perfil.userId)
     ]);
 
     const base = {
-      profile: { username: perfil.username, displayName: perfil.displayName, bio: perfil.bio, isPublic: perfil.isPublic },
+      profile: {
+        username: perfil.username,
+        displayName: perfil.displayName,
+        bio: perfil.bio,
+        isPublic: perfil.isPublic,
+        bannerUrl: meta.bannerUrl ?? null,
+        theme: meta.theme ?? "emerald"
+      },
       followers: seguidores.count ?? 0,
       following: seguindo.count ?? 0,
       isFollowing: Boolean(segueEle.data),
@@ -222,11 +301,11 @@ export class SocialService {
     };
 
     if (!perfil.isPublic && !isMe) {
-      return { ...base, isPrivate: true, stats: null, favorites: [], activity: [] };
+      return { ...base, isPrivate: true, stats: null, summary: null, inProgress: [], favorites: [], activity: [] };
     }
 
     const [tracking, favoritos, atividades] = await Promise.all([
-      this.db.from(TABELA_TRACKING).select("status,personalRating").eq("userId", perfil.userId),
+      this.db.from(TABELA_TRACKING).select("mediaItemId,status,personalRating,progressCurrent").eq("userId", perfil.userId),
       this.db
         .from("Favorite")
         .select("mediaItemId")
@@ -242,7 +321,12 @@ export class SocialService {
     ]);
     falha(tracking.error);
 
-    const registros = (tracking.data ?? []) as Array<{ status: string; personalRating: number | null }>;
+    const registros = (tracking.data ?? []) as Array<{
+      mediaItemId?: string;
+      status: string;
+      personalRating: number | null;
+      progressCurrent?: number | null;
+    }>;
     const notas = registros.flatMap((r) => (r.personalRating ? [r.personalRating] : []));
     const porStatus = registros.reduce<Record<string, number>>((acc, r) => {
       const status = statusDoBanco(r.status);
@@ -250,7 +334,58 @@ export class SocialService {
       return acc;
     }, {});
     const idsFavoritos = (favoritos.data ?? []).map((f) => f.mediaItemId as string);
-    const itensFavoritos = await this.catalogoService.buscarSalvos(idsFavoritos);
+    const idsTracking = registros.flatMap((r) => (r.mediaItemId ? [r.mediaItemId] : []));
+    const itensMapa = await this.catalogoService.buscarSalvos([...new Set([...idsFavoritos, ...idsTracking])]);
+
+    let gamesCompleted = 0;
+    let booksRead = 0;
+    let moviesWatched = 0;
+    let seriesCompleted = 0;
+    let estimatedHours = 0;
+
+    for (const r of registros) {
+      const status = statusDoBanco(r.status);
+      const item = r.mediaItemId ? itensMapa.get(r.mediaItemId) : undefined;
+      const prog = Math.max(0, Math.min(100, r.progressCurrent ?? (status === "COMPLETED" ? 100 : 25)));
+
+      if (item?.type === "GAME") {
+        if (status === "COMPLETED") {
+          gamesCompleted++;
+          estimatedHours += 25;
+        } else if (status === "WATCHING" || status === "PAUSED") {
+          estimatedHours += Math.max(2, Math.round(25 * (prog / 100)));
+        }
+      } else if (item?.type === "BOOK") {
+        if (status === "COMPLETED") {
+          booksRead++;
+          estimatedHours += 8;
+        } else if (status === "WATCHING" || status === "PAUSED") {
+          estimatedHours += Math.max(1, Math.round(8 * (prog / 100)));
+        }
+      } else if (item?.type === "MOVIE") {
+        if (status === "COMPLETED") {
+          moviesWatched++;
+          estimatedHours += 2;
+        }
+      } else if (item?.type === "SERIES") {
+        if (status === "COMPLETED") {
+          seriesCompleted++;
+          estimatedHours += 12;
+        } else if (status === "WATCHING" || status === "PAUSED") {
+          estimatedHours += 5;
+        }
+      }
+    }
+
+    const inProgress = registros
+      .filter((r) => statusDoBanco(r.status) === "WATCHING" && r.mediaItemId && itensMapa.has(r.mediaItemId))
+      .slice(0, 4)
+      .map((r) => ({
+        item: itensMapa.get(r.mediaItemId!)!,
+        status: statusDoBanco(r.status),
+        progress: r.progressCurrent ?? 0,
+        rating: r.personalRating ?? null
+      }));
 
     return {
       ...base,
@@ -260,8 +395,16 @@ export class SocialService {
         byStatus: porStatus,
         averageRating: notas.length ? Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10 : null
       },
+      summary: {
+        gamesCompleted,
+        booksRead,
+        moviesWatched,
+        seriesCompleted,
+        estimatedHours
+      },
+      inProgress,
       favorites: idsFavoritos.flatMap((id) => {
-        const item = itensFavoritos.get(id);
+        const item = itensMapa.get(id);
         return item ? [item] : [];
       }),
       activity: await this.enriquecer(
