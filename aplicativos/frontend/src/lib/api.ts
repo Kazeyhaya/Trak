@@ -224,6 +224,7 @@ export type Profile = {
   isPublic: boolean;
   bannerUrl?: string | null;
   theme?: ProfileTheme | string | null;
+  importedSources?: string[];
   hasImported?: boolean;
 };
 

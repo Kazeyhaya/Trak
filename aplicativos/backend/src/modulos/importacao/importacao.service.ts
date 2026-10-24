@@ -47,6 +47,8 @@ async function emLotes<T, R>(itens: T[], limite: number, tarefa: (item: T) => Pr
   return resultados;
 }
 
+export type FonteImportacao = "letterboxd" | "trakt" | "steam";
+
 @Injectable()
 export class ImportacaoService {
   constructor(
@@ -55,23 +57,77 @@ export class ImportacaoService {
     private readonly trackingService: TrackingService
   ) {}
 
-  private async importar(authUserId: string, candidatos: Candidato[]): Promise<ResultadoImportacao> {
+  private async lerFontesImportadas(userId: string): Promise<{
+    fontes: string[];
+    metaLegado: Record<string, unknown>;
+  }> {
+    const db = this.supabaseService.getClient();
+    const { data: userRow, error } = await db
+      .from("User")
+      .select("importedSources")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!error && userRow && Array.isArray((userRow as { importedSources?: unknown }).importedSources)) {
+      return {
+        fontes: (userRow as { importedSources: string[] }).importedSources,
+        metaLegado: {}
+      };
+    }
+
+    const { data: metaLinha } = await db.from("Activity").select("id,data").eq("id", userId).maybeSingle();
+    const metaAtual =
+      metaLinha && !Array.isArray(metaLinha) ? ((metaLinha as { data?: Record<string, unknown> }).data ?? {}) : {};
+    const fontes = Array.isArray(metaAtual.importedSources) ? (metaAtual.importedSources as string[]) : [];
+    return { fontes, metaLegado: metaAtual };
+  }
+
+  private async registrarFonteImportada(
+    userId: string,
+    fonte: FonteImportacao,
+    atuais: string[],
+    metaLegado: Record<string, unknown>
+  ) {
+    const db = this.supabaseService.getClient();
+    const novasFontes = [...new Set([...atuais, fonte])];
+    const todasImportadas = ["letterboxd", "trakt", "steam"].every((f) => novasFontes.includes(f));
+
+    const { error } = await db
+      .from("User")
+      .update({ importedSources: novasFontes, updatedAt: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) {
+      await db.from("Activity").delete().eq("id", userId);
+      await db.from("Activity").insert({
+        id: userId,
+        userId,
+        type: "STATUS",
+        mediaItemId: null,
+        data: {
+          ...metaLegado,
+          kind: "PROFILE_META",
+          importedSources: novasFontes,
+          hasImported: todasImportadas
+        }
+      });
+    }
+  }
+
+  private async importar(
+    authUserId: string,
+    fonte: FonteImportacao,
+    candidatos: Candidato[]
+  ): Promise<ResultadoImportacao> {
     if (candidatos.length === 0) {
       throw new BadRequestException("Nenhum item encontrado no arquivo.");
     }
 
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    const db = this.supabaseService.getClient();
-    const { data: metaLinha } = await db
-      .from("Activity")
-      .select("id,data")
-      .eq("id", userId)
-      .maybeSingle();
-    const metaAtual =
-      metaLinha && !Array.isArray(metaLinha) ? ((metaLinha as { data?: Record<string, unknown> }).data ?? {}) : {};
+    const { fontes, metaLegado } = await this.lerFontesImportadas(userId);
 
-    if (metaAtual.hasImported) {
-      throw new BadRequestException("A importacao de historico ja foi realizada para esta conta.");
+    if (fontes.includes(fonte)) {
+      throw new BadRequestException(`A importacao de ${fonte} ja foi realizada para esta conta.`);
     }
 
     const existentes = new Set((await this.trackingService.listarDoUsuario(userId)).map((r) => r.mediaItemId));
@@ -104,14 +160,11 @@ export class ImportacaoService {
       resultado.imported++;
     });
 
-    await db.from("Activity").delete().eq("id", userId);
-    await db.from("Activity").insert({
-      id: userId,
-      userId,
-      type: "STATUS",
-      mediaItemId: null,
-      data: { ...metaAtual, kind: "PROFILE_META", hasImported: true }
-    });
+    // So marca a fonte como concluida se ao menos um item foi reconhecido,
+    // para nao bloquear o usuario caso envie um arquivo vazio ou incorreto.
+    if (resultado.imported > 0 || resultado.skipped > 0) {
+      await this.registrarFonteImportada(userId, fonte, fontes, metaLegado);
+    }
 
     resultado.skipped += Math.max(0, candidatos.length - MAX_ITENS);
     resultado.notFound = resultado.notFound.slice(0, 50);
@@ -128,6 +181,7 @@ export class ImportacaoService {
 
     return this.importar(
       authUserId,
+      "letterboxd",
       linhas.map((linha) => ({
         titulo: linha.ano ? `${linha.titulo} (${linha.ano})` : linha.titulo,
         status: linha.status,
@@ -149,6 +203,7 @@ export class ImportacaoService {
 
     return this.importar(
       authUserId,
+      "trakt",
       itens.map((item) => ({
         titulo: item.titulo,
         status: item.status,
@@ -184,6 +239,7 @@ export class ImportacaoService {
 
     return this.importar(
       authUserId,
+      "steam",
       jogos.map((jogo) => ({
         titulo: jogo.nome,
         status: jogo.minutos > 0 ? "WATCHING" : "WANT",

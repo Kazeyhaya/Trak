@@ -15,10 +15,15 @@ export type TmdbItem = {
   vote_count?: number;
   imdb_id?: string | null;
   external_ids?: { imdb_id?: string | null };
+  runtime?: number | null;
+  episode_run_time?: number[];
 };
 
 // Genero "Animacao" no TMDB (o mesmo id para filmes e series).
 export const TMDB_GENERO_ANIMACAO = 16;
+
+// Leitura media de ~40 paginas por hora (duracao estimada de livros).
+export const MINUTOS_POR_PAGINA = 1.5;
 
 export const GENEROS_CATALOGO = [
   "acao",
@@ -99,6 +104,7 @@ export type RawgItem = {
   description_raw?: string;
   rating?: number;
   metacritic?: number | null;
+  playtime?: number | null;
   genres?: Array<{ name: string; slug: string }>;
   stores?: Array<{ id?: number; url?: string; store?: { id?: number; name: string; domain?: string } }>;
 };

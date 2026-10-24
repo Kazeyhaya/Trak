@@ -13,6 +13,7 @@ import {
   mapearOpenLibrary,
   mapearRawg,
   mapearTmdb,
+  MINUTOS_POR_PAGINA,
   normalizarTitulo,
   OpenLibraryDoc,
   parsearId,
@@ -732,6 +733,94 @@ export class CatalogoService implements OnModuleInit {
   }
 
   // Persistencia
+
+  // Duracao estimada da obra inteira, em minutos (null quando a fonte nao informa).
+  async duracaoMinutos(id: string): Promise<number | null> {
+    const parsed = parsearId(id);
+
+    if (parsed?.source === "tmdb" && parsed.type === "MOVIE") {
+      const filme = await this.tmdb<TmdbItem>(`/movie/${parsed.externalId}`);
+      return filme?.runtime && filme.runtime > 0 ? filme.runtime : null;
+    }
+
+    if (parsed?.source === "tmdb" && parsed.type === "SERIES") {
+      const tv = await this.tmdb<TmdbTv>(`/tv/${parsed.externalId}`);
+      if (!tv) {
+        return null;
+      }
+      const porEpisodio = tv.episode_run_time?.find((m) => m > 0) ?? tv.last_episode_to_air?.runtime ?? null;
+      const episodios = await this.totalEpisodiosExibidos(id).catch(() => tv.number_of_episodes ?? 0);
+      return porEpisodio && episodios > 0 ? porEpisodio * episodios : null;
+    }
+
+    if (parsed?.source === "rawg") {
+      const jogo = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
+      return jogo?.playtime && jogo.playtime > 0 ? jogo.playtime * 60 : null;
+    }
+
+    if (parsed?.source === "openlibrary") {
+      const edicoes = await this.openLibrary<{ entries?: Array<{ number_of_pages?: number }> }>(
+        `/works/${parsed.externalId}/editions.json`,
+        { limit: "20" }
+      );
+      const paginas = (edicoes?.entries ?? [])
+        .map((e) => e.number_of_pages ?? 0)
+        .filter((p) => p > 0)
+        .sort((a, b) => a - b);
+      if (paginas.length === 0) {
+        return null;
+      }
+      const mediana = paginas[Math.floor(paginas.length / 2)];
+      return Math.round(mediana * MINUTOS_POR_PAGINA);
+    }
+
+    return null;
+  }
+
+  // Duracao de varios itens salvos. Itens ainda sem duracao sao calculados
+  // (no maximo `limiteNovos` por chamada) e gravados em MediaItem; quando a
+  // fonte nao informa, grava 0 para nao consultar de novo.
+  async duracoes(ids: string[], limiteNovos = 15): Promise<Map<string, number>> {
+    const unicos = [...new Set(ids)];
+    const resultado = new Map<string, number>();
+    if (unicos.length === 0) {
+      return resultado;
+    }
+
+    const db = this.supabaseService.getClient();
+    const { data, error } = await db.from("MediaItem").select("id,durationMinutes").in("id", unicos);
+    if (error) {
+      await Promise.all(
+        unicos.slice(0, limiteNovos).map(async (id) => {
+          const minutos = (await this.comCache(`dur:${id}`, () => this.duracaoMinutos(id)).catch(() => null)) ?? 0;
+          resultado.set(id, minutos);
+        })
+      );
+      return resultado;
+    }
+
+    const pendentes: string[] = [];
+    for (const linha of (data ?? []) as Array<{ id: string; durationMinutes: number | null }>) {
+      if (typeof linha.durationMinutes === "number") {
+        resultado.set(linha.id, linha.durationMinutes);
+      } else {
+        pendentes.push(linha.id);
+      }
+    }
+
+    await Promise.all(
+      pendentes.slice(0, limiteNovos).map(async (id) => {
+        const minutos = (await this.duracaoMinutos(id).catch(() => null)) ?? 0;
+        resultado.set(id, minutos);
+        const { error: updateError } = await db.from("MediaItem").update({ durationMinutes: minutos }).eq("id", id);
+        if (updateError) {
+          this.logger.warn(`Nao foi possivel salvar a duracao de ${id}: ${updateError.message}`);
+        }
+      })
+    );
+
+    return resultado;
+  }
 
   // Garante que o item exista em "MediaItem" antes de ser referenciado por
   // tracking, favoritos ou comentarios.
