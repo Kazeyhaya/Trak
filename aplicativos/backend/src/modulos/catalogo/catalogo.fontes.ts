@@ -17,10 +17,20 @@ export type TmdbItem = {
   external_ids?: { imdb_id?: string | null };
   runtime?: number | null;
   episode_run_time?: number[];
+  origin_country?: string[];
+  original_language?: string;
 };
 
 // Genero "Animacao" no TMDB (o mesmo id para filmes e series).
 export const TMDB_GENERO_ANIMACAO = 16;
+// Genero "Soap / Novela" no TMDB.
+export const TMDB_GENERO_NOVELA = 10766;
+export const TMDB_GENERO_REALITY = 10764;
+export const TMDB_GENERO_TALK = 10767;
+
+export const PAISES_DORAMA = ["KR", "JP", "CN", "TW", "TH"] as const;
+export const IDIOMAS_DORAMA = ["ko", "ja", "zh", "th"] as const;
+export const PAISES_NOVELA = ["BR", "MX", "TR", "CO", "PT", "AR", "ES", "VE", "CL", "PH"] as const;
 
 // Leitura media de ~40 paginas por hora (duracao estimada de livros).
 export const MINUTOS_POR_PAGINA = 1.5;

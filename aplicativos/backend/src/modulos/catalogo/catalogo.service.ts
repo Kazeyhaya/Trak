@@ -9,6 +9,7 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import {
   GeneroCatalogo,
   GENEROS_CATALOGO,
+  IDIOMAS_DORAMA,
   MAPA_GENEROS,
   mapearOpenLibrary,
   mapearRawg,
@@ -16,9 +17,14 @@ import {
   MINUTOS_POR_PAGINA,
   normalizarTitulo,
   OpenLibraryDoc,
+  PAISES_DORAMA,
+  PAISES_NOVELA,
   parsearId,
   RawgItem,
   TMDB_GENERO_ANIMACAO,
+  TMDB_GENERO_NOVELA,
+  TMDB_GENERO_REALITY,
+  TMDB_GENERO_TALK,
   TmdbItem,
   urlLojaJogo,
   urlProvedorStreaming
@@ -41,7 +47,7 @@ type TmdbEpisodio = {
   runtime?: number | null;
 };
 
-type FiltroTipo = "movie" | "series" | "game" | "book" | "anime";
+type FiltroTipo = "movie" | "series" | "game" | "book" | "anime" | "novela" | "dorama";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 1000;
@@ -200,7 +206,9 @@ export class CatalogoService implements OnModuleInit {
   async listar(query?: string, tipo?: string, genero?: string) {
     // Fontes sem chave configurada simplesmente nao retornam itens.
     const busca = query?.trim() || undefined;
-    const filtro = (["movie", "series", "game", "book", "anime"] as const).find((t) => t === tipo);
+    const filtro = (["movie", "series", "game", "book", "anime", "novela", "dorama"] as const).find(
+      (t) => t === tipo
+    );
     const generoValido = GENEROS_CATALOGO.find((g) => g === genero?.toLowerCase());
 
     // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
@@ -210,6 +218,14 @@ export class CatalogoService implements OnModuleInit {
         this.listarAnimacoes("movie", busca, generoValido)
       ]);
       return [...series, ...movies];
+    }
+
+    if (filtro === "novela") {
+      return this.listarNovelas(busca, generoValido);
+    }
+
+    if (filtro === "dorama") {
+      return this.listarDoramas(busca, generoValido);
     }
 
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
@@ -291,6 +307,106 @@ export class CatalogoService implements OnModuleInit {
       )
       .slice(0, LIMITE_POR_FONTE)
       .map((item) => mapearTmdb(item, type));
+  }
+
+  private async listarNovelas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+    const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
+    if (genero && !tmdbGenre) {
+      return [];
+    }
+
+    if (query) {
+      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query });
+      const paisesSet = new Set<string>(PAISES_NOVELA);
+      return (data?.results ?? [])
+        .filter((item) => {
+          if (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
+            return false;
+          }
+          if (tmdbGenre && !item.genre_ids?.includes(tmdbGenre)) {
+            return false;
+          }
+          const ehSoap = item.genre_ids?.includes(TMDB_GENERO_NOVELA);
+          const ehPaisNovela =
+            item.origin_country?.some((c) => paisesSet.has(c)) && item.genre_ids?.includes(18);
+          return Boolean(ehSoap || ehPaisNovela);
+        })
+        .slice(0, LIMITE_POR_FONTE)
+        .map((item) => mapearTmdb(item, "SERIES"));
+    }
+
+    const soapGenres = tmdbGenre
+      ? `${TMDB_GENERO_NOVELA},${tmdbGenre}`
+      : String(TMDB_GENERO_NOVELA);
+    const dramaGenres = tmdbGenre ? `18,${tmdbGenre}` : "18";
+    const without = `${TMDB_GENERO_ANIMACAO},${TMDB_GENERO_REALITY},${TMDB_GENERO_TALK}`;
+
+    const [porGeneroNovela, porPaises] = await Promise.all([
+      this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
+        with_genres: soapGenres,
+        without_genres: without,
+        sort_by: "popularity.desc"
+      }),
+      this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
+        with_origin_country: PAISES_NOVELA.join("|"),
+        with_genres: dramaGenres,
+        without_genres: without,
+        sort_by: "popularity.desc"
+      })
+    ]);
+
+    const vistos = new Set<number>();
+    const combinados: TmdbItem[] = [];
+    for (const item of [...(porGeneroNovela?.results ?? []), ...(porPaises?.results ?? [])]) {
+      if (!vistos.has(item.id) && !item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
+        vistos.add(item.id);
+        combinados.push(item);
+      }
+    }
+
+    return combinados.slice(0, LIMITE_POR_FONTE).map((item) => mapearTmdb(item, "SERIES"));
+  }
+
+  private async listarDoramas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+    const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
+    if (genero && !tmdbGenre) {
+      return [];
+    }
+
+    if (query) {
+      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query });
+      const paisesSet = new Set<string>(PAISES_DORAMA);
+      const idiomasSet = new Set<string>(IDIOMAS_DORAMA);
+      return (data?.results ?? [])
+        .filter((item) => {
+          if (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
+            return false;
+          }
+          if (tmdbGenre && !item.genre_ids?.includes(tmdbGenre)) {
+            return false;
+          }
+          const ehPaisAsiatico = item.origin_country?.some((c) => paisesSet.has(c));
+          const ehIdiomaAsiatico = item.original_language ? idiomasSet.has(item.original_language) : false;
+          return Boolean(ehPaisAsiatico || ehIdiomaAsiatico);
+        })
+        .slice(0, LIMITE_POR_FONTE)
+        .map((item) => mapearTmdb(item, "SERIES"));
+    }
+
+    const withGenres = tmdbGenre ? String(tmdbGenre) : "18";
+    const without = `${TMDB_GENERO_ANIMACAO},${TMDB_GENERO_REALITY},${TMDB_GENERO_TALK}`;
+
+    const data = await this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
+      with_origin_country: PAISES_DORAMA.join("|"),
+      with_genres: withGenres,
+      without_genres: without,
+      sort_by: "popularity.desc"
+    });
+
+    return (data?.results ?? [])
+      .filter((item) => !item.genre_ids?.includes(TMDB_GENERO_ANIMACAO))
+      .slice(0, LIMITE_POR_FONTE)
+      .map((item) => mapearTmdb(item, "SERIES"));
   }
 
   private async listarRawg(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {

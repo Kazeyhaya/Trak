@@ -7,6 +7,8 @@ const filters = [
   { label: "Todos", value: "" },
   { label: "Filmes", value: "movie" },
   { label: "Séries", value: "series" },
+  { label: "Novelas", value: "novela" },
+  { label: "Doramas", value: "dorama" },
   { label: "Animes e animações", value: "anime" },
   { label: "Jogos", value: "game" },
   { label: "Livros", value: "book" }
@@ -60,6 +62,25 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
     { label: "Família", value: "familia" },
     { label: "Guerra e Política", value: "guerra" },
     { label: "Faroeste", value: "faroeste" }
+  ],
+  novela: [
+    { label: "Todos os gêneros", value: "" },
+    { label: "Drama", value: "drama" },
+    { label: "Romance", value: "romance" },
+    { label: "Comédia", value: "comedia" },
+    { label: "Mistério", value: "misterio" },
+    { label: "Crime", value: "crime" },
+    { label: "Família", value: "familia" }
+  ],
+  dorama: [
+    { label: "Todos os gêneros", value: "" },
+    { label: "Drama", value: "drama" },
+    { label: "Romance", value: "romance" },
+    { label: "Comédia", value: "comedia" },
+    { label: "Ação e Aventura", value: "acao" },
+    { label: "Sci-Fi e Fantasia", value: "fantasia" },
+    { label: "Mistério", value: "misterio" },
+    { label: "Crime", value: "crime" }
   ],
   anime: [
     { label: "Todos os gêneros", value: "" },

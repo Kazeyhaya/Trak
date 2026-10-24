@@ -220,6 +220,39 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
     expect(String(fetch.mock.calls[0]?.[0])).toContain("without_genres=16");
   });
 
+  it("aba de novelas consulta o genero soap e paises produtores", async () => {
+    const fetch = mockFetch({
+      "/discover/tv": {
+        results: [
+          { id: 2190, name: "Avenida Brasil", genre_ids: [10766, 18], origin_country: ["BR"] }
+        ]
+      }
+    });
+
+    const itens = await criarServico().listar(undefined, "novela");
+
+    expect(itens.map((i) => i.title)).toEqual(["Avenida Brasil"]);
+    const urls = fetch.mock.calls.map(([url]) => String(url));
+    expect(urls.some((u) => u.includes("with_genres=10766"))).toBe(true);
+  });
+
+  it("aba de doramas consulta paises asiaticos e exclui animacoes", async () => {
+    const fetch = mockFetch({
+      "/discover/tv": {
+        results: [
+          { id: 93405, name: "Pousando no Amor", genre_ids: [18, 35], origin_country: ["KR"] }
+        ]
+      }
+    });
+
+    const itens = await criarServico().listar(undefined, "dorama");
+
+    expect(itens.map((i) => i.title)).toEqual(["Pousando no Amor"]);
+    const url = String(fetch.mock.calls[0]?.[0]);
+    expect(url).toContain("with_origin_country=KR%7CJP%7CCN%7CTW%7CTH");
+    expect(url).toContain("without_genres=16%2C10764%2C10767");
+  });
+
   it("filtra por genero em todas as fontes suportadas", async () => {
     const fetch = mockFetch({
       "/discover/movie": { results: [{ id: 10, title: "Filme Acao", genre_ids: [28] }] },
