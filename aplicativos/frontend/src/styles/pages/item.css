@@ -331,6 +331,13 @@
   font-size: 0.88rem;
 }
 
+.item-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .comment-list {
   display: grid;
   gap: 12px;

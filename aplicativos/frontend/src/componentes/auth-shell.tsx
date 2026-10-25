@@ -62,31 +62,6 @@ export function AuthShell({ next }: { next?: string }) {
       setNotice("Conta criada. Confira seu e-mail para confirmar o acesso.");
     }
   }
-    event.preventDefault();
-    setError(null);
-    setNotice(null);
-
-    if (mode === "registro" && password !== passwordConfirmation) {
-      setError("As senhas não coincidem.");
-      return;
-    }
-
-    setLoading(true);
-    const result = mode === "login"
-      ? await signIn(email, password)
-      : await signUp(email, password);
-    setLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (mode === "login" || result.hasSession) {
-      // refresh faz os Server Components lerem os novos cookies de sessao.
-      router.replace(destinoSeguro(next));
-      router.refresh();
-    } else {
-      setNotice("Conta criada. Confira seu e-mail para confirmar o acesso.");
-    }
-  }
 
   function changeMode(nextMode: "login" | "registro") {
     setMode(nextMode);

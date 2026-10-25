@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { useI18n } from "../contextos/i18n-context";
 
 const filters = [
   { label: "Todos", value: "" },
@@ -131,6 +132,7 @@ function normalizeValue(value?: string | null) {
 }
 
 export function FilterBar() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -146,15 +148,15 @@ export function FilterBar() {
 
   // Sincroniza se a URL mudar externamente (ex: botao "Limpar busca" ou voltar no historico)
   useEffect(() => {
-    setQuery(urlQuery);
+    queueMicrotask(() => setQuery(urlQuery));
   }, [urlQuery]);
 
   useEffect(() => {
-    setActiveType(urlType);
+    queueMicrotask(() => setActiveType(urlType));
   }, [urlType]);
 
   useEffect(() => {
-    setActiveGenre(urlGenre);
+    queueMicrotask(() => setActiveGenre(urlGenre));
   }, [urlGenre]);
 
   const availableGenres = GENRES_BY_TYPE[activeType] ?? GENRES_BY_TYPE[""];
@@ -233,6 +235,7 @@ export function FilterBar() {
         </svg>
         <input
           type="search"
+          maxLength={100}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -240,7 +243,7 @@ export function FilterBar() {
               handleClear();
             }
           }}
-          placeholder="Buscar filmes, séries, jogos e livros"
+          placeholder={t("catalog.searchPlaceholder", "Buscar filmes, séries, jogos e livros")}
         />
         {isPending ? (
           <span className="filter-search-spinner" aria-label="Buscando..." />

@@ -73,13 +73,23 @@ export type TrackingEntry = {
   progress: number;
   rating: number | null;
   notes: string | null;
+  // Livros: paginas da edicao lida por este usuario (salvas no tracking dele, nao na obra).
+  pagesRead?: number | null;
+  totalPages?: number | null;
   startedAt?: string | null;
   finishedAt?: string | null;
   updatedAt: string;
   item?: CatalogItem | null;
 };
 
-export type TrackingPayload = Partial<Pick<TrackingEntry, "status" | "progress" | "rating" | "notes">>;
+export type TrackingPayload = Partial<Pick<TrackingEntry, "status" | "progress" | "rating" | "notes">> & {
+  pagesRead?: number;
+  totalPages?: number;
+};
+
+// Limites compartilhados com a validacao da API (SalvarTrackingDto).
+export const TRACKING_NOTES_MAX_LENGTH = 1000;
+export const TRACKING_PAGES_MAX = 50000;
 
 export function getStatusLabel(status: TrackingStatus, type?: MediaType) {
   switch (status) {
@@ -216,6 +226,7 @@ export const reportComment = (commentId: string, reason: string, details?: strin
 // Perfis, seguidores e feed
 
 export type ProfileTheme = "emerald" | "ocean" | "cyberpunk" | "amber" | "crimson";
+export type ProfileLanguage = "pt-BR" | "en-US";
 
 export type Profile = {
   username: string;
@@ -225,6 +236,7 @@ export type Profile = {
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   theme?: ProfileTheme | string | null;
+  language?: ProfileLanguage;
   importedSources?: string[];
   hasImported?: boolean;
 };

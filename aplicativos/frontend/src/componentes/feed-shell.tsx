@@ -59,7 +59,7 @@ export function FeedShell() {
         <form className="filter-bar" onSubmit={handleSearch}>
           <label className="filter-search">
             <span className="sr-only">Buscar pessoas</span>
-            <input type="search" value={query} placeholder="@usuario" onChange={(e) => setQuery(e.target.value)} />
+            <input type="search" maxLength={100} value={query} placeholder="@usuario" onChange={(e) => setQuery(e.target.value)} />
           </label>
           <UiButton type="submit" variant="secondary" disabled={query.trim().length < 2}>
             Buscar

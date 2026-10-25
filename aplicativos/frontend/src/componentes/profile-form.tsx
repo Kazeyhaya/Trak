@@ -9,12 +9,14 @@ import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
+import { useI18n } from "../contextos/i18n-context";
 import {
   CatalogItem,
   errorMessage,
   getFavorites,
   getTrackingItems,
   Profile,
+  ProfileLanguage,
   ProfileTheme,
   saveMyProfile
 } from "../lib/api";
@@ -67,6 +69,7 @@ export function ProfileForm() {
 function ProfileFields({ profile }: { profile: Profile | null }) {
   const { refreshProfile } = useAuth();
   const router = useRouter();
+  const { t, setLanguage: setI18nLanguage } = useI18n();
   const [username, setUsername] = useState(profile?.username ?? "");
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
@@ -74,6 +77,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? "");
   const [bannerUrl, setBannerUrl] = useState(profile?.bannerUrl ?? "");
   const [theme, setTheme] = useState<string>(profile?.theme ?? "emerald");
+  const [language, setLanguageLocal] = useState<ProfileLanguage>(profile?.language ?? "pt-BR");
   const [mediaOptions, setMediaOptions] = useState<CatalogItem[]>([]);
   const [quickStats, setQuickStats] = useState({ games: 0, books: 0, movies: 0, series: 0, hours: 0 });
   const [saving, setSaving] = useState(false);
@@ -194,8 +198,10 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
         isPublic,
         avatarUrl: avatarUrl.trim(),
         bannerUrl: bannerUrl.trim(),
-        theme
+        theme,
+        language
       });
+      setI18nLanguage(language);
       await refreshProfile();
       setSaved(result.username);
       router.push(`/u/${result.username}`);
@@ -380,6 +386,17 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
                 </button>
               ))}
             </div>
+
+            <label className="field-block">
+              <span className="field-label">{t("profile.language", "Idioma da interface e catálogo")}</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguageLocal(e.target.value as ProfileLanguage)}
+              >
+                <option value="pt-BR">Português (Brasil)</option>
+                <option value="en-US">English (US)</option>
+              </select>
+            </label>
 
             {mediaOptions.length > 0 && (
               <div className="banner-picker-block">

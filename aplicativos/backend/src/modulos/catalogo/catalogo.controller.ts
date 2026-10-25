@@ -9,14 +9,15 @@ export class CatalogoController {
   listar(
     @Query("q") q?: string,
     @Query("type") type?: string,
-    @Query("genre") genre?: string
+    @Query("genre") genre?: string,
+    @Query("lang") lang?: string
   ) {
-    return this.catalogoService.listar(q, type, genre);
+    return this.catalogoService.listar(q, type, genre, lang);
   }
 
   @Get(":id")
-  buscarPorId(@Param("id") id: string) {
-    return this.catalogoService.buscarPorId(id);
+  buscarPorId(@Param("id") id: string, @Query("lang") lang?: string) {
+    return this.catalogoService.buscarPorId(id, lang);
   }
 
   @Get(":id/extras")

@@ -13,6 +13,8 @@ const existente: LinhaUserMedia = {
   progressCurrent: 40,
   personalRating: 3,
   notes: "anotacao",
+  pagesRead: null,
+  totalPages: null,
   timesConsumed: 0,
   startedAt: "2026-01-01",
   finishedAt: null,
@@ -58,6 +60,23 @@ describe("TrackingService.salvar", () => {
     expect(resultado.rating).toBe(5);
     expect(atividades.registrar).toHaveBeenCalledTimes(1);
     expect(atividades.registrar).toHaveBeenCalledWith("u1", "RATING", "tmdb_movie_1", { rating: 5 });
+  });
+
+  it("paginas lidas e total da edicao vao so para a linha do usuario, nunca para MediaItem", async () => {
+    const { service, chamadas } = montar((op) =>
+      op.action === "update" ? { data: { ...existente, pagesRead: 150, totalPages: 412 } } : { data: existente }
+    );
+
+    const resultado = await service.salvar("u1", "tmdb_movie_1", { pagesRead: 150, totalPages: 412 });
+
+    const busca = chamadas.find((c) => c.table === "UserMedia" && c.action === "select")!;
+    expect(busca.filtros).toEqual(expect.arrayContaining([["eq", "userId", "u1"]]));
+    const update = chamadas.find((c) => c.action === "update")!;
+    expect(update.table).toBe("UserMedia");
+    expect(update.filtros).toEqual([["eq", "id", existente.id]]);
+    expect(Object.keys(update.payload as object).sort()).toEqual(["pagesRead", "totalPages", "updatedAt"]);
+    expect(chamadas.some((c) => c.table === "MediaItem")).toBe(false);
+    expect(resultado).toMatchObject({ pagesRead: 150, totalPages: 412 });
   });
 
   it("concluir leva a 100%, registra a data de fim e gera atividade", async () => {

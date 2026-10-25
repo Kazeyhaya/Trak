@@ -9,6 +9,8 @@ const linha: LinhaUserMedia = {
   progressCurrent: 40,
   personalRating: 4,
   notes: "bom",
+  pagesRead: 120,
+  totalPages: 300,
   timesConsumed: 0,
   startedAt: "2026-01-01T00:00:00.000Z",
   finishedAt: null,
@@ -38,6 +40,8 @@ describe("deBanco", () => {
       progress: 40,
       rating: 4,
       notes: "bom",
+      pagesRead: 120,
+      totalPages: 300,
       startedAt: "2026-01-01T00:00:00.000Z",
       finishedAt: null,
       updatedAt: "2026-01-02T00:00:00.000Z"
@@ -47,9 +51,20 @@ describe("deBanco", () => {
   it("progresso nulo vira 0", () => {
     expect(deBanco({ ...linha, progressCurrent: null }).progress).toBe(0);
   });
+
+  it("paginas ausentes (linha antiga, antes da migracao) viram null", () => {
+    const antiga = { ...linha } as Partial<LinhaUserMedia>;
+    delete antiga.pagesRead;
+    delete antiga.totalPages;
+    expect(deBanco(antiga as LinhaUserMedia)).toMatchObject({ pagesRead: null, totalPages: null });
+  });
 });
 
 describe("paraBanco", () => {
+  it("grava paginas lidas e total da edicao so na linha do usuario", () => {
+    expect(paraBanco({ pagesRead: 150, totalPages: 412 }, linha, AGORA)).toEqual({ pagesRead: 150, totalPages: 412 });
+    expect(paraBanco({ pagesRead: 0 }, linha, AGORA)).toEqual({ pagesRead: 0 });
+  });
   it("envia so os campos informados, com os nomes do banco", () => {
     expect(paraBanco({ rating: 5 }, linha, AGORA)).toEqual({ personalRating: 5 });
     expect(paraBanco({ progress: 60, notes: null }, linha, AGORA)).toEqual({ progressCurrent: 60, notes: null });
