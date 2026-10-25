@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { FilterBar } from "./filter-bar";
 import { MediaGrid } from "./media-grid";
