@@ -4,6 +4,35 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { CommentsSection } from "./comments-section";
+import type { MediaType } from "../lib/catalogo-api";
+
+// Dynamic status label dictionary per MediaType
+const STATUS_LABELS: Record<MediaType | "ALL", { WANT: string; WATCHING: string; COMPLETED: string }> = {
+  MOVIE: { WANT: "Quero ver", WATCHING: "Assistindo", COMPLETED: "Concluído" },
+  SERIES: { WANT: "Quero ver", WATCHING: "Assistindo", COMPLETED: "Concluído" },
+  GAME: { WANT: "Quero jogar", WATCHING: "Jogando", COMPLETED: "Zerado" },
+  BOOK: { WANT: "Quero ler", WATCHING: "Lendo", COMPLETED: "Lido" },
+  ALL: { WANT: "Quero ver", WATCHING: "Assistindo", COMPLETED: "Concluído" },
+};
+
+function getDynamicStatusLabel(status: string, type?: MediaType) {
+  const key = type ?? "ALL";
+  const map = STATUS_LABELS[key as MediaType | "ALL"] ?? STATUS_LABELS["ALL"];
+  switch (status) {
+    case "WANT":
+      return map.WANT;
+    case "WATCHING":
+      return map.WATCHING;
+    case "COMPLETED":
+      return map.COMPLETED;
+    case "PAUSED":
+      return "Pausado";
+    case "DROPPED":
+      return "Abandonado";
+    default:
+      return "";
+  }
+}
 import { EpisodesPanel } from "./episodes-panel";
 import { RatingStars } from "./rating-stars";
 import { RelatedItems } from "./related-items";
@@ -351,7 +380,7 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
     }
   }
 
-  const statusLabel = tracking ? getStatusLabel(tracking.status, item.type) : "Fora do tracking";
+  const statusLabel = tracking ? getDynamicStatusLabel(tracking.status, item.type) : "Fora do tracking";
 
   return (
     <>
@@ -382,7 +411,7 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
                 disabled={loading || saving}
                 onClick={() => save({ status: option })}
               >
-                {getStatusLabel(option, item.type)}
+                {getDynamicStatusLabel(option, item.type)}
               </button>
             );
           })}
