@@ -77,7 +77,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
       if (saved) {
         const parsed = Number(saved);
         if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 500) {
-          setAnnualGoal(parsed);
+          queueMicrotask(() => setAnnualGoal(parsed));
         }
       }
     } catch {
@@ -104,7 +104,6 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
     null;
   const avatarInitial = (profile.displayName || profile.username || "T").charAt(0).toUpperCase();
   const topFavorites = favorites.slice(0, 4);
-  const moreFavorites = favorites.slice(4);
   const unlockedBadges = achievements.filter((a) => a.unlocked);
 
   const completedThisYear = useMemo(() => {

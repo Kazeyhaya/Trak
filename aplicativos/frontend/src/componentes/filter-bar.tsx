@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useI18n } from "../contextos/i18n-context";
 
 const filters = [
@@ -163,35 +163,38 @@ export function FilterBar() {
 
   const availableGenres = GENRES_BY_TYPE[activeType] ?? GENRES_BY_TYPE[""];
 
-  function updateUrl(nextQuery: string, nextType: string, nextGenre: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    const cleanQuery = nextQuery.trim().slice(0, MAX_SEARCH_LENGTH);
+  const updateUrl = useCallback(
+    (nextQuery: string, nextType: string, nextGenre: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const cleanQuery = nextQuery.trim().slice(0, MAX_SEARCH_LENGTH);
 
-    if (cleanQuery) {
-      params.set("q", cleanQuery);
-    } else {
-      params.delete("q");
-    }
+      if (cleanQuery) {
+        params.set("q", cleanQuery);
+      } else {
+        params.delete("q");
+      }
 
-    if (nextType) {
-      params.set("type", nextType);
-    } else {
-      params.delete("type");
-    }
+      if (nextType) {
+        params.set("type", nextType);
+      } else {
+        params.delete("type");
+      }
 
-    if (nextGenre) {
-      params.set("genre", nextGenre);
-    } else {
-      params.delete("genre");
-    }
+      if (nextGenre) {
+        params.set("genre", nextGenre);
+      } else {
+        params.delete("genre");
+      }
 
-    const nextQueryString = params.toString();
-    const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
+      const nextQueryString = params.toString();
+      const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
 
-    startTransition(() => {
-      router.replace(targetUrl, { scroll: false });
-    });
-  }
+      startTransition(() => {
+        router.replace(targetUrl, { scroll: false });
+      });
+    },
+    [pathname, router, searchParams]
+  );
 
   // Busca em tempo real com debounce enquanto o usuario digita
   useEffect(() => {
@@ -206,7 +209,7 @@ export function FilterBar() {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, activeType, activeGenre, searchParams, updateUrl]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
