@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
 import { PwaRegister } from "../componentes/pwa-register";
 import { AuthProvider } from "../contextos/auth-context";
+import { I18nProvider } from "../contextos/i18n-context";
 import "./globals.css";
 
 const headingFont = Space_Grotesk({
@@ -34,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </AuthProvider>
         <PwaRegister />
       </body>
     </html>

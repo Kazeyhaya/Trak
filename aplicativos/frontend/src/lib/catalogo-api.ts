@@ -97,7 +97,19 @@ export async function fetchJson<T>(path: string, token?: string | null): Promise
   }
 }
 
-export async function getCatalogItems(query = "", type = "", genre = "") {
+export function obterIdiomaUsuario(): string {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem("trak:language");
+      if (stored === "en-US" || stored === "pt-BR") return stored;
+    } catch {
+      // ignora
+    }
+  }
+  return "pt-BR";
+}
+
+export async function getCatalogItems(query = "", type = "", genre = "", lang = "") {
   const params = new URLSearchParams();
   if (query.trim()) {
     params.set("q", query.trim());
@@ -108,6 +120,10 @@ export async function getCatalogItems(query = "", type = "", genre = "") {
   if (genre) {
     params.set("genre", genre);
   }
+  const idioma = lang || obterIdiomaUsuario();
+  if (idioma) {
+    params.set("lang", idioma);
+  }
 
   const suffix = params.size > 0 ? `?${params}` : "";
   const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`);
@@ -115,33 +131,36 @@ export async function getCatalogItems(query = "", type = "", genre = "") {
   return items ? { items, offline: false } : { items: fallbackItems, offline: true };
 }
 
-export async function getCatalogItemById(id: string) {
-  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}`);
+export async function getCatalogItemById(id: string, lang = "") {
+  const idioma = lang || obterIdiomaUsuario();
+  const query = idioma ? `?lang=${encodeURIComponent(idioma)}` : "";
+  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}${query}`);
 
   return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }
 
-export function getMediaTypeLabel(type: MediaType, subtype?: string | null) {
+export function getMediaTypeLabel(type: MediaType, subtype?: string | null, lang = "pt-BR") {
+  const isEn = lang === "en-US";
   if (subtype === "NOVELA") {
-    return "Novela";
+    return isEn ? "Telenovela" : "Novela";
   }
   if (subtype === "DORAMA") {
-    return "Dorama";
+    return isEn ? "K-Drama" : "Dorama";
   }
   if (subtype === "ANIME") {
     return "Anime";
   }
   if (subtype === "ANIMACAO") {
-    return "Animação";
+    return isEn ? "Animation" : "Animação";
   }
   switch (type) {
     case "MOVIE":
-      return "Filme";
+      return isEn ? "Movie" : "Filme";
     case "SERIES":
-      return "Série";
+      return isEn ? "Series" : "Série";
     case "GAME":
-      return "Jogo";
+      return isEn ? "Game" : "Jogo";
     case "BOOK":
-      return "Livro";
+      return isEn ? "Book" : "Livro";
   }
 }

@@ -5,6 +5,7 @@ import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiCard } from "./ui-card";
 import { CatalogItem } from "../lib/catalogo-api";
+import { useI18n } from "../contextos/i18n-context";
 
 type CatalogShellProps = {
   items: CatalogItem[];
@@ -15,13 +16,16 @@ type CatalogShellProps = {
 };
 
 function CatalogEmptyState({ query }: { query: string }) {
+  const { t } = useI18n();
   return (
     <UiCard className="empty-state">
-      <UiBadge tone="secondary">Sem resultados</UiBadge>
-      <h3>{query ? `Nada encontrado para "${query}".` : "Nenhum item disponível."}</h3>
+      <UiBadge tone="secondary">{t("catalog.noResults", "Sem resultados")}</UiBadge>
+      <h3 className="break-all line-clamp-2">
+        {query ? `${t("catalog.noResultsFor", "Nada encontrado para")} "${query}".` : "Nenhum item disponível."}
+      </h3>
       <p>Tente outro termo ou remova o filtro de categoria.</p>
       <Link className="secondary-button" href="/catalogo">
-        Limpar busca
+        {t("catalog.clearSearch", "Limpar busca")}
       </Link>
     </UiCard>
   );
@@ -34,6 +38,7 @@ export function CatalogShell({
   typeFilter = "",
   genreFilter = ""
 }: CatalogShellProps) {
+  void genreFilter;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedType = typeFilter.toLowerCase();
 

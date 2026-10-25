@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 const aparar = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim() : value);
 
@@ -43,4 +43,10 @@ export class SalvarPerfilDto {
   @IsString()
   @MaxLength(30)
   theme?: string;
+
+  @IsOptional()
+  @IsIn(["pt-BR", "en-US"], {
+    message: "O idioma deve ser pt-BR ou en-US."
+  })
+  language?: "pt-BR" | "en-US";
 }

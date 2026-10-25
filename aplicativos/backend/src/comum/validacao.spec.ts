@@ -43,7 +43,24 @@ describe("SalvarTrackingDto", () => {
     expect(dto.notes).toBeNull();
   });
 
-  it.each([{ status: "X" }, { progress: 101 }, { progress: 1.5 }, { rating: 0 }, { rating: 6 }, { notes: "a".repeat(2001) }])(
+  it("aceita paginas lidas e total da edicao dentro do limite", async () => {
+    const dto = await validar(SalvarTrackingDto, { pagesRead: 0, totalPages: 50000 });
+    expect(dto).toMatchObject({ pagesRead: 0, totalPages: 50000 });
+  });
+
+  it.each([
+    { status: "X" },
+    { progress: 101 },
+    { progress: 1.5 },
+    { rating: 0 },
+    { rating: 6 },
+    { notes: "a".repeat(1001) },
+    { pagesRead: -1 },
+    { pagesRead: 50001 },
+    { totalPages: 50001 },
+    { totalPages: 1e21 },
+    { pagesRead: 10.5 }
+  ])(
     "rejeita entrada invalida #%#",
     async (valor) => {
       expect((await erros(SalvarTrackingDto, valor)).message.length).toBeGreaterThan(0);
@@ -68,13 +85,17 @@ describe("MarcarEpisodiosDto", () => {
 });
 
 describe("SalvarPerfilDto", () => {
-  it("normaliza o nome de usuario para minusculas", async () => {
-    const dto = await validar(SalvarPerfilDto, { username: "  Ana_123 ", bio: " oi " });
-    expect(dto).toMatchObject({ username: "ana_123", bio: "oi" });
+  it("normaliza o nome de usuario para minusculas e aceita idioma valido", async () => {
+    const dto = await validar(SalvarPerfilDto, { username: "  Ana_123 ", bio: " oi ", language: "en-US" });
+    expect(dto).toMatchObject({ username: "ana_123", bio: "oi", language: "en-US" });
   });
 
   it.each(["ab", "nome com espaco", "a".repeat(21), "acentuação"])("rejeita username %p", async (username) => {
     expect((await erros(SalvarPerfilDto, { username })).message.length).toBeGreaterThan(0);
+  });
+
+  it.each(["es", "fr", "pt", "en", "pt_BR"])("rejeita idioma invalido %p", async (language) => {
+    expect((await erros(SalvarPerfilDto, { username: "ana_123", language })).message.length).toBeGreaterThan(0);
   });
 });
 

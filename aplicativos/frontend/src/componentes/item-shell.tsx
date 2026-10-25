@@ -15,9 +15,18 @@ const STATUS_LABELS: Record<MediaType | "ALL", { WANT: string; WATCHING: string;
   ALL: { WANT: "Quero ver", WATCHING: "Assistindo", COMPLETED: "Concluído" },
 };
 
-function getDynamicStatusLabel(status: string, type?: MediaType) {
+const STATUS_LABELS_EN: Record<MediaType | "ALL", { WANT: string; WATCHING: string; COMPLETED: string }> = {
+  MOVIE: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
+  SERIES: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
+  GAME: { WANT: "Want to play", WATCHING: "Playing", COMPLETED: "Completed" },
+  BOOK: { WANT: "Want to read", WATCHING: "Reading", COMPLETED: "Read" },
+  ALL: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
+};
+
+function getDynamicStatusLabel(status: string, type?: MediaType, lang = "pt-BR") {
   const key = type ?? "ALL";
-  const map = STATUS_LABELS[key as MediaType | "ALL"] ?? STATUS_LABELS["ALL"];
+  const dict = lang === "en-US" ? STATUS_LABELS_EN : STATUS_LABELS;
+  const map = dict[key as MediaType | "ALL"] ?? dict["ALL"];
   switch (status) {
     case "WANT":
       return map.WANT;
@@ -26,9 +35,9 @@ function getDynamicStatusLabel(status: string, type?: MediaType) {
     case "COMPLETED":
       return map.COMPLETED;
     case "PAUSED":
-      return "Pausado";
+      return lang === "en-US" ? "Paused" : "Pausado";
     case "DROPPED":
-      return "Abandonado";
+      return lang === "en-US" ? "Dropped" : "Abandonado";
     default:
       return "";
   }
@@ -41,6 +50,7 @@ import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
+import { useI18n } from "../contextos/i18n-context";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
 import {
   addFavorite,
@@ -48,11 +58,11 @@ import {
   checkFavorite,
   errorMessage,
   getCatalogExtras,
-  getStatusLabel,
   getTrackingItem,
   removeFavorite,
   removeTrackingItem,
   saveTrackingItem,
+  TRACKING_PAGES_MAX,
   TRACKING_STATUSES,
   TrackingEntry,
   TrackingPayload,
@@ -63,8 +73,7 @@ type ItemShellProps = {
   item: CatalogItem;
 };
 
-const PROGRESS_SAVE_DELAY_MS = 600;
-const NOTES_MAX_LENGTH = 2000;
+const NOTES_MAX_LENGTH = 1000;
 const SYNOPSIS_PREVIEW_LENGTH = 360;
 
 function resolveProviderUrl(providerName: string, title: string, rawUrl?: string | null): string {
@@ -271,22 +280,64 @@ export function ItemShell({ item }: ItemShellProps) {
   );
 }
 
+// Rascunho local do tracking: nada vai para a API ate o usuario clicar em "Salvar alteracoes".
+type TrackingDraft = {
+  status: TrackingStatus | null;
+  progress: number;
+  rating: number | null;
+  notes: string;
+  pagesRead: number | null;
+  totalPages: number | null;
+};
+
+function draftFromEntry(entry: TrackingEntry | null): TrackingDraft {
+  return {
+    status: entry?.status ?? null,
+    progress: entry?.progress ?? 0,
+    rating: entry?.rating ?? null,
+    notes: entry?.notes ?? "",
+    pagesRead: entry?.pagesRead ?? null,
+    totalPages: entry?.totalPages ?? null
+  };
+}
+
+const checkpointStorageKey = (mediaItemId: string) => `trak:checkpoint:${mediaItemId}`;
+
 function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boolean }) {
+  const { t, language } = useI18n();
   const [tracking, setTracking] = useState<TrackingEntry | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<TrackingDraft>(() => draftFromEntry(null));
+  const [metaDirty, setMetaDirty] = useState(false);
+  // Incrementado ao descartar, para o MediaProgressTracker remontar e reler o checkpoint salvo.
+  const [trackerResetKey, setTrackerResetKey] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trackingRef = useRef<TrackingEntry | null>(null);
+  const pendingMetaRef = useRef<CheckpointMeta | null>(null);
 
-  function applyTracking(entry: TrackingEntry | null) {
-    trackingRef.current = entry;
+  const progress = draft.progress;
+  const savedDraft = draftFromEntry(tracking);
+  const trackingDirty =
+    draft.status !== savedDraft.status ||
+    draft.progress !== savedDraft.progress ||
+    draft.rating !== savedDraft.rating ||
+    draft.notes.trim() !== savedDraft.notes.trim() ||
+    draft.pagesRead !== savedDraft.pagesRead ||
+    draft.totalPages !== savedDraft.totalPages;
+  const hasUnsavedChanges = trackingDirty || metaDirty;
+
+  function updateDraft(patch: Partial<TrackingDraft>) {
+    setNotice(null);
+    setDraft((prev) => ({ ...prev, ...patch }));
+  }
+
+  // Usado quando o servidor ja persistiu algo (ex.: episodios marcados): atualiza a base
+  // e o progresso, sem apagar o que o usuario ainda nao salvou nos outros campos.
+  function applyServerProgress(entry: TrackingEntry | null) {
     setTracking(entry);
-    setProgress(entry?.progress ?? 0);
+    setDraft((prev) => ({ ...prev, progress: entry?.progress ?? 0, status: prev.status ?? entry?.status ?? null }));
   }
 
   useEffect(() => {
@@ -297,8 +348,8 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
         if (!active) {
           return;
         }
-        applyTracking(entry);
-        setNotes(entry?.notes ?? "");
+        setTracking(entry);
+        setDraft(draftFromEntry(entry));
         setIsFavorite(fav.isFavorite);
       })
       .catch((err) => active && setError(errorMessage(err)))
@@ -306,38 +357,94 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
 
     return () => {
       active = false;
-      if (progressTimer.current) {
-        clearTimeout(progressTimer.current);
-      }
     };
   }, [item.id]);
 
-  async function save(payload: TrackingPayload, successNotice?: string) {
-    setSaving(true);
+  // Avisa antes de sair da pagina com alteracoes pendentes.
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  function handleMetaChange(meta: CheckpointMeta) {
+    pendingMetaRef.current = meta;
+    setMetaDirty(true);
+    setNotice(null);
+  }
+
+  function persistPendingMeta() {
+    if (!pendingMetaRef.current) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(checkpointStorageKey(item.id), JSON.stringify(pendingMetaRef.current));
+    } catch {
+      // ignora (modo privado / cota cheia)
+    }
+    pendingMetaRef.current = null;
+    setMetaDirty(false);
+  }
+
+  async function handleSave() {
+    if (!hasUnsavedChanges || saving) {
+      return;
+    }
     setError(null);
     setNotice(null);
-    try {
-      applyTracking(await saveTrackingItem(item.id, payload));
-      if (successNotice) {
-        setNotice(successNotice);
+
+    const payload: TrackingPayload = {};
+    if (draft.status !== savedDraft.status && draft.status) payload.status = draft.status;
+    if (draft.progress !== savedDraft.progress) payload.progress = draft.progress;
+    if (draft.rating !== savedDraft.rating) payload.rating = draft.rating;
+    if (draft.notes.trim() !== savedDraft.notes.trim()) payload.notes = draft.notes.trim() || null;
+    if (draft.pagesRead !== savedDraft.pagesRead && draft.pagesRead !== null) payload.pagesRead = draft.pagesRead;
+    if (draft.totalPages !== savedDraft.totalPages && draft.totalPages !== null) payload.totalPages = draft.totalPages;
+
+    // Item ainda fora do tracking: mantem o status implicito que o fluxo antigo aplicava.
+    if (!tracking && !payload.status) {
+      if (payload.progress !== undefined && payload.progress > 0) {
+        payload.status = payload.progress >= 100 ? "COMPLETED" : "WATCHING";
+      } else if (payload.rating) {
+        payload.status = "COMPLETED";
       }
+    }
+
+    if (Object.keys(payload).length === 0) {
+      // So mudou dado local do checkpoint (horas, plataforma, total de paginas).
+      persistPendingMeta();
+      setNotice("Alterações salvas.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const entry = await saveTrackingItem(item.id, payload);
+      setTracking(entry);
+      setDraft(draftFromEntry(entry));
+      persistPendingMeta();
+      setNotice("Alterações salvas.");
     } catch (err) {
+      // Mantem o rascunho para o usuario poder tentar de novo.
       setError(errorMessage(err));
-      setProgress(trackingRef.current?.progress ?? 0);
     } finally {
       setSaving(false);
     }
   }
 
-  function handleProgress(value: number) {
-    setProgress(value);
-    if (progressTimer.current) {
-      clearTimeout(progressTimer.current);
-    }
-    progressTimer.current = setTimeout(() => {
-      // Usa o ref para nao depender do valor capturado quando o timer foi criado.
-      void save({ progress: value, ...(trackingRef.current ? {} : { status: "WATCHING" as const }) });
-    }, PROGRESS_SAVE_DELAY_MS);
+  function handleDiscard() {
+    setDraft(draftFromEntry(tracking));
+    pendingMetaRef.current = null;
+    setMetaDirty(false);
+    setTrackerResetKey((key) => key + 1);
+    setError(null);
+    setNotice(null);
   }
 
   async function handleRemoveTracking() {
@@ -345,8 +452,10 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
     setError(null);
     try {
       await removeTrackingItem(item.id);
-      applyTracking(null);
-      setNotes("");
+      setTracking(null);
+      setDraft(draftFromEntry(null));
+      pendingMetaRef.current = null;
+      setMetaDirty(false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -380,20 +489,20 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
     }
   }
 
-  const statusLabel = tracking ? getDynamicStatusLabel(tracking.status, item.type) : "Fora do tracking";
+  const statusLabel = tracking ? getDynamicStatusLabel(tracking.status, item.type, language) : t("tracking.outOfTracking", "Fora do tracking");
 
   return (
     <>
       <div className="item-actions" aria-label="Ações do item">
         <UiButton variant="secondary" pressed={isFavorite} disabled={loading} onClick={handleFavorite}>
-          {isFavorite ? "★ Favorito" : "☆ Favoritar"}
+          {isFavorite ? t("tracking.favorite", "★ Favorito") : t("tracking.addFavorite", "☆ Favoritar")}
         </UiButton>
         <UiButton variant="secondary" onClick={handleShare}>
-          Compartilhar
+          {t("tracking.share", "Compartilhar")}
         </UiButton>
         {tracking && (
           <UiButton variant="secondary" disabled={saving} onClick={handleRemoveTracking}>
-            Remover do tracking
+            {t("tracking.remove", "Remover do tracking")}
           </UiButton>
         )}
       </div>
@@ -401,7 +510,7 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
       <div className="item-status-block">
         <div className="status-chips" role="group" aria-label="Status de tracking">
           {TRACKING_STATUSES.map((option: TrackingStatus) => {
-            const isActive = tracking?.status === option;
+            const isActive = draft.status === option;
             return (
               <button
                 key={option}
@@ -409,9 +518,9 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
                 className={`filter-chip${isActive ? " is-active" : ""}`}
                 aria-pressed={isActive}
                 disabled={loading || saving}
-                onClick={() => save({ status: option })}
+                onClick={() => updateDraft({ status: option })}
               >
-                {getDynamicStatusLabel(option, item.type)}
+                {getDynamicStatusLabel(option, item.type, language)}
               </button>
             );
           })}
@@ -425,27 +534,26 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
 
         {(item.type === "GAME" || item.type === "BOOK") && (
           <MediaProgressTracker
+            key={`${item.id}-${trackerResetKey}`}
             item={item}
             progress={progress}
-            status={tracking?.status ?? null}
+            status={draft.status}
             disabled={loading || saving}
-            onProgressChange={handleProgress}
-            onMilestoneSelect={(nextProgress, nextStatus) => {
-              setProgress(nextProgress);
-              if (progressTimer.current) {
-                clearTimeout(progressTimer.current);
-              }
-              void save({ progress: nextProgress, status: nextStatus });
-            }}
+            onProgressChange={(nextProgress) => updateDraft({ progress: nextProgress })}
+            onMilestoneSelect={(nextProgress, nextStatus) => updateDraft({ progress: nextProgress, status: nextStatus })}
+            pagesRead={draft.pagesRead}
+            totalPages={draft.totalPages}
+            onPagesChange={(pagesRead, totalPages) => updateDraft({ pagesRead, totalPages })}
+            onMetaChange={handleMetaChange}
           />
         )}
 
         <div className="rating-row">
-          <span>Sua nota</span>
+          <span>{t("tracking.rating", "Sua nota")}</span>
           <RatingStars
-            value={tracking?.rating ?? null}
+            value={draft.rating}
             disabled={loading || saving}
-            onChange={(rating) => save({ rating, ...(trackingRef.current ? {} : { status: "COMPLETED" as const }) })}
+            onChange={(rating) => updateDraft({ rating })}
           />
         </div>
 
@@ -453,27 +561,42 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
           className="field-stack notes-form"
           onSubmit={(event) => {
             event.preventDefault();
-            void save({ notes: notes.trim() || null }, "Nota salva.");
+            void handleSave();
           }}
         >
           <label>
-            Suas anotações (só você vê)
+            {t("tracking.notes", "Suas anotações (só você vê)")}
             <textarea
-              value={notes}
+              value={draft.notes}
               rows={3}
               maxLength={NOTES_MAX_LENGTH}
-              placeholder="O que você achou? Onde parou?"
+              placeholder={t("tracking.notesPlaceholder", "O que você achou? Onde parou?")}
               disabled={loading}
-              onChange={(event) => setNotes(event.target.value)}
+              onChange={(event) => updateDraft({ notes: event.target.value })}
             />
           </label>
           <div className="comment-form-footer">
             <span>
-              <UiBadge tone="secondary">{saving ? "Salvando…" : tracking ? statusLabel : "Não iniciado"}</UiBadge>
+              <UiBadge tone="secondary">
+                {saving
+                  ? t("tracking.saving", "Salvando…")
+                  : hasUnsavedChanges
+                    ? t("tracking.unsavedChanges", "Alterações não salvas")
+                    : tracking
+                      ? statusLabel
+                      : t("tracking.notStarted", "Não iniciado")}
+              </UiBadge>
             </span>
-            <UiButton type="submit" variant="secondary" disabled={loading || saving || notes === (tracking?.notes ?? "")}>
-              Salvar nota
-            </UiButton>
+            <span className="item-save-actions">
+              {hasUnsavedChanges && (
+                <UiButton type="button" variant="secondary" disabled={saving} onClick={handleDiscard}>
+                  {t("tracking.discard", "Descartar")}
+                </UiButton>
+              )}
+              <UiButton type="submit" disabled={loading || saving || !hasUnsavedChanges}>
+                {saving ? t("tracking.saving", "Salvando…") : t("tracking.saveChanges", "Salvar alterações")}
+              </UiButton>
+            </span>
           </div>
         </form>
 
@@ -489,7 +612,7 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
         )}
       </div>
 
-      {isSeries && !loading && <EpisodesPanel mediaItemId={item.id} onTrackingChange={applyTracking} />}
+      {isSeries && !loading && <EpisodesPanel mediaItemId={item.id} onTrackingChange={applyServerProgress} />}
     </>
   );
 }
@@ -504,13 +627,26 @@ type CheckpointMeta = {
 
 const GAME_PLATFORMS = ["PC / Steam", "PlayStation", "Xbox", "Nintendo Switch", "Portátil / Mobile"];
 
+const PAGE_INPUT_MAX_DIGITS = 5;
+
+function parsePageInput(value: string): number {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return 0;
+  const parsed = parseInt(digits, 10);
+  return isNaN(parsed) ? 0 : Math.min(TRACKING_PAGES_MAX, Math.max(0, parsed));
+}
+
 function MediaProgressTracker({
   item,
   progress,
   status,
   disabled,
   onProgressChange,
-  onMilestoneSelect
+  onMilestoneSelect,
+  pagesRead,
+  totalPages: savedTotalPages,
+  onPagesChange,
+  onMetaChange
 }: {
   item: CatalogItem;
   progress: number;
@@ -518,39 +654,39 @@ function MediaProgressTracker({
   disabled: boolean;
   onProgressChange: (value: number) => void;
   onMilestoneSelect: (progress: number, status: TrackingStatus) => void;
+  pagesRead: number | null;
+  totalPages: number | null;
+  onPagesChange: (pagesRead: number, totalPages: number) => void;
+  onMetaChange: (meta: CheckpointMeta) => void;
 }) {
   const isGame = item.type === "GAME";
-  const storageKey = `trak:checkpoint:${item.id}`;
-  const [meta, setMeta] = useState<CheckpointMeta>({
-    hoursPlayed: 0,
-    platform: "PC / Steam",
-    platinum: false,
-    currentPage: 0,
-    totalPages: 320
+  const [totalInput, setTotalInput] = useState<string | null>(null);
+  // Le o checkpoint salvo na montagem. Este componente so renderiza no cliente, depois que a
+  // sessao carrega, e remonta (via key) quando o item muda ou o usuario descarta alteracoes.
+  const [meta, setMeta] = useState<CheckpointMeta>(() => {
+    const defaults: CheckpointMeta = {
+      hoursPlayed: 0,
+      platform: "PC / Steam",
+      platinum: false,
+      currentPage: 0,
+      totalPages: 320
+    };
+    if (typeof window === "undefined") {
+      return defaults;
+    }
+    try {
+      const raw = window.localStorage.getItem(checkpointStorageKey(item.id));
+      return raw ? { ...defaults, ...(JSON.parse(raw) as CheckpointMeta) } : defaults;
+    } catch {
+      return defaults;
+    }
   });
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as CheckpointMeta;
-        setMeta((prev) => ({ ...prev, ...parsed }));
-      }
-    } catch {
-      // ignora
-    }
-  }, [storageKey]);
-
+  // So atualiza o estado local; o pai grava no localStorage quando o usuario salvar.
   function updateMeta(patch: Partial<CheckpointMeta>) {
-    setMeta((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(next));
-      } catch {
-        // ignora
-      }
-      return next;
-    });
+    const next = { ...meta, ...patch };
+    setMeta(next);
+    onMetaChange(next);
   }
 
   if (isGame) {
@@ -721,9 +857,13 @@ function MediaProgressTracker({
     );
   }
 
-  // Livro: Marcador de Leitura por Paginas + Ritmo + Marcos
-  const totalPages = Math.max(1, meta.totalPages ?? 320);
-  const currentPage = Math.min(totalPages, Math.max(0, meta.currentPage ?? Math.round((progress / 100) * totalPages)));
+  // Livro: Marcador de Leitura por Paginas + Ritmo + Marcos.
+  // Paginas vem do tracking do usuario na API; o checkpoint local antigo so serve de valor inicial.
+  const totalPages = Math.max(1, savedTotalPages ?? meta.totalPages ?? 320);
+  const currentPage = Math.min(
+    totalPages,
+    Math.max(0, pagesRead ?? meta.currentPage ?? Math.round((progress / 100) * totalPages))
+  );
   const remainingPages = Math.max(0, totalPages - currentPage);
   const remainingMinutes = Math.round(remainingPages * 1.5);
   const remainingHoursText =
@@ -734,14 +874,25 @@ function MediaProgressTracker({
         : `~${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}min restantes`;
 
   function applyPageChange(nextPage: number, nextTotal = totalPages) {
-    const safeTotal = Math.max(1, nextTotal);
+    const safeTotal = Math.max(1, Math.min(TRACKING_PAGES_MAX, nextTotal));
     const clampedPage = Math.max(0, Math.min(safeTotal, nextPage));
     const pct = Math.min(100, Math.round((clampedPage / safeTotal) * 100));
-    updateMeta({ currentPage: clampedPage, totalPages: safeTotal });
+    onPagesChange(clampedPage, safeTotal);
     if (pct >= 100) {
       onMilestoneSelect(100, "COMPLETED");
     } else {
       onProgressChange(pct);
+    }
+  }
+
+  function commitTotalInput() {
+    if (totalInput === null) {
+      return;
+    }
+    const parsed = parsePageInput(totalInput);
+    setTotalInput(null);
+    if (parsed > 0 && parsed !== totalPages) {
+      applyPageChange(currentPage, parsed);
     }
   }
 
@@ -769,7 +920,7 @@ function MediaProgressTracker({
           aria-label="Porcentagem de leitura"
           onChange={(event) => {
             const pct = Number(event.target.value);
-            updateMeta({ currentPage: Math.round((pct / 100) * totalPages) });
+            onPagesChange(Math.round((pct / 100) * totalPages), totalPages);
             onProgressChange(pct);
           }}
         />
@@ -779,24 +930,34 @@ function MediaProgressTracker({
         <div className="trak-session-box">
           <span className="trak-session-label">Páginas lidas / Total da edição</span>
           <div className="trak-book-pages-inputs">
+            {/* type="text" + inputMode numerico: so aceita digitos, sem notacao cientifica (1e5). */}
             <input
-              type="number"
-              min={0}
-              max={totalPages}
-              value={currentPage}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={PAGE_INPUT_MAX_DIGITS}
+              value={String(currentPage)}
               disabled={disabled}
               aria-label="Página atual"
-              onChange={(e) => applyPageChange(Number(e.target.value), totalPages)}
+              onChange={(e) => applyPageChange(parsePageInput(e.target.value), totalPages)}
             />
             <span>de</span>
             <input
-              type="number"
-              min={1}
-              max={10000}
-              value={totalPages}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={PAGE_INPUT_MAX_DIGITS}
+              value={totalInput ?? String(totalPages)}
               disabled={disabled}
               aria-label="Total de páginas do livro"
-              onChange={(e) => applyPageChange(currentPage, Number(e.target.value))}
+              onChange={(e) => setTotalInput(e.target.value.replace(/\D/g, ""))}
+              onBlur={commitTotalInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTotalInput();
+                }
+              }}
             />
             <span>págs</span>
           </div>
@@ -839,7 +1000,7 @@ function MediaProgressTracker({
           className={`filter-chip${progress === 15 ? " is-active" : ""}`}
           disabled={disabled}
           onClick={() => {
-            updateMeta({ currentPage: Math.round(totalPages * 0.15) });
+            onPagesChange(Math.round(totalPages * 0.15), totalPages);
             onMilestoneSelect(15, "WATCHING");
           }}
         >
@@ -850,7 +1011,7 @@ function MediaProgressTracker({
           className={`filter-chip${progress === 50 ? " is-active" : ""}`}
           disabled={disabled}
           onClick={() => {
-            updateMeta({ currentPage: Math.round(totalPages * 0.5) });
+            onPagesChange(Math.round(totalPages * 0.5), totalPages);
             onMilestoneSelect(50, "WATCHING");
           }}
         >
@@ -861,7 +1022,7 @@ function MediaProgressTracker({
           className={`filter-chip${progress === 80 ? " is-active" : ""}`}
           disabled={disabled}
           onClick={() => {
-            updateMeta({ currentPage: Math.round(totalPages * 0.8) });
+            onPagesChange(Math.round(totalPages * 0.8), totalPages);
             onMilestoneSelect(80, "WATCHING");
           }}
         >
@@ -872,7 +1033,7 @@ function MediaProgressTracker({
           className={`filter-chip${progress === 100 && status === "COMPLETED" ? " is-active" : ""}`}
           disabled={disabled}
           onClick={() => {
-            updateMeta({ currentPage: totalPages });
+            onPagesChange(totalPages, totalPages);
             onMilestoneSelect(100, "COMPLETED");
           }}
         >

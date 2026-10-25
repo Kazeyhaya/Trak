@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../contextos/auth-context";
+import { useI18n } from "../contextos/i18n-context";
 
 export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -16,12 +18,12 @@ export function SiteHeader() {
   }
 
   const navItems = [
-    { label: "Catálogo", href: "/catalogo" },
+    { label: t("nav.catalog", "Catálogo"), href: "/catalogo" },
     ...(user
       ? [
-          { label: "Feed", href: "/feed" },
-          { label: "Para você", href: "/recomendacoes" },
-          ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
+          { label: t("nav.feed", "Feed"), href: "/feed" },
+          { label: t("nav.forYou", "Para você"), href: "/recomendacoes" },
+          ...(isAdmin ? [{ label: t("nav.moderation", "Moderação"), href: "/moderacao" }] : [])
         ]
       : [])
   ];
@@ -95,7 +97,7 @@ export function SiteHeader() {
         </div>
       ) : (
         <Link className="header-cta" href="/entrar">
-          Entrar
+          {t("nav.signIn", "Entrar")}
         </Link>
       )}
     </header>

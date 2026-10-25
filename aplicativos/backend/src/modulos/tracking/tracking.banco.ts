@@ -6,7 +6,7 @@ import { StatusTracking } from "./dto/salvar-tracking.dto";
 export const TABELA_TRACKING = "UserMedia";
 
 export const CAMPOS_TRACKING =
-  "id,mediaItemId,status,progressCurrent,personalRating,notes,timesConsumed,startedAt,finishedAt,updatedAt";
+  "id,mediaItemId,status,progressCurrent,personalRating,notes,pagesRead,totalPages,timesConsumed,startedAt,finishedAt,updatedAt";
 
 export type LinhaUserMedia = {
   id: string;
@@ -15,6 +15,8 @@ export type LinhaUserMedia = {
   progressCurrent: number | null;
   personalRating: number | null;
   notes: string | null;
+  pagesRead: number | null;
+  totalPages: number | null;
   timesConsumed: number | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -29,6 +31,9 @@ export type RegistroTracking = {
   progress: number;
   rating: number | null;
   notes: string | null;
+  // Livros: paginas da edicao que este usuario le (nao altera a obra para os demais).
+  pagesRead: number | null;
+  totalPages: number | null;
   startedAt: string | null;
   finishedAt: string | null;
   updatedAt: string;
@@ -39,6 +44,8 @@ export type AlteracaoTracking = {
   progress?: number;
   rating?: number | null;
   notes?: string | null;
+  pagesRead?: number;
+  totalPages?: number;
 };
 
 export function statusParaBanco(status: StatusTracking) {
@@ -57,6 +64,8 @@ export function deBanco(linha: LinhaUserMedia): RegistroTracking {
     progress: linha.progressCurrent ?? 0,
     rating: linha.personalRating,
     notes: linha.notes,
+    pagesRead: linha.pagesRead ?? null,
+    totalPages: linha.totalPages ?? null,
     startedAt: linha.startedAt,
     finishedAt: linha.finishedAt,
     updatedAt: linha.updatedAt
@@ -83,6 +92,12 @@ export function paraBanco(
   }
   if (alteracao.notes !== undefined) {
     linha.notes = alteracao.notes;
+  }
+  if (alteracao.pagesRead !== undefined) {
+    linha.pagesRead = alteracao.pagesRead;
+  }
+  if (alteracao.totalPages !== undefined) {
+    linha.totalPages = alteracao.totalPages;
   }
 
   const mudouStatus = alteracao.status !== undefined && statusParaBanco(alteracao.status) !== existente?.status;

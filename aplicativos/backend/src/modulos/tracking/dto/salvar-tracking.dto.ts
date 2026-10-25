@@ -27,6 +27,19 @@ export class SalvarTrackingDto {
   @IsOptional()
   @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(1000)
   notes?: string | null;
+
+  // Paginas lidas e total da edicao: pertencem ao tracking do usuario, nao a obra.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50000)
+  pagesRead?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(50000)
+  totalPages?: number;
 }

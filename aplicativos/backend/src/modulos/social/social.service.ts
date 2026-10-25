@@ -14,10 +14,11 @@ import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
 
 // O perfil publico mora na propria tabela "User" (id = id do Supabase Auth).
-const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,avatarUrl,bannerUrl,theme,importedSources,createdAt";
+const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,avatarUrl,bannerUrl,theme,language,importedSources,createdAt";
 const CAMPOS_PERFIL_LEGADO = "id,username,displayName,bio,isPublic,createdAt";
 
 const TEMA_PADRAO = "emerald";
+const IDIOMA_PADRAO: "pt-BR" | "en-US" = "pt-BR";
 const FONTES_IMPORTACAO = ["letterboxd", "trakt", "steam"] as const;
 
 type LinhaUser = Omit<Perfil, "userId" | "hasImported"> & { id: string };
@@ -54,6 +55,7 @@ function perfilDe(linha: LinhaUser, meta?: MetaPerfil | null): Perfil {
     avatarUrl: linha.avatarUrl ?? meta?.avatarUrl ?? null,
     bannerUrl: linha.bannerUrl ?? meta?.bannerUrl ?? null,
     theme: linha.theme || meta?.theme || TEMA_PADRAO,
+    language: (linha as unknown as { language?: string }).language === "en-US" ? "en-US" : IDIOMA_PADRAO,
     importedSources,
     hasImported: Boolean(meta?.hasImported) || todasImportadas
   };
@@ -73,6 +75,7 @@ type Perfil = {
   avatarUrl: string | null;
   bannerUrl: string | null;
   theme: string;
+  language: "pt-BR" | "en-US";
   importedSources: string[];
   hasImported: boolean;
   createdAt: string;
@@ -272,7 +275,8 @@ export class SocialService {
     let metaLegado: MetaPerfil | null = null;
 
     if (erroColunaAusente(error)) {
-      const { avatarUrl, bannerUrl, theme, ...camposLegados } = normalizado;
+      const { avatarUrl, bannerUrl, theme, language, ...camposLegados } = normalizado;
+      void language;
       const valoresLegados = Object.fromEntries(
         Object.entries(camposLegados).filter(([, valor]) => valor !== undefined)
       );

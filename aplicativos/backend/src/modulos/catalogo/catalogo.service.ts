@@ -128,8 +128,9 @@ export class CatalogoService implements OnModuleInit {
     if (!apiKey) {
       return Promise.resolve(null);
     }
-    const query = new URLSearchParams({ api_key: apiKey, language: "pt-BR", ...params });
-    return this.comCache(`tmdb:${path}?${new URLSearchParams(params)}`, () =>
+    const language = params.language || "pt-BR";
+    const query = new URLSearchParams({ api_key: apiKey, language, ...params });
+    return this.comCache(`tmdb:${language}:${path}?${new URLSearchParams(params)}`, () =>
       this.fetchJson<T>(`${TMDB}${path}?${query}`)
     );
   }
@@ -201,9 +202,44 @@ export class CatalogoService implements OnModuleInit {
     });
   }
 
+  // Consulta a Google Books API com langRestrict=pt para sinopses ricas em portugues.
+  private async googleBooksBuscarSinopse(titulo: string, idioma = "pt-BR"): Promise<string | null> {
+    const cleanTitle = titulo.trim();
+    if (!cleanTitle) {
+      return null;
+    }
+    const lang = idioma === "en-US" ? "en" : "pt";
+    const chave = `gbooks:synopsis:${lang}:${normalizarTitulo(cleanTitle)}`;
+    return this.comCache(chave, async () => {
+      try {
+        const query = new URLSearchParams({
+          q: `intitle:${cleanTitle}`,
+          langRestrict: lang,
+          printType: "books",
+          maxResults: "1"
+        });
+        const res = await this.fetchJson<{
+          items?: Array<{
+            volumeInfo?: {
+              description?: string;
+            };
+          }>;
+        }>(`https://www.googleapis.com/books/v1/volumes?${query}`);
+        const desc = res?.items?.[0]?.volumeInfo?.description?.trim();
+        if (!desc) {
+          return null;
+        }
+        return desc.replace(/<[^>]+>/g, "").trim() || null;
+      } catch {
+        return null;
+      }
+    });
+  }
+
   // Listagem e busca
 
-  async listar(query?: string, tipo?: string, genero?: string) {
+  async listar(query?: string, tipo?: string, genero?: string, lang?: string) {
+    const idioma = lang === "en-US" ? "en-US" : "pt-BR";
     // Fontes sem chave configurada simplesmente nao retornam itens.
     const busca = query?.trim() || undefined;
     const filtro = (["movie", "series", "game", "book", "anime", "novela", "dorama"] as const).find(
@@ -214,25 +250,25 @@ export class CatalogoService implements OnModuleInit {
     // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
     if (filtro === "anime") {
       const [series, movies] = await Promise.all([
-        this.listarAnimacoes("tv", busca, generoValido),
-        this.listarAnimacoes("movie", busca, generoValido)
+        this.listarAnimacoes("tv", busca, generoValido, idioma),
+        this.listarAnimacoes("movie", busca, generoValido, idioma)
       ]);
       return [...series, ...movies];
     }
 
     if (filtro === "novela") {
-      return this.listarNovelas(busca, generoValido);
+      return this.listarNovelas(busca, generoValido, idioma);
     }
 
     if (filtro === "dorama") {
-      return this.listarDoramas(busca, generoValido);
+      return this.listarDoramas(busca, generoValido, idioma);
     }
 
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
 
     const [movies, series, games, books] = await Promise.all([
-      incluir("movie") ? this.listarTmdb("movie", busca, generoValido, filtro === "movie") : [],
-      incluir("series") ? this.listarTmdb("tv", busca, generoValido, true, filtro === "series") : [],
+      incluir("movie") ? this.listarTmdb("movie", busca, generoValido, filtro === "movie", false, idioma) : [],
+      incluir("series") ? this.listarTmdb("tv", busca, generoValido, true, filtro === "series", idioma) : [],
       incluir("game") ? this.listarRawg(busca, generoValido) : [],
       incluir("book") ? this.listarLivros(busca, generoValido) : []
     ]);
@@ -245,7 +281,8 @@ export class CatalogoService implements OnModuleInit {
     query?: string,
     genero?: GeneroCatalogo,
     excluirAnimacao = false,
-    forcarDiscover = false
+    forcarDiscover = false,
+    idioma = "pt-BR"
   ): Promise<ItemCatalogo[]> {
     const type = mediaType === "movie" ? "MOVIE" : "SERIES";
     const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
@@ -264,10 +301,10 @@ export class CatalogoService implements OnModuleInit {
     }
 
     const data = query
-      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
+      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query, language: idioma })
       : tmdbGenre || forcarDiscover
-        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, discoverParams)
-        : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`);
+        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, { ...discoverParams, language: idioma })
+        : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`, { language: idioma });
 
     return (data?.results ?? [])
       .filter((item) => {
@@ -283,7 +320,8 @@ export class CatalogoService implements OnModuleInit {
   private async listarAnimacoes(
     mediaType: "movie" | "tv",
     query?: string,
-    genero?: GeneroCatalogo
+    genero?: GeneroCatalogo,
+    idioma = "pt-BR"
   ): Promise<ItemCatalogo[]> {
     const type = mediaType === "movie" ? "MOVIE" : "SERIES";
     const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
@@ -293,10 +331,11 @@ export class CatalogoService implements OnModuleInit {
     const genresParam = tmdbGenre ? `${TMDB_GENERO_ANIMACAO},${tmdbGenre}` : String(TMDB_GENERO_ANIMACAO);
     // A busca por texto do TMDB nao filtra genero, entao o filtro e feito nos resultados.
     const data = query
-      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query })
+      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query, language: idioma })
       : await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
           with_genres: genresParam,
-          sort_by: "popularity.desc"
+          sort_by: "popularity.desc",
+          language: idioma
         });
 
     return (data?.results ?? [])
@@ -309,14 +348,14 @@ export class CatalogoService implements OnModuleInit {
       .map((item) => mapearTmdb(item, type));
   }
 
-  private async listarNovelas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+  private async listarNovelas(query?: string, genero?: GeneroCatalogo, idioma = "pt-BR"): Promise<ItemCatalogo[]> {
     const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
     if (genero && !tmdbGenre) {
       return [];
     }
 
     if (query) {
-      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query });
+      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query, language: idioma });
       const paisesSet = new Set<string>(PAISES_NOVELA);
       return (data?.results ?? [])
         .filter((item) => {
@@ -345,13 +384,15 @@ export class CatalogoService implements OnModuleInit {
       this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
         with_genres: soapGenres,
         without_genres: without,
-        sort_by: "popularity.desc"
+        sort_by: "popularity.desc",
+        language: idioma
       }),
       this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
         with_origin_country: PAISES_NOVELA.join("|"),
         with_genres: dramaGenres,
         without_genres: without,
-        sort_by: "popularity.desc"
+        sort_by: "popularity.desc",
+        language: idioma
       })
     ]);
 
@@ -367,14 +408,14 @@ export class CatalogoService implements OnModuleInit {
     return combinados.slice(0, LIMITE_POR_FONTE).map((item) => mapearTmdb(item, "SERIES", "NOVELA"));
   }
 
-  private async listarDoramas(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+  private async listarDoramas(query?: string, genero?: GeneroCatalogo, idioma = "pt-BR"): Promise<ItemCatalogo[]> {
     const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
     if (genero && !tmdbGenre) {
       return [];
     }
 
     if (query) {
-      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query });
+      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query, language: idioma });
       const paisesSet = new Set<string>(PAISES_DORAMA);
       const idiomasSet = new Set<string>(IDIOMAS_DORAMA);
       return (data?.results ?? [])
@@ -400,7 +441,8 @@ export class CatalogoService implements OnModuleInit {
       with_origin_country: PAISES_DORAMA.join("|"),
       with_genres: withGenres,
       without_genres: without,
-      sort_by: "popularity.desc"
+      sort_by: "popularity.desc",
+      language: idioma
     });
 
     return (data?.results ?? [])
@@ -465,8 +507,8 @@ export class CatalogoService implements OnModuleInit {
     return (data?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
   }
 
-  async buscarPorId(id: string): Promise<ItemCatalogo> {
-    const item = await this.carregarItem(id);
+  async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
+    const item = await this.carregarItem(id, lang);
 
     if (!item) {
       throw new NotFoundException("Item nao encontrado.");
@@ -703,11 +745,14 @@ export class CatalogoService implements OnModuleInit {
     });
   }
 
-  private async carregarItem(id: string): Promise<ItemCatalogo | null> {
+  private async carregarItem(id: string, lang?: string): Promise<ItemCatalogo | null> {
+    const idioma = lang === "en-US" ? "en-US" : "pt-BR";
     const parsed = parsearId(id);
 
     if (parsed?.source === "tmdb") {
-      const item = await this.tmdb<TmdbItem>(`/${parsed.type === "MOVIE" ? "movie" : "tv"}/${parsed.externalId}`);
+      const item = await this.tmdb<TmdbItem>(`/${parsed.type === "MOVIE" ? "movie" : "tv"}/${parsed.externalId}`, {
+        language: idioma
+      });
       return item ? mapearTmdb(item, parsed.type) : null;
     }
 
@@ -718,7 +763,7 @@ export class CatalogoService implements OnModuleInit {
       }
       const mapeado = mapearRawg(item);
       const [synopsis, capaVertical] = await Promise.all([
-        this.traduzirParaPtBr(mapeado.synopsis),
+        idioma === "pt-BR" ? this.traduzirParaPtBr(mapeado.synopsis) : mapeado.synopsis,
         this.capaSteamGridDb(mapeado.title)
       ]);
       return {
@@ -734,9 +779,21 @@ export class CatalogoService implements OnModuleInit {
         return null;
       }
       const mapeado = mapearOpenLibrary(item);
+      let sinopse = mapeado.synopsis;
+
+      if (idioma === "pt-BR") {
+        // Complementa com sinopse oficial da Google Books em portugues (langRestrict=pt)
+        const sinopseGoogle = await this.googleBooksBuscarSinopse(mapeado.title, "pt-BR");
+        if (sinopseGoogle) {
+          sinopse = sinopseGoogle;
+        } else if (sinopse) {
+          sinopse = await this.traduzirParaPtBr(sinopse);
+        }
+      }
+
       return {
         ...mapeado,
-        synopsis: await this.traduzirParaPtBr(mapeado.synopsis)
+        synopsis: sinopse
       };
     }
 
@@ -1035,7 +1092,8 @@ export class CatalogoService implements OnModuleInit {
 
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
-    const { subtype, ...itemParaSalvar } = item;
+    const { subtype: _subtype, ...itemParaSalvar } = item;
+    void _subtype;
     const { error: insertError } = await supabase
       .from("MediaItem")
       .upsert({ ...itemParaSalvar, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
