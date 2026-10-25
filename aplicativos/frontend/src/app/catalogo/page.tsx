@@ -16,7 +16,8 @@ export default async function CatalogoPage({
   searchParams?: Promise<{ q?: string; type?: string; genre?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const query = resolvedSearchParams?.q ?? "";
+  const rawQuery = resolvedSearchParams?.q ?? "";
+  const query = rawQuery.slice(0, 50);
   const typeFilter = resolvedSearchParams?.type ?? "";
   const genreFilter = resolvedSearchParams?.genre ?? "";
   const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter);
