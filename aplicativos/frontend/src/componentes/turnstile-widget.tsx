@@ -43,6 +43,17 @@ export function TurnstileWidget({
   const widgetIdRef = useRef<string | null>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
+  // Mantém referências estáveis para evitar re-execução do efeito em re-render do pai
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  });
+
   useEffect(() => {
     if (!siteKey) {
       // Se não houver chave configurada (ex: dev local sem chaves), não bloqueia o fluxo.
@@ -55,13 +66,9 @@ export function TurnstileWidget({
       if (!isMounted || !containerRef.current || !window.turnstile) {
         return;
       }
+      // Evita renderizar novamente se já houver um widget ativo
       if (widgetIdRef.current) {
-        try {
-          window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          // ignora
-        }
-        widgetIdRef.current = null;
+        return;
       }
 
       try {
@@ -69,13 +76,13 @@ export function TurnstileWidget({
           sitekey: siteKey!,
           theme,
           callback: (token) => {
-            if (isMounted) onVerify(token);
+            if (isMounted) onVerifyRef.current(token);
           },
           "expired-callback": () => {
-            if (isMounted) onExpire?.();
+            if (isMounted) onExpireRef.current?.();
           },
           "error-callback": (errorCode) => {
-            if (isMounted) onError?.(errorCode);
+            if (isMounted) onErrorRef.current?.(errorCode);
           }
         });
         widgetIdRef.current = id;
@@ -95,7 +102,7 @@ export function TurnstileWidget({
         script.async = true;
         script.defer = true;
         script.onerror = () => {
-          if (isMounted) onError?.("script_load_failed");
+          if (isMounted) onErrorRef.current?.("script_load_failed");
         };
         document.head.appendChild(script);
       }
@@ -110,7 +117,7 @@ export function TurnstileWidget({
       const timeout = setTimeout(() => {
         clearInterval(checkInterval);
         if (isMounted && !widgetIdRef.current) {
-          onError?.("timeout");
+          onErrorRef.current?.("timeout");
         }
       }, 10000);
 
@@ -124,6 +131,7 @@ export function TurnstileWidget({
           } catch {
             // ignora
           }
+          widgetIdRef.current = null;
         }
       };
     }
@@ -136,9 +144,10 @@ export function TurnstileWidget({
         } catch {
           // ignora
         }
+        widgetIdRef.current = null;
       }
     };
-  }, [siteKey, theme, onVerify, onExpire, onError]);
+  }, [siteKey, theme]);
 
   if (!siteKey) {
     return null;

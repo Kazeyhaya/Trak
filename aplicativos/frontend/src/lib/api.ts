@@ -28,6 +28,24 @@ export function errorMessage(error: unknown, fallback = "Algo deu errado. Tente 
   return fallback;
 }
 
+export async function verifyTurnstileToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/turnstile/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      cache: "no-store"
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { success?: boolean };
+      return Boolean(data.success);
+    }
+  } catch {
+    // ignora falha de rede para nao bloquear dev
+  }
+  return true;
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };

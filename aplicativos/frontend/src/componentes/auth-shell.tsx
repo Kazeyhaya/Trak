@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../contextos/auth-context";
 import { destinoSeguro } from "../lib/rotas";
+import { verifyTurnstileToken } from "../lib/api";
 import { TurnstileWidget } from "./turnstile-widget";
 import { UiButton } from "./ui-button";
 
@@ -25,6 +26,30 @@ export function AuthShell({ next }: { next?: string }) {
       router.replace(destinoSeguro(next));
     }
   }, [user, next, router]);
+
+  const handleVerify = useCallback((token: string) => {
+    setCaptchaToken(token);
+    setTurnstileError(null);
+    setError((prev) => (prev?.includes("Turnstile") ? null : prev));
+  }, []);
+
+  const handleExpire = useCallback(() => {
+    setCaptchaToken(null);
+  }, []);
+
+  const handleError = useCallback((code?: string | number) => {
+    setCaptchaToken(null);
+    const codeStr = String(code || "");
+    if (codeStr === "110200") {
+      setTurnstileError(
+        "Domínio não autorizado na Cloudflare (Erro 110200). Adicione 'trak-xi.vercel.app' em Hostnames no painel do Turnstile."
+      );
+    } else if (codeStr === "script_load_failed") {
+      setTurnstileError(
+        "O script do Cloudflare Turnstile foi bloqueado por uma extensão do navegador (ad-blocker)."
+      );
+    }
+  }, []);
 
   if (user) {
     return null;
@@ -56,6 +81,9 @@ export function AuthShell({ next }: { next?: string }) {
     }
 
     setLoading(true);
+    if (captchaToken) {
+      await verifyTurnstileToken(captchaToken);
+    }
     const result = mode === "login"
       ? await signIn(email, password, captchaToken ?? undefined)
       : await signUp(email, password, captchaToken ?? undefined);
@@ -150,25 +178,9 @@ export function AuthShell({ next }: { next?: string }) {
 
             <TurnstileWidget
               key={mode}
-              onVerify={(token) => {
-                setCaptchaToken(token);
-                setTurnstileError(null);
-                setError((prev) => (prev?.includes("Turnstile") ? null : prev));
-              }}
-              onExpire={() => setCaptchaToken(null)}
-              onError={(code) => {
-                setCaptchaToken(null);
-                const codeStr = String(code || "");
-                if (codeStr === "110200") {
-                  setTurnstileError(
-                    "Domínio não autorizado na Cloudflare (Erro 110200). Adicione 'trak-xi.vercel.app' em Hostnames no painel do Turnstile."
-                  );
-                } else if (codeStr === "script_load_failed") {
-                  setTurnstileError(
-                    "O script do Cloudflare Turnstile foi bloqueado por uma extensão do navegador (ad-blocker)."
-                  );
-                }
-              }}
+              onVerify={handleVerify}
+              onExpire={handleExpire}
+              onError={handleError}
             />
 
             <div className="auth-actions">
