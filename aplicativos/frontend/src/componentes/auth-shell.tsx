@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "../contextos/auth-context";
 import { destinoSeguro } from "../lib/rotas";
-import { TurnstileWidget } from "./turnstile-widget";
 import { UiButton } from "./ui-button";
 
 export function AuthShell({ next }: { next?: string }) {
@@ -17,7 +16,6 @@ export function AuthShell({ next }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -48,16 +46,10 @@ export function AuthShell({ next }: { next?: string }) {
       }
     }
 
-    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
-    if (siteKey && !captchaToken) {
-      setError("Por favor, conclua a verificação de segurança (Turnstile).");
-      return;
-    }
-
     setLoading(true);
     const result = mode === "login"
-      ? await signIn(email, password, captchaToken ?? undefined)
-      : await signUp(email, password, captchaToken ?? undefined);
+      ? await signIn(email, password)
+      : await signUp(email, password);
     setLoading(false);
 
     if (result.error) {
@@ -75,7 +67,6 @@ export function AuthShell({ next }: { next?: string }) {
     setMode(nextMode);
     setError(null);
     setNotice(null);
-    setCaptchaToken(null);
   }
 
   return (
@@ -144,16 +135,6 @@ export function AuthShell({ next }: { next?: string }) {
 
             {error && <p className="auth-error">{error}</p>}
             {notice && <p className="auth-notice">{notice}</p>}
-
-            <TurnstileWidget
-              key={mode}
-              onVerify={(token) => {
-                setCaptchaToken(token);
-                setError((prev) => (prev?.includes("Turnstile") ? null : prev));
-              }}
-              onExpire={() => setCaptchaToken(null)}
-              onError={() => setCaptchaToken(null)}
-            />
 
             <div className="auth-actions">
               <UiButton type="submit" disabled={loading}>
