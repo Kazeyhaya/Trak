@@ -19,11 +19,13 @@ type CatalogShellProps = {
 
 function CatalogEmptyState({ query }: { query: string }) {
   const { t } = useI18n();
+  const trimmed = query.trim();
+  const displayQuery = trimmed.length > 50 ? `${trimmed.slice(0, 50)}…` : trimmed;
   return (
     <UiCard className="empty-state">
       <UiBadge tone="secondary">{t("catalog.noResults", "Sem resultados")}</UiBadge>
-      <h3 className="break-all line-clamp-2">
-        {query ? `${t("catalog.noResultsFor", "Nada encontrado para")} "${query}".` : "Nenhum item disponível."}
+      <h3 className="empty-state-title">
+        {displayQuery ? `${t("catalog.noResultsFor", "Nada encontrado para")} "${displayQuery}".` : "Nenhum item disponível."}
       </h3>
       <p>Tente outro termo ou remova o filtro de categoria.</p>
       <Link className="secondary-button" href="/catalogo">

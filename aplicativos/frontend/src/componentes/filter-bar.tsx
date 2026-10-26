@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useI18n } from "../contextos/i18n-context";
 
 const filters = [
@@ -14,6 +14,8 @@ const filters = [
   { label: "Jogos", value: "game" },
   { label: "Livros", value: "book" }
 ];
+
+const MAX_SEARCH_LENGTH = 50;
 
 type GenreOption = { label: string; value: string };
 
@@ -148,7 +150,7 @@ export function FilterBar() {
 
   // Sincroniza se a URL mudar externamente (ex: botao "Limpar busca" ou voltar no historico)
   useEffect(() => {
-    queueMicrotask(() => setQuery(urlQuery));
+    queueMicrotask(() => setQuery(urlQuery.slice(0, MAX_SEARCH_LENGTH)));
   }, [urlQuery]);
 
   useEffect(() => {
@@ -161,48 +163,53 @@ export function FilterBar() {
 
   const availableGenres = GENRES_BY_TYPE[activeType] ?? GENRES_BY_TYPE[""];
 
-  function updateUrl(nextQuery: string, nextType: string, nextGenre: string) {
-    const params = new URLSearchParams(searchParams.toString());
+  const updateUrl = useCallback(
+    (nextQuery: string, nextType: string, nextGenre: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const cleanQuery = nextQuery.trim().slice(0, MAX_SEARCH_LENGTH);
 
-    if (nextQuery.trim()) {
-      params.set("q", nextQuery.trim());
-    } else {
-      params.delete("q");
-    }
+      if (cleanQuery) {
+        params.set("q", cleanQuery);
+      } else {
+        params.delete("q");
+      }
 
-    if (nextType) {
-      params.set("type", nextType);
-    } else {
-      params.delete("type");
-    }
+      if (nextType) {
+        params.set("type", nextType);
+      } else {
+        params.delete("type");
+      }
 
-    if (nextGenre) {
-      params.set("genre", nextGenre);
-    } else {
-      params.delete("genre");
-    }
+      if (nextGenre) {
+        params.set("genre", nextGenre);
+      } else {
+        params.delete("genre");
+      }
 
-    const nextQueryString = params.toString();
-    const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
+      const nextQueryString = params.toString();
+      const targetUrl = nextQueryString ? `${pathname}?${nextQueryString}` : pathname;
 
-    startTransition(() => {
-      router.replace(targetUrl, { scroll: false });
-    });
-  }
+      startTransition(() => {
+        router.replace(targetUrl, { scroll: false });
+      });
+    },
+    [pathname, router, searchParams]
+  );
 
-  // Busca em tempo real com debounce de 300ms enquanto o usuario digita
+  // Busca em tempo real com debounce enquanto o usuario digita
   useEffect(() => {
-    const currentQ = (searchParams.get("q") ?? "").trim();
-    if (query.trim() === currentQ) {
+    const currentQ = (searchParams.get("q") ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
+    const targetQ = query.trim().slice(0, MAX_SEARCH_LENGTH);
+    if (targetQ === currentQ) {
       return;
     }
 
     const timer = setTimeout(() => {
       updateUrl(query, activeType, activeGenre);
-    }, 300);
+    }, 350);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, activeType, activeGenre, searchParams, updateUrl]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -235,9 +242,9 @@ export function FilterBar() {
         </svg>
         <input
           type="search"
-          maxLength={100}
+          maxLength={MAX_SEARCH_LENGTH}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setQuery(event.target.value.slice(0, MAX_SEARCH_LENGTH))}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               handleClear();
@@ -247,28 +254,42 @@ export function FilterBar() {
         />
         {isPending ? (
           <span className="filter-search-spinner" aria-label="Buscando..." />
-        ) : query ? (
-          <button
-            type="button"
-            className="filter-search-clear"
-            aria-label="Limpar busca"
-            onClick={handleClear}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        ) : null}
+        ) : (
+          <div className="filter-search-actions">
+            {query.length >= 35 && (
+              <span
+                className="filter-search-counter"
+                data-full={query.length >= MAX_SEARCH_LENGTH ? "true" : undefined}
+                aria-live="polite"
+              >
+                {query.length}/{MAX_SEARCH_LENGTH}
+              </span>
+            )}
+            {query ? (
+              <button
+                type="button"
+                className="filter-search-clear"
+                aria-label="Limpar busca"
+                onClick={handleClear}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
+        )}
       </label>
 
       <div className="filter-controls-row">

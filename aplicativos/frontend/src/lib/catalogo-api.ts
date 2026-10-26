@@ -111,8 +111,9 @@ export function obterIdiomaUsuario(): string {
 
 export async function getCatalogItems(query = "", type = "", genre = "", lang = "") {
   const params = new URLSearchParams();
-  if (query.trim()) {
-    params.set("q", query.trim());
+  const cleanQuery = query.trim().slice(0, 50);
+  if (cleanQuery) {
+    params.set("q", cleanQuery);
   }
   if (type) {
     params.set("type", type);

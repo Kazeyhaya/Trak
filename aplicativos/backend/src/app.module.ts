@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { SupabaseModule } from "./comum/supabase/supabase.module";
+import { TurnstileModule } from "./comum/turnstile/turnstile.module";
 import { CatalogoModule } from "./modulos/catalogo/catalogo.module";
 import { ComentariosModule } from "./modulos/comentarios/comentarios.module";
 import { FavoritosModule } from "./modulos/favoritos/favoritos.module";
@@ -18,6 +19,7 @@ import { TrackingModule } from "./modulos/tracking/tracking.module";
     // Limite padrao por IP; rotas sensiveis definem limites menores com @Throttle.
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 120 }]),
     SupabaseModule,
+    TurnstileModule,
     CatalogoModule,
     ComentariosModule,
     FavoritosModule,

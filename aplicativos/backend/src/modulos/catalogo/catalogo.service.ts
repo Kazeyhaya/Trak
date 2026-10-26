@@ -241,7 +241,7 @@ export class CatalogoService implements OnModuleInit {
   async listar(query?: string, tipo?: string, genero?: string, lang?: string) {
     const idioma = lang === "en-US" ? "en-US" : "pt-BR";
     // Fontes sem chave configurada simplesmente nao retornam itens.
-    const busca = query?.trim() || undefined;
+    const busca = query?.trim().slice(0, 50) || undefined;
     const filtro = (["movie", "series", "game", "book", "anime", "novela", "dorama"] as const).find(
       (t) => t === tipo
     );
