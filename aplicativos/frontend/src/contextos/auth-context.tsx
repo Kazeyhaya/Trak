@@ -14,8 +14,8 @@ type AuthContextValue = {
   profile: Profile | null;
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
-  signIn: (email: string, password: string, captchaToken?: string) => Promise<AuthResult>;
-  signUp: (email: string, password: string, captchaToken?: string) => Promise<AuthResult>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 };
 
@@ -43,9 +43,6 @@ function traduzirErroAuth(mensagem: string): string {
   }
   if (m.includes("password should be at least")) {
     return "A senha deve ter pelo menos 6 caracteres.";
-  }
-  if (m.includes("captcha") || m.includes("turnstile")) {
-    return "Falha na verificação de segurança (Cloudflare Turnstile). Tente novamente.";
   }
   if (m.includes("invalid") && m.includes("email")) {
     return "Informe um endereço de e-mail válido.";
@@ -127,36 +124,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userId]);
 
-  async function signIn(email: string, password: string, captchaToken?: string) {
+  async function signIn(email: string, password: string) {
     if (!supabase) {
       return { error: naoConfigurado, hasSession: false };
     }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-      options: captchaToken ? { captchaToken } : undefined
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     return { error: error ? traduzirErroAuth(error.message) : null, hasSession: Boolean(data.session) };
   }
 
-  async function signUp(email: string, password: string, captchaToken?: string) {
+  async function signUp(email: string, password: string) {
     if (!supabase) {
       return { error: naoConfigurado, hasSession: false };
     }
     const emailLimpo = email.trim().toLowerCase();
     const emailRedirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
-    const options: { emailRedirectTo?: string; captchaToken?: string } = {};
-    if (emailRedirectTo) {
-      options.emailRedirectTo = emailRedirectTo;
-    }
-    if (captchaToken) {
-      options.captchaToken = captchaToken;
-    }
-
     const { data, error } = await supabase.auth.signUp({
       email: emailLimpo,
       password,
-      options: Object.keys(options).length > 0 ? options : undefined
+      options: emailRedirectTo ? { emailRedirectTo } : undefined
     });
     return { error: error ? traduzirErroAuth(error.message) : null, hasSession: Boolean(data.session) };
   }

@@ -1,11 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contextos/auth-context";
 import { destinoSeguro } from "../lib/rotas";
-import { verifyTurnstileToken } from "../lib/api";
-import { TurnstileWidget } from "./turnstile-widget";
 import { UiButton } from "./ui-button";
 
 export function AuthShell({ next }: { next?: string }) {
@@ -18,38 +16,12 @@ export function AuthShell({ next }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [turnstileError, setTurnstileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       router.replace(destinoSeguro(next));
     }
   }, [user, next, router]);
-
-  const handleVerify = useCallback((token: string) => {
-    setCaptchaToken(token);
-    setTurnstileError(null);
-    setError((prev) => (prev?.includes("Turnstile") ? null : prev));
-  }, []);
-
-  const handleExpire = useCallback(() => {
-    setCaptchaToken(null);
-  }, []);
-
-  const handleError = useCallback((code?: string | number) => {
-    setCaptchaToken(null);
-    const codeStr = String(code || "");
-    if (codeStr === "110200") {
-      setTurnstileError(
-        "Domínio não autorizado na Cloudflare (Erro 110200). Adicione 'trak-xi.vercel.app' em Hostnames no painel do Turnstile."
-      );
-    } else if (codeStr === "script_load_failed") {
-      setTurnstileError(
-        "O script do Cloudflare Turnstile foi bloqueado por uma extensão do navegador (ad-blocker)."
-      );
-    }
-  }, []);
 
   if (user) {
     return null;
@@ -74,19 +46,10 @@ export function AuthShell({ next }: { next?: string }) {
       }
     }
 
-    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
-    if (siteKey && !captchaToken && !turnstileError) {
-      setError("Por favor, conclua a verificação de segurança (Turnstile).");
-      return;
-    }
-
     setLoading(true);
-    if (captchaToken) {
-      await verifyTurnstileToken(captchaToken);
-    }
     const result = mode === "login"
-      ? await signIn(email, password, captchaToken ?? undefined)
-      : await signUp(email, password, captchaToken ?? undefined);
+      ? await signIn(email, password)
+      : await signUp(email, password);
     setLoading(false);
 
     if (result.error) {
@@ -104,8 +67,6 @@ export function AuthShell({ next }: { next?: string }) {
     setMode(nextMode);
     setError(null);
     setNotice(null);
-    setCaptchaToken(null);
-    setTurnstileError(null);
   }
 
   return (
@@ -173,15 +134,7 @@ export function AuthShell({ next }: { next?: string }) {
             )}
 
             {error && <p className="auth-error">{error}</p>}
-            {turnstileError && <p className="auth-error">{turnstileError}</p>}
             {notice && <p className="auth-notice">{notice}</p>}
-
-            <TurnstileWidget
-              key={mode}
-              onVerify={handleVerify}
-              onExpire={handleExpire}
-              onError={handleError}
-            />
 
             <div className="auth-actions">
               <UiButton type="submit" disabled={loading}>
