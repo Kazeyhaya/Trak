@@ -18,6 +18,7 @@ export function AuthShell({ next }: { next?: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -49,7 +50,7 @@ export function AuthShell({ next }: { next?: string }) {
     }
 
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
-    if (siteKey && !captchaToken) {
+    if (siteKey && !captchaToken && !turnstileError) {
       setError("Por favor, conclua a verificação de segurança (Turnstile).");
       return;
     }
@@ -76,6 +77,7 @@ export function AuthShell({ next }: { next?: string }) {
     setError(null);
     setNotice(null);
     setCaptchaToken(null);
+    setTurnstileError(null);
   }
 
   return (
@@ -143,16 +145,30 @@ export function AuthShell({ next }: { next?: string }) {
             )}
 
             {error && <p className="auth-error">{error}</p>}
+            {turnstileError && <p className="auth-error">{turnstileError}</p>}
             {notice && <p className="auth-notice">{notice}</p>}
 
             <TurnstileWidget
               key={mode}
               onVerify={(token) => {
                 setCaptchaToken(token);
+                setTurnstileError(null);
                 setError((prev) => (prev?.includes("Turnstile") ? null : prev));
               }}
               onExpire={() => setCaptchaToken(null)}
-              onError={() => setCaptchaToken(null)}
+              onError={(code) => {
+                setCaptchaToken(null);
+                const codeStr = String(code || "");
+                if (codeStr === "110200") {
+                  setTurnstileError(
+                    "Domínio não autorizado na Cloudflare (Erro 110200). Adicione 'trak-xi.vercel.app' em Hostnames no painel do Turnstile."
+                  );
+                } else if (codeStr === "script_load_failed") {
+                  setTurnstileError(
+                    "O script do Cloudflare Turnstile foi bloqueado por uma extensão do navegador (ad-blocker)."
+                  );
+                }
+              }}
             />
 
             <div className="auth-actions">

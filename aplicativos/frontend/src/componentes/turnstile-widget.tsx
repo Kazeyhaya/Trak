@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 type TurnstileWidgetProps = {
   onVerify: (token: string) => void;
   onExpire?: () => void;
-  onError?: () => void;
+  onError?: (errorCode?: string | number) => void;
   theme?: "light" | "dark" | "auto";
   className?: string;
 };
@@ -19,7 +19,7 @@ declare global {
           sitekey: string;
           theme?: "light" | "dark" | "auto";
           callback?: (token: string) => void;
-          "error-callback"?: () => void;
+          "error-callback"?: (errorCode?: string | number) => void;
           "expired-callback"?: () => void;
         }
       ) => string;
@@ -74,8 +74,8 @@ export function TurnstileWidget({
           "expired-callback": () => {
             if (isMounted) onExpire?.();
           },
-          "error-callback": () => {
-            if (isMounted) onError?.();
+          "error-callback": (errorCode) => {
+            if (isMounted) onError?.(errorCode);
           }
         });
         widgetIdRef.current = id;
@@ -94,6 +94,9 @@ export function TurnstileWidget({
         script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
         script.async = true;
         script.defer = true;
+        script.onerror = () => {
+          if (isMounted) onError?.("script_load_failed");
+        };
         document.head.appendChild(script);
       }
 
@@ -106,6 +109,9 @@ export function TurnstileWidget({
 
       const timeout = setTimeout(() => {
         clearInterval(checkInterval);
+        if (isMounted && !widgetIdRef.current) {
+          onError?.("timeout");
+        }
       }, 10000);
 
       return () => {
@@ -142,7 +148,13 @@ export function TurnstileWidget({
     <div
       ref={containerRef}
       className={className}
-      style={{ display: "flex", justifyContent: "center", margin: "10px 0" }}
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "65px",
+        margin: "12px 0"
+      }}
     />
   );
 }
