@@ -539,10 +539,10 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                     aria-pressed={statusFilter === ""}
                     onClick={() => setStatusFilter("")}
                   >
-                    Todos os status ({library.length})
+                    Todos os status ({library.filter((i) => !typeFilter || i.item.type === typeFilter).length})
                   </button>
                   {TRACKING_STATUSES.map((st) => {
-                    const count = library.filter((i) => i.status === st).length;
+                    const count = library.filter((i) => (!typeFilter || i.item.type === typeFilter) && i.status === st).length;
                     return (
                       <button
                         key={st}
@@ -551,7 +551,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                         aria-pressed={statusFilter === st}
                         onClick={() => setStatusFilter(st)}
                       >
-                        {getStatusLabel(st)} ({count})
+                        {getStatusLabel(st, typeFilter || undefined)} ({count})
                       </button>
                     );
                   })}
