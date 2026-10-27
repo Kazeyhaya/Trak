@@ -31,7 +31,10 @@ describe("getStatusLabel", () => {
     expect(getStatusLabel("WATCHING", "GAME")).toBe("Jogando");
     expect(getStatusLabel("WATCHING", "BOOK")).toBe("Lendo");
     expect(getStatusLabel("WANT", "MOVIE")).toBe("Quero ver");
+    expect(getStatusLabel("WANT", "GAME")).toBe("Quero jogar");
+    expect(getStatusLabel("WANT", "BOOK")).toBe("Quero ler");
     expect(getStatusLabel("COMPLETED", "BOOK")).toBe("Lido");
+    expect(getStatusLabel("COMPLETED", "GAME")).toBe("Zerado");
   });
 });
 
