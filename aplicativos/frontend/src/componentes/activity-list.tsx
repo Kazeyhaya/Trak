@@ -1,9 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { UiCard } from "./ui-card";
-import { Activity } from "../lib/api";
+import { UiBadge } from "./ui-badge";
+import { Activity, getStatusLabel, saveTrackingItem } from "../lib/api";
+import { getMediaTypeLabel } from "../lib/catalogo-api";
 import { descreverAtividade, tempoRelativo } from "../lib/atividades";
+import { useAuth } from "../contextos/auth-context";
 
 type ActivityListProps = {
   items: Activity[];
@@ -12,37 +17,162 @@ type ActivityListProps = {
 };
 
 export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
+  const { user } = useAuth();
+  const [trackedMap, setTrackedMap] = useState<Record<string, boolean>>({});
+  const [savingMap, setSavingMap] = useState<Record<string, boolean>>({});
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+
+  async function handleQuickTrack(mediaItemId: string) {
+    if (!user || trackedMap[mediaItemId] || savingMap[mediaItemId]) return;
+    setSavingMap((prev) => ({ ...prev, [mediaItemId]: true }));
+    try {
+      await saveTrackingItem(mediaItemId, { status: "WANT" });
+      setTrackedMap((prev) => ({ ...prev, [mediaItemId]: true }));
+    } catch {
+      // Ignora falha silenciosa
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [mediaItemId]: false }));
+    }
+  }
+
   return (
     <ol className="activity-list">
-      {items.map((atividade) => (
-        <li key={atividade.id}>
-          <UiCard className="activity-item">
-            {atividade.item?.coverUrl && (
-              <Image className="timeline-cover" src={atividade.item.coverUrl} alt="" width={56} height={84} />
-            )}
-            <div>
-              <p>
-                {showAuthor && (
-                  <>
-                    {atividade.user ? (
-                      <Link href={`/u/${atividade.user.username}`}>
-                        {atividade.user.displayName || `@${atividade.user.username}`}
-                      </Link>
+      {items.map((atividade) => {
+        const item = atividade.item;
+        const author = atividade.user;
+        const authorInitial = (author?.displayName || author?.username || "V")[0]?.toUpperCase() ?? "?";
+
+        const hasValidCover = Boolean(
+          item?.coverUrl &&
+          !brokenImages[atividade.id] &&
+          !item.coverUrl.includes("/id/-1-") &&
+          !item.coverUrl.includes("/id/0-")
+        );
+
+        const typeLabel = item ? getMediaTypeLabel(item.type, item.subtype) : null;
+        const isTracked = Boolean(atividade.mediaItemId && trackedMap[atividade.mediaItemId]);
+        const isSaving = Boolean(atividade.mediaItemId && savingMap[atividade.mediaItemId]);
+
+        return (
+          <li key={atividade.id}>
+            <article className="activity-card">
+              <header className="activity-header">
+                <div className="activity-author-group">
+                  {showAuthor && (
+                    <div className="activity-author-avatar">
+                      {author?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={author.avatarUrl} alt="" />
+                      ) : (
+                        <span>{authorInitial}</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="activity-author-meta">
+                    <div className="activity-author-name-row">
+                      {showAuthor ? (
+                        author ? (
+                          <>
+                            <Link href={`/u/${encodeURIComponent(author.username)}`} className="activity-author-name">
+                              {author.displayName || `@${author.username}`}
+                            </Link>
+                            {author.displayName && (
+                              <Link href={`/u/${encodeURIComponent(author.username)}`} className="activity-author-handle">
+                                @{author.username}
+                              </Link>
+                            )}
+                          </>
+                        ) : (
+                          <span className="activity-author-name">Você</span>
+                        )
+                      ) : null}
+                    </div>
+
+                    <div className="activity-action-text">
+                      <span>{descreverAtividade(atividade)}</span>
+                      {atividade.type === "RATING" && typeof atividade.data.rating === "number" && (
+                        <span className="activity-rating-stars">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star} style={{ opacity: star <= (atividade.data.rating ?? 0) ? 1 : 0.25 }}>
+                              ★
+                            </span>
+                          ))}
+                          <strong>{atividade.data.rating}</strong>
+                        </span>
+                      )}
+                      {atividade.type === "STATUS" && atividade.data.status && (
+                        <UiBadge tone="secondary">
+                          {getStatusLabel(atividade.data.status, item?.type)}
+                        </UiBadge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <time className="activity-time" dateTime={atividade.createdAt}>
+                  {tempoRelativo(atividade.createdAt)}
+                </time>
+              </header>
+
+              {item && atividade.mediaItemId && (
+                <div className="activity-media-box">
+                  <div className="activity-media-cover">
+                    {hasValidCover ? (
+                      <Image
+                        src={item.coverUrl!.replace("/media/resize/640/-/games/", "/media/games/")}
+                        alt=""
+                        fill
+                        sizes="72px"
+                        onError={() => setBrokenImages((prev) => ({ ...prev, [atividade.id]: true }))}
+                      />
                     ) : (
-                      "Você"
-                    )}{" "}
-                  </>
-                )}
-                {descreverAtividade(atividade)}{" "}
-                {atividade.mediaItemId && (
-                  <Link href={`/itens/${atividade.mediaItemId}`}>{atividade.item?.title ?? "um item"}</Link>
-                )}
-              </p>
-              <time dateTime={atividade.createdAt}>{tempoRelativo(atividade.createdAt)}</time>
-            </div>
-          </UiCard>
-        </li>
-      ))}
+                      <div className="media-card-orb" />
+                    )}
+                  </div>
+
+                  <div className="activity-media-details">
+                    <div className="activity-media-badges">
+                      {typeLabel && <UiBadge tone="secondary">{typeLabel}</UiBadge>}
+                      {item.releaseYear && <span className="feed-filter-badge">{item.releaseYear}</span>}
+                    </div>
+
+                    <h3 className="activity-media-title">
+                      <Link href={`/itens/${encodeURIComponent(atividade.mediaItemId)}`}>
+                        {item.title}
+                      </Link>
+                    </h3>
+
+                    {item.synopsis && (
+                      <p className="activity-media-synopsis">{item.synopsis}</p>
+                    )}
+
+                    <div className="activity-media-footer">
+                      {user && (
+                        <button
+                          type="button"
+                          className={`activity-quick-track-btn ${isTracked ? "is-saved" : ""}`}
+                          disabled={isTracked || isSaving}
+                          onClick={() => handleQuickTrack(atividade.mediaItemId!)}
+                        >
+                          {isTracked
+                            ? "✓ Na sua estante"
+                            : isSaving
+                              ? "Salvando..."
+                              : `+ Quero ${item.type === "GAME" ? "jogar" : item.type === "BOOK" ? "ler" : "ver"}`}
+                        </button>
+                      )}
+                      <Link href={`/itens/${encodeURIComponent(atividade.mediaItemId)}`} className="activity-details-link">
+                        Ver detalhes →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </article>
+          </li>
+        );
+      })}
     </ol>
   );
 }

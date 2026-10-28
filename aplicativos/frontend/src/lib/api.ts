@@ -249,7 +249,7 @@ export type Activity = {
   mediaItemId: string | null;
   data: { status?: TrackingStatus; rating?: number; season?: number; count?: number };
   createdAt: string;
-  user: { username: string; displayName: string | null } | null;
+  user: { username: string; displayName: string | null; avatarUrl?: string | null } | null;
   item: CatalogItem | null;
 };
 

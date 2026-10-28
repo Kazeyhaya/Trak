@@ -224,7 +224,13 @@ export class SocialService {
       const perfil = perfis.get(atividade.userId);
       return {
         ...atividade,
-        user: perfil ? { username: perfil.username, displayName: perfil.displayName } : null,
+        user: perfil
+          ? {
+              username: perfil.username,
+              displayName: perfil.displayName,
+              avatarUrl: perfil.avatarUrl
+            }
+          : null,
         item: atividade.mediaItemId ? (itens.get(atividade.mediaItemId) ?? null) : null
       };
     });
