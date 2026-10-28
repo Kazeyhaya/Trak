@@ -38,6 +38,18 @@ export class SocialController {
     return this.socialService.perfilPublico(username, usuario);
   }
 
+  @UseGuards(AutenticacaoOpcionalGuard)
+  @Get("perfis/:username/seguidores")
+  seguidores(@Param("username") username: string, @UsuarioOpcional() usuario?: UsuarioAuth) {
+    return this.socialService.listarSeguidores(username, usuario);
+  }
+
+  @UseGuards(AutenticacaoOpcionalGuard)
+  @Get("perfis/:username/seguindo")
+  seguindo(@Param("username") username: string, @UsuarioOpcional() usuario?: UsuarioAuth) {
+    return this.socialService.listarSeguindo(username, usuario);
+  }
+
   @UseGuards(SupabaseAuthGuard)
   @Post("perfis/:username/seguir")
   seguir(@Param("username") username: string, @UsuarioLogado() usuario: UsuarioAuth) {

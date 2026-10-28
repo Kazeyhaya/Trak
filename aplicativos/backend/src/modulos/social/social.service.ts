@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException
@@ -545,5 +546,111 @@ export class SocialService {
       followingCount: autores.length - 1,
       items: await this.enriquecer(validas)
     };
+  }
+
+  async listarSeguidores(username: string, visitante?: UsuarioAuth) {
+    const alvo = await this.perfilPorUsername(username);
+    const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
+    const isMe = visitanteId === alvo.userId;
+
+    if (!alvo.isPublic && !isMe) {
+      throw new ForbiddenException("Este perfil é privado.");
+    }
+
+    const { data: follows, error } = await this.db
+      .from("Follow")
+      .select("followerId,createdAt")
+      .eq("followingId", alvo.userId)
+      .order("createdAt", { ascending: false })
+      .limit(100);
+    falha(error);
+
+    const followerIds = (follows ?? []).map((f) => f.followerId as string);
+    if (followerIds.length === 0) {
+      return [];
+    }
+
+    const [perfisMap, seguidosPeloVisitante] = await Promise.all([
+      this.perfisPorIds(followerIds),
+      visitanteId
+        ? this.db
+            .from("Follow")
+            .select("followingId")
+            .eq("followerId", visitanteId)
+            .in("followingId", followerIds)
+            .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
+        : Promise.resolve(new Set<string>())
+    ]);
+
+    return followerIds.flatMap((id) => {
+      const p = perfisMap.get(id);
+      if (!p) {
+        return [];
+      }
+      return [
+        {
+          userId: p.userId,
+          username: p.username,
+          displayName: p.displayName,
+          bio: p.bio,
+          avatarUrl: p.avatarUrl,
+          isFollowing: seguidosPeloVisitante.has(p.userId),
+          isMe: visitanteId === p.userId
+        }
+      ];
+    });
+  }
+
+  async listarSeguindo(username: string, visitante?: UsuarioAuth) {
+    const alvo = await this.perfilPorUsername(username);
+    const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
+    const isMe = visitanteId === alvo.userId;
+
+    if (!alvo.isPublic && !isMe) {
+      throw new ForbiddenException("Este perfil é privado.");
+    }
+
+    const { data: follows, error } = await this.db
+      .from("Follow")
+      .select("followingId,createdAt")
+      .eq("followerId", alvo.userId)
+      .order("createdAt", { ascending: false })
+      .limit(100);
+    falha(error);
+
+    const followingIds = (follows ?? []).map((f) => f.followingId as string);
+    if (followingIds.length === 0) {
+      return [];
+    }
+
+    const [perfisMap, seguidosPeloVisitante] = await Promise.all([
+      this.perfisPorIds(followingIds),
+      visitanteId
+        ? this.db
+            .from("Follow")
+            .select("followingId")
+            .eq("followerId", visitanteId)
+            .in("followingId", followingIds)
+            .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
+        : Promise.resolve(new Set<string>())
+    ]);
+
+    return followingIds.flatMap((id) => {
+      const p = perfisMap.get(id);
+      if (!p) {
+        return [];
+      }
+      return [
+        {
+          userId: p.userId,
+          username: p.username,
+          displayName: p.displayName,
+          bio: p.bio,
+          avatarUrl: p.avatarUrl,
+          isFollowing: seguidosPeloVisitante.has(p.userId),
+          isMe: visitanteId === p.userId
+        }
+      ];
+    });
   }
 }

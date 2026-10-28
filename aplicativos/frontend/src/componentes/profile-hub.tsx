@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ActivityList } from "./activity-list";
 import { AlertsSection } from "./alerts-section";
+import { FollowListModal } from "./follow-list-modal";
 import { MediaCard } from "./media-card";
 import { MediaGrid } from "./media-grid";
 import { ProfileActions } from "./profile-actions";
@@ -46,6 +47,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
   const [favTypeFilter, setFavTypeFilter] = useState<MediaType | "">("");
   const [busyFav, setBusyFav] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [followModalTab, setFollowModalTab] = useState<"followers" | "following" | null>(null);
 
   const currentYear = new Date().getFullYear();
   const [annualGoal, setAnnualGoal] = useState<number>(24);
@@ -206,12 +208,22 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                 {profile.displayName && <p className="profile-handle">@{profile.username}</p>}
                 {profile.bio && <p className="profile-bio-text">{profile.bio}</p>}
                 <div className="profile-counts">
-                  <span>
+                  <button
+                    type="button"
+                    className="profile-count-button"
+                    onClick={() => setFollowModalTab("followers")}
+                    aria-label={`Ver ${data.followers} seguidores`}
+                  >
                     <strong>{data.followers}</strong> seguidores
-                  </span>
-                  <span>
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-count-button"
+                    onClick={() => setFollowModalTab("following")}
+                    aria-label={`Ver ${data.following} seguindo`}
+                  >
                     <strong>{data.following}</strong> seguindo
-                  </span>
+                  </button>
                   {stats && (
                     <span>
                       <strong>{stats.total}</strong> obras na estante
@@ -795,6 +807,17 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
             </section>
           )}
         </>
+      )}
+
+      {followModalTab !== null && (
+        <FollowListModal
+          isOpen={true}
+          onClose={() => setFollowModalTab(null)}
+          username={profile.username}
+          initialTab={followModalTab}
+          followersCount={data.followers}
+          followingCount={data.following}
+        />
       )}
     </main>
   );

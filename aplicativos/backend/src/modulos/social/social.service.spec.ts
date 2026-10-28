@@ -84,4 +84,56 @@ describe("SocialService (perfil na tabela User)", () => {
 
     expect(perfil.stats).toEqual({ total: 3, byStatus: { WATCHING: 2, COMPLETED: 1 }, averageRating: 4.5 });
   });
+
+  it("listarSeguidores retorna lista com dados de quem segue o usuario", async () => {
+    const { service } = montar((op) => {
+      if (op.table === "User") {
+        if (op.filtros.some(([m]) => m === "in")) {
+          return { data: [{ id: "u2", username: "pedro", displayName: "Pedro", bio: "Oi", isPublic: true, createdAt: "2026" }] };
+        }
+        return { data: linhaUser };
+      }
+      if (op.table === "Follow") {
+        return { data: [{ followerId: "u2", createdAt: "2026-01-01" }] };
+      }
+      return { data: [], count: 0 };
+    });
+
+    const seguidores = await service.listarSeguidores("ana_1");
+    expect(seguidores).toEqual([
+      expect.objectContaining({
+        userId: "u2",
+        username: "pedro",
+        displayName: "Pedro",
+        isFollowing: false,
+        isMe: false
+      })
+    ]);
+  });
+
+  it("listarSeguindo retorna lista de quem o usuario segue", async () => {
+    const { service } = montar((op) => {
+      if (op.table === "User") {
+        if (op.filtros.some(([m]) => m === "in")) {
+          return { data: [{ id: "u3", username: "lucas", displayName: "Lucas", bio: null, isPublic: true, createdAt: "2026" }] };
+        }
+        return { data: linhaUser };
+      }
+      if (op.table === "Follow") {
+        return { data: [{ followingId: "u3", createdAt: "2026-01-01" }] };
+      }
+      return { data: [], count: 0 };
+    });
+
+    const seguindo = await service.listarSeguindo("ana_1");
+    expect(seguindo).toEqual([
+      expect.objectContaining({
+        userId: "u3",
+        username: "lucas",
+        displayName: "Lucas",
+        isFollowing: false,
+        isMe: false
+      })
+    ]);
+  });
 });

@@ -322,6 +322,22 @@ export const searchProfiles = (query: string) =>
 export const setFollowing = (username: string, follow: boolean) =>
   request<{ ok: true }>(`/perfis/${encodeURIComponent(username)}/seguir`, { method: follow ? "POST" : "DELETE" });
 
+export type FollowUser = {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  isFollowing?: boolean;
+  isMe?: boolean;
+};
+
+export const getFollowers = (username: string) =>
+  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguidores`);
+
+export const getFollowing = (username: string) =>
+  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguindo`);
+
 export const getFeed = () => request<{ followingCount: number; items: Activity[] }>("/feed");
 
 // Recomendacoes e alertas
