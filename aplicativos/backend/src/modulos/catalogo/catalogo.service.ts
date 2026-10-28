@@ -482,14 +482,116 @@ export class CatalogoService implements OnModuleInit {
     );
   }
 
+  private mesclarLivros(
+    gbooks: ItemCatalogo[],
+    openLibrary: ItemCatalogo[],
+    limite = LIMITE_POR_FONTE
+  ): ItemCatalogo[] {
+    const mapaTitulos = new Map<string, ItemCatalogo>();
+    const ordem: ItemCatalogo[] = [];
+
+    const registrarOuFundir = (item: ItemCatalogo) => {
+      const chave = normalizarTitulo(item.title);
+      const existente = mapaTitulos.get(chave);
+      if (!existente) {
+        const clone = { ...item };
+        mapaTitulos.set(chave, clone);
+        ordem.push(clone);
+        return;
+      }
+
+      // Funde dados: enriquece com sinopse se o existente nao tiver ou for mais completo
+      if (!existente.synopsis && item.synopsis) {
+        existente.synopsis = item.synopsis;
+      }
+      // Preserva melhor capa: prioriza capas da OpenLibrary caso Google Books nao tenha ou esteja em baixa resolucao
+      if (!existente.coverUrl && item.coverUrl) {
+        existente.coverUrl = item.coverUrl;
+      } else if (item.source === "openlibrary" && item.coverUrl && existente.coverUrl?.includes("books.google")) {
+        existente.coverUrl = item.coverUrl;
+      }
+      if (!existente.releaseYear && item.releaseYear) {
+        existente.releaseYear = item.releaseYear;
+      }
+    };
+
+    // Intercala as duas fontes para equilibrar o catálogo entre títulos nacionais e internacionais
+    const maxLen = Math.max(gbooks.length, openLibrary.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < openLibrary.length) {
+        registrarOuFundir(openLibrary[i]);
+      }
+      if (i < gbooks.length) {
+        registrarOuFundir(gbooks[i]);
+      }
+    }
+
+    // Prioriza itens com capa para que a vitrine seja limpa e profissional
+    return ordem
+      .sort((a, b) => (b.coverUrl ? 1 : 0) - (a.coverUrl ? 1 : 0))
+      .slice(0, limite);
+  }
+
   private async listarLivros(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
     const subject = genero ? MAPA_GENEROS[genero].openLibrary : undefined;
     if (genero && !subject) {
       return [];
     }
 
-    const termo = query ? (subject ? `${query} subject:${subject}` : query) : (subject ? `subject:${subject}` : "literatura");
-    return this.googleBooksService.searchBooks(termo, LIMITE_POR_FONTE);
+    // 1. Busca com termo digitado pelo usuário: consulta ambas as APIs em paralelo
+    if (query) {
+      const q = subject ? `${query} subject:${subject}` : query;
+      const [gbooksResult, openLibResult] = await Promise.allSettled([
+        this.googleBooksService.searchBooks(q, LIMITE_POR_FONTE),
+        this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
+          q,
+          limit: String(LIMITE_POR_FONTE),
+          fields: "key,title,cover_i,first_publish_year,description"
+        })
+      ]);
+
+      const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
+      const openLibItens =
+        openLibResult.status === "fulfilled"
+          ? (openLibResult.value?.docs ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
+          : [];
+
+      return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
+    }
+
+    // 2. Filtro por gênero sem termo específico:
+    if (subject) {
+      const [gbooksResult, openLibResult] = await Promise.allSettled([
+        this.googleBooksService.searchBooks(`subject:${subject}`, LIMITE_POR_FONTE),
+        this.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
+          limit: String(LIMITE_POR_FONTE)
+        })
+      ]);
+
+      const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
+      const openLibItens =
+        openLibResult.status === "fulfilled"
+          ? (openLibResult.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
+          : [];
+
+      return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
+    }
+
+    // 3. Vitrine inicial da aba Livros: combina tendências da OpenLibrary com populares da Google Books
+    const [openLibTrending, gbooksPopular] = await Promise.allSettled([
+      this.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
+        limit: String(LIMITE_POR_FONTE)
+      }),
+      this.googleBooksService.searchBooks("subject:fiction", LIMITE_POR_FONTE)
+    ]);
+
+    const openLibItens =
+      openLibTrending.status === "fulfilled"
+        ? (openLibTrending.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
+        : [];
+    const gbooksItens = gbooksPopular.status === "fulfilled" ? gbooksPopular.value : [];
+
+    return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
   }
 
   async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
@@ -795,7 +897,22 @@ export class CatalogoService implements OnModuleInit {
     }
 
     if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
-      return this.googleBooksService.getBookById(id);
+      const item = await this.googleBooksService.getBookById(id);
+      if (!item) {
+        return null;
+      }
+      if (!item.coverUrl) {
+        const olSearch = await this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
+          q: item.title,
+          limit: "1",
+          fields: "key,cover_i"
+        });
+        const coverId = olSearch?.docs?.[0]?.cover_i;
+        if (coverId) {
+          item.coverUrl = `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`;
+        }
+      }
+      return item;
     }
 
     if (parsed?.source === "openlibrary") {

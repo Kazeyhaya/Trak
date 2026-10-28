@@ -17,6 +17,7 @@ export interface GoogleBooksVolume {
       large?: string;
       extraLarge?: string;
     };
+    industryIdentifiers?: Array<{ type: string; identifier: string }>;
     categories?: string[];
     averageRating?: number;
     ratingsCount?: number;
@@ -30,10 +31,43 @@ export interface GoogleBooksSearchResponse {
   items?: GoogleBooksVolume[];
 }
 
+export function sanitizeGoogleBooksCoverUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl?.trim()) {
+    return null;
+  }
+  try {
+    const url = new URL(rawUrl.trim().replace(/^http:\/\//i, "https://"));
+    url.searchParams.delete("edge");
+    const zoom = url.searchParams.get("zoom");
+    if (zoom === "1" || zoom === "5") {
+      url.searchParams.set("zoom", "2");
+    }
+    return url.toString();
+  } catch {
+    return rawUrl.trim().replace(/^http:\/\//i, "https://").replace(/([?&])edge=[^&]+/i, "");
+  }
+}
+
 export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
   const info = volume.volumeInfo;
-  const rawCover = info?.imageLinks?.thumbnail ?? info?.imageLinks?.smallThumbnail ?? null;
-  const coverUrl = rawCover ? rawCover.replace(/^http:\/\//i, "https://") : null;
+  const rawCover =
+    info?.imageLinks?.extraLarge ??
+    info?.imageLinks?.large ??
+    info?.imageLinks?.medium ??
+    info?.imageLinks?.small ??
+    info?.imageLinks?.thumbnail ??
+    info?.imageLinks?.smallThumbnail ??
+    null;
+
+  let coverUrl = sanitizeGoogleBooksCoverUrl(rawCover);
+  if (!coverUrl && info?.industryIdentifiers?.length) {
+    const isbnObj =
+      info.industryIdentifiers.find((id) => id.type === "ISBN_13" || id.type === "ISBN_10") ??
+      info.industryIdentifiers[0];
+    if (isbnObj?.identifier) {
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbnObj.identifier)}-L.jpg`;
+    }
+  }
 
   let releaseYear: number | null = null;
   if (info?.publishedDate) {
@@ -70,7 +104,7 @@ export class GoogleBooksService {
   }
 
   async searchBooks(query: string, maxResults = 20): Promise<CatalogItem[]> {
-    const cleanQuery = query?.trim() || "literatura";
+    const cleanQuery = query?.trim() || "ficcao";
     try {
       const params = new URLSearchParams({
         q: cleanQuery,

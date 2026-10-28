@@ -31,14 +31,26 @@ afterEach(() => {
 });
 
 describe("CatalogoService.listar", () => {
-  it("sem chaves de API ainda lista livros do Google Books", async () => {
+  it("sem chaves de API ainda lista livros do Google Books e OpenLibrary de forma híbrida", async () => {
     delete process.env.TMDB_API_KEY;
     delete process.env.RAWG_API_KEY;
-    mockFetch({ "googleapis.com/books": { items: [{ id: "gb1", volumeInfo: { title: "Duna" } }] } });
+    mockFetch({
+      "trending/weekly": {
+        works: [{ key: "/works/OL1W", title: "O Senhor dos Anéis", cover_i: 12345 }]
+      },
+      "googleapis.com/books": {
+        items: [{ id: "gb1", volumeInfo: { title: "Duna", description: "Ficção científica épica." } }]
+      }
+    });
 
-    const itens = await criarServico().listar();
+    const itens = await criarServico().listar(undefined, "book");
 
-    expect(itens).toEqual([expect.objectContaining({ id: "media_gbooks_gb1", type: "BOOK", title: "Duna" })]);
+    expect(itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "openlibrary_book_OL1W", type: "BOOK", title: "O Senhor dos Anéis" }),
+        expect.objectContaining({ id: "media_gbooks_gb1", type: "BOOK", title: "Duna" })
+      ])
+    );
   });
 
   it("filtro de tipo consulta apenas a fonte correspondente", async () => {
@@ -270,7 +282,7 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
       "rawg_game_30",
       "media_gbooks_gb9"
     ]);
-    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch).toHaveBeenCalledTimes(5);
   });
 });
 

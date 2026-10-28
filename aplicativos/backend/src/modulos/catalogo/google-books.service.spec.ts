@@ -81,6 +81,33 @@ describe("GoogleBooksService", () => {
       const items = await service.searchBooks("teste");
       expect(items).toEqual([]);
     });
+
+    it("remove &edge=curl e ajusta zoom para melhor resolução na capa", async () => {
+      jest.spyOn(global, "fetch").mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "curl_test",
+                volumeInfo: {
+                  title: "Livro Teste",
+                  imageLinks: {
+                    thumbnail:
+                      "http://books.google.com/books/content?id=xyz&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+                  }
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+      const items = await service.searchBooks("teste");
+      expect(items[0].coverUrl).toBe(
+        "https://books.google.com/books/content?id=xyz&printsec=frontcover&img=1&zoom=2&source=gbs_api"
+      );
+    });
   });
 
   describe("getBookById", () => {
