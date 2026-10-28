@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 
 import { UiBadge } from "./ui-badge";
@@ -12,16 +15,26 @@ type MediaCardProps = {
 };
 
 export function MediaCard({ type, title, meta, coverUrl, progress, accent }: MediaCardProps) {
+  const [imgError, setImgError] = useState(false);
+
+  const hasValidCover = Boolean(
+    coverUrl &&
+    !imgError &&
+    !coverUrl.includes("/id/-1-") &&
+    !coverUrl.includes("/id/0-")
+  );
+
   return (
     <article className="media-card">
       <div className="media-card-art" aria-hidden="true">
-        {coverUrl ? (
+        {hasValidCover ? (
           <Image
             className="media-card-image"
-            src={coverUrl.replace("/media/resize/640/-/games/", "/media/games/")}
+            src={coverUrl!.replace("/media/resize/640/-/games/", "/media/games/")}
             alt=""
             fill
             sizes="(max-width: 720px) 100vw, (max-width: 1180px) 50vw, 480px"
+            onError={() => setImgError(true)}
           />
         ) : (
           <span className="media-card-orb" />

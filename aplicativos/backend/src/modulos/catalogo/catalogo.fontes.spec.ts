@@ -111,6 +111,11 @@ describe("mapeadores", () => {
     const item = mapearOpenLibrary({ key: "/works/OL3W", title: "Assunto", cover_id: 33 });
     expect(item.coverUrl).toBe("https://covers.openlibrary.org/b/id/33-L.jpg");
   });
+
+  it("Open Library: cover_i ou cover_id sendo -1 ou invalido resulta em coverUrl null", () => {
+    const semCapa = mapearOpenLibrary({ key: "/works/OL4W", title: "Sem Capa", cover_i: -1, cover_id: -1 });
+    expect(semCapa.coverUrl).toBeNull();
+  });
 });
 
 describe("utilitarios", () => {

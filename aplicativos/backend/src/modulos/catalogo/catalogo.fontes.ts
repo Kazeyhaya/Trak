@@ -271,7 +271,10 @@ export function mapearRawg(item: RawgItem): ItemCatalogo {
 
 export function mapearOpenLibrary(doc: OpenLibraryDoc): ItemCatalogo {
   const externalId = doc.key.replace("/works/", "");
-  const coverId = doc.cover_i ?? doc.cover_id ?? doc.covers?.find((cover) => cover > 0);
+  const rawCoverId = [doc.cover_i, doc.cover_id, ...(doc.covers ?? [])].find(
+    (c) => typeof c === "number" && Number.isFinite(c) && c > 0
+  );
+  const coverUrl = rawCoverId ? `https://covers.openlibrary.org/b/id/${rawCoverId}-L.jpg` : null;
   const descricao = typeof doc.description === "string" ? doc.description : doc.description?.value;
 
   return {
@@ -280,7 +283,7 @@ export function mapearOpenLibrary(doc: OpenLibraryDoc): ItemCatalogo {
     source: "openlibrary",
     type: "BOOK",
     title: doc.title,
-    coverUrl: coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : null,
+    coverUrl,
     synopsis: descricao?.trim() || null,
     releaseYear: doc.first_publish_year ?? anoDe(doc.first_publish_date)
   };

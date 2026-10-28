@@ -504,10 +504,10 @@ export class CatalogoService implements OnModuleInit {
       if (!existente.synopsis && item.synopsis) {
         existente.synopsis = item.synopsis;
       }
-      // Preserva melhor capa: prioriza capas da OpenLibrary caso Google Books nao tenha ou esteja em baixa resolucao
+      // Preserva melhor capa: prioriza capas do Google Books (arte oficial de editora sem códigos de barras ou adesivos de biblioteca)
       if (!existente.coverUrl && item.coverUrl) {
         existente.coverUrl = item.coverUrl;
-      } else if (item.source === "openlibrary" && item.coverUrl && existente.coverUrl?.includes("books.google")) {
+      } else if (item.source === "gbooks" && item.coverUrl && existente.coverUrl?.includes("covers.openlibrary.org")) {
         existente.coverUrl = item.coverUrl;
       }
       if (!existente.releaseYear && item.releaseYear) {
@@ -1040,18 +1040,35 @@ export class CatalogoService implements OnModuleInit {
       if (!categoria) {
         return [];
       }
-      return this.googleBooksService.searchBooks(categoria, 8);
+      const resultados = await this.googleBooksService.searchBooks(categoria, 8);
+      return resultados.filter((item) => item.id !== id);
     }
 
     if (parsed?.source === "openlibrary") {
-      const livro = await this.openLibrary<{ subjects?: string[] }>(`/works/${parsed.externalId}.json`);
-      const assunto = livro?.subjects?.[0];
-      if (!assunto) {
+      const livro = await this.openLibrary<{ title?: string; subjects?: string[] }>(`/works/${parsed.externalId}.json`);
+      const termoBusca = livro?.title || livro?.subjects?.[0];
+      if (!termoBusca) {
         return [];
       }
-      const slug = normalizarTitulo(assunto).replace(/ /g, "_");
-      const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>(`/subjects/${slug}.json`, { limit: "8" });
-      return (data?.works ?? []).map(mapearOpenLibrary);
+
+      // Prioriza busca de relacionados no Google Books para garantir capas oficiais de editora e sinopses em PT-BR
+      const relacionadosGbooks = await this.googleBooksService.searchBooks(termoBusca, 8);
+      const filtradosGbooks = relacionadosGbooks.filter((item) => item.id !== id);
+      if (filtradosGbooks.length > 0) {
+        return filtradosGbooks;
+      }
+
+      const assunto = livro?.subjects?.[0];
+      if (assunto) {
+        const slug = normalizarTitulo(assunto).replace(/ /g, "_");
+        const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>(`/subjects/${slug}.json`, { limit: "16" });
+        return (data?.works ?? [])
+          .map(mapearOpenLibrary)
+          .filter((item) => item.coverUrl !== null && item.id !== id)
+          .slice(0, 8);
+      }
+
+      return [];
     }
 
     return [];
