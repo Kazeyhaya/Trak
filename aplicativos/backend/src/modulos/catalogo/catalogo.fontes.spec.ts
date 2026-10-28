@@ -14,6 +14,7 @@ describe("parsearId / montarId", () => {
     ["tmdb_movie_550", { source: "tmdb", type: "MOVIE", externalId: "550" }],
     ["tmdb_series_1399", { source: "tmdb", type: "SERIES", externalId: "1399" }],
     ["rawg_game_3498", { source: "rawg", type: "GAME", externalId: "3498" }],
+    ["media_gbooks_zyTCAlFPjgYC", { source: "gbooks", type: "BOOK", externalId: "zyTCAlFPjgYC" }],
     ["openlibrary_book_OL82563W", { source: "openlibrary", type: "BOOK", externalId: "OL82563W" }]
   ])("interpreta %s", (id, esperado) => {
     expect(parsearId(id)).toEqual(esperado);
@@ -27,7 +28,7 @@ describe("parsearId / montarId", () => {
   );
 
   it("montarId e o inverso de parsearId", () => {
-    for (const id of ["tmdb_movie_1", "tmdb_series_2", "rawg_game_3", "openlibrary_book_OL4W"]) {
+    for (const id of ["tmdb_movie_1", "tmdb_series_2", "rawg_game_3", "media_gbooks_4", "openlibrary_book_OL4W"]) {
       const parsed = parsearId(id)!;
       expect(montarId(parsed.source, parsed.type, parsed.externalId)).toBe(id);
     }

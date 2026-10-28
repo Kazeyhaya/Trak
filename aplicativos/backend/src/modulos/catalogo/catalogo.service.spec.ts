@@ -2,6 +2,7 @@ import { NotFoundException } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { criarSupabaseServiceMock } from "../../testes/supabase.mock";
 import { CatalogoService } from "./catalogo.service";
+import { GoogleBooksService } from "./google-books.service";
 
 type Rotas = Record<string, unknown>;
 
@@ -17,9 +18,9 @@ function mockFetch(rotas: Rotas) {
   });
 }
 
-function criarServico() {
+function criarServico(googleBooksService = new GoogleBooksService()) {
   const supabase = criarSupabaseServiceMock();
-  return new CatalogoService(supabase.service as unknown as SupabaseService);
+  return new CatalogoService(supabase.service as unknown as SupabaseService, googleBooksService);
 }
 
 const envOriginal = { ...process.env };
@@ -30,14 +31,14 @@ afterEach(() => {
 });
 
 describe("CatalogoService.listar", () => {
-  it("sem chaves de API ainda lista livros do Open Library", async () => {
+  it("sem chaves de API ainda lista livros do Google Books", async () => {
     delete process.env.TMDB_API_KEY;
     delete process.env.RAWG_API_KEY;
-    mockFetch({ "/trending/weekly.json": { works: [{ key: "/works/OL1W", title: "Duna", cover_i: 5 }] } });
+    mockFetch({ "googleapis.com/books": { items: [{ id: "gb1", volumeInfo: { title: "Duna" } }] } });
 
     const itens = await criarServico().listar();
 
-    expect(itens).toEqual([expect.objectContaining({ id: "openlibrary_book_OL1W", type: "BOOK", title: "Duna" })]);
+    expect(itens).toEqual([expect.objectContaining({ id: "media_gbooks_gb1", type: "BOOK", title: "Duna" })]);
   });
 
   it("filtro de tipo consulta apenas a fonte correspondente", async () => {
@@ -258,7 +259,7 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
       "/discover/movie": { results: [{ id: 10, title: "Filme Acao", genre_ids: [28] }] },
       "/discover/tv": { results: [{ id: 20, name: "Serie Acao", genre_ids: [10759] }] },
       "/games": { results: [{ id: 30, name: "Jogo Acao", background_image: null, released: null }] },
-      "/subjects/action_and_adventure.json": { works: [{ key: "/works/OL9W", title: "Livro Acao" }] }
+      "googleapis.com/books": { items: [{ id: "gb9", volumeInfo: { title: "Livro Acao" } }] }
     });
 
     const itens = await criarServico().listar(undefined, undefined, "acao");
@@ -267,7 +268,7 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
       "tmdb_movie_10",
       "tmdb_series_20",
       "rawg_game_30",
-      "openlibrary_book_OL9W"
+      "media_gbooks_gb9"
     ]);
     expect(fetch).toHaveBeenCalledTimes(4);
   });
@@ -310,7 +311,10 @@ describe("CatalogoService.extras", () => {
     const supabase = criarSupabaseServiceMock(() => ({
       data: [{ personalRating: 5 }, { personalRating: 4 }]
     }));
-    const servico = new CatalogoService(supabase.service as unknown as SupabaseService);
+    const servico = new CatalogoService(
+      supabase.service as unknown as SupabaseService,
+      new GoogleBooksService()
+    );
 
     const extras = await servico.extras("tmdb_movie_550");
 

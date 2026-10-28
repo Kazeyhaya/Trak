@@ -51,9 +51,9 @@ const fallbackItems: CatalogItem[] = [
     releaseYear: 2013
   },
   {
-    id: "openlibrary_book_OL27448W",
+    id: "media_gbooks_OL27448W",
     externalId: "OL27448W",
-    source: "openlibrary",
+    source: "gbooks",
     type: "BOOK",
     title: "O Senhor dos Anéis",
     coverUrl: null,

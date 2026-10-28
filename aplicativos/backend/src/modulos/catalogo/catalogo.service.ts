@@ -6,6 +6,7 @@ import {
   OnModuleInit
 } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { GoogleBooksService } from "./google-books.service";
 import {
   GeneroCatalogo,
   GENEROS_CATALOGO,
@@ -72,7 +73,10 @@ export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
   private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly googleBooksService: GoogleBooksService
+  ) {}
 
   private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
     const atual = this.cache.get(chave);
@@ -484,27 +488,8 @@ export class CatalogoService implements OnModuleInit {
       return [];
     }
 
-    if (query) {
-      const q = subject ? `${query} subject:${subject}` : query;
-      const data = await this.openLibrary<{ docs: OpenLibraryDoc[] }>("/search.json", {
-        q,
-        limit: String(LIMITE_POR_FONTE),
-        fields: "key,title,cover_i,first_publish_year"
-      });
-      return (data?.docs ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
-    }
-
-    if (subject) {
-      const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
-        limit: String(LIMITE_POR_FONTE)
-      });
-      return (data?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
-    }
-
-    const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>("/trending/weekly.json", {
-      limit: String(LIMITE_POR_FONTE)
-    });
-    return (data?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary);
+    const termo = query ? (subject ? `${query} subject:${subject}` : query) : (subject ? `subject:${subject}` : "literatura");
+    return this.googleBooksService.searchBooks(termo, LIMITE_POR_FONTE);
   }
 
   async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
@@ -684,6 +669,42 @@ export class CatalogoService implements OnModuleInit {
       };
     }
 
+    if (parsed?.source === "gbooks") {
+      const [volume, trakRating] = await Promise.all([
+        this.googleBooksService.getVolumeRaw(parsed.externalId),
+        trakPromise
+      ]);
+
+      const externalRatings: NotaExterna[] = [];
+      const info = volume?.volumeInfo;
+      if (info?.averageRating && info.averageRating > 0) {
+        externalRatings.push({ source: "Google Books", value: `${info.averageRating.toFixed(1)}/5` });
+      }
+
+      const googleBooksUrl = info?.infoLink ?? `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(info?.title ?? "")}`;
+      const tituloLivro = info?.title ?? "";
+      const watchProviders: ProvedorOndeAssistir[] = [
+        { name: "Google Livros", category: "READ", url: googleBooksUrl },
+        ...(tituloLivro
+          ? [
+              {
+                name: "Amazon Livros",
+                category: "STORE" as const,
+                url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
+              }
+            ]
+          : [])
+      ];
+
+      return {
+        genres: (info?.categories ?? []).slice(0, 5),
+        watchProviders,
+        watchLink: googleBooksUrl,
+        trakRating,
+        externalRatings
+      };
+    }
+
     const [livro, ratingsData, trakRating] = await Promise.all([
       this.openLibrary<OpenLibraryDoc>(`/works/${parsed.externalId}.json`),
       this.openLibrary<{ summary?: { average?: number; count?: number } }>(`/works/${parsed.externalId}/ratings.json`),
@@ -771,6 +792,10 @@ export class CatalogoService implements OnModuleInit {
         coverUrl: capaVertical ?? mapeado.coverUrl,
         synopsis
       };
+    }
+
+    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
+      return this.googleBooksService.getBookById(id);
     }
 
     if (parsed?.source === "openlibrary") {
@@ -892,6 +917,15 @@ export class CatalogoService implements OnModuleInit {
       return (data?.results ?? []).map((item) => ({ ...mapearRawg(item), synopsis: null }));
     }
 
+    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
+      const volume = await this.googleBooksService.getVolumeRaw(id);
+      const categoria = volume?.volumeInfo?.categories?.[0] ?? volume?.volumeInfo?.title;
+      if (!categoria) {
+        return [];
+      }
+      return this.googleBooksService.searchBooks(categoria, 8);
+    }
+
     if (parsed?.source === "openlibrary") {
       const livro = await this.openLibrary<{ subjects?: string[] }>(`/works/${parsed.externalId}.json`);
       const assunto = livro?.subjects?.[0];
@@ -1004,6 +1038,12 @@ export class CatalogoService implements OnModuleInit {
     if (parsed?.source === "rawg") {
       const jogo = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
       return jogo?.playtime && jogo.playtime > 0 ? jogo.playtime * 60 : null;
+    }
+
+    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
+      const volume = await this.googleBooksService.getVolumeRaw(id);
+      const paginas = volume?.volumeInfo?.pageCount;
+      return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
     }
 
     if (parsed?.source === "openlibrary") {
