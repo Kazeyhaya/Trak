@@ -1,6 +1,6 @@
 export type TipoMidia = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
-export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA";
+export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA" | "MANGA" | "HQ";
 
 export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary" | "gbooks" | "hardcover";
 

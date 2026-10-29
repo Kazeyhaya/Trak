@@ -292,6 +292,62 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
     ]);
     expect(fetch).toHaveBeenCalledTimes(5);
   });
+
+  it("filtra por manga na aba de livros ou tipo manga", async () => {
+    const mockHc = new HardcoverService();
+    jest.spyOn(mockHc, "searchBooks").mockResolvedValueOnce([
+      {
+        id: "media_hardcover_101",
+        externalId: "101",
+        source: "hardcover",
+        type: "BOOK",
+        subtype: "MANGA",
+        title: "Chainsaw Man",
+        coverUrl: "https://assets.hardcover.app/csm.jpg",
+        synopsis: null,
+        releaseYear: 2018
+      }
+    ]);
+    const mockGb = new GoogleBooksService();
+    jest.spyOn(mockGb, "searchBooks").mockResolvedValueOnce([]);
+    mockFetch({
+      "/subjects/manga.json": { works: [] }
+    });
+
+    const servico = criarServico(mockGb, mockHc);
+    const itens = await servico.listar(undefined, "book", "manga");
+
+    expect(itens.some((i) => i.title === "Chainsaw Man")).toBe(true);
+    expect(mockHc.searchBooks).toHaveBeenCalledWith("manga", 20);
+  });
+
+  it("filtra por quadrinhos/hqs na aba de livros", async () => {
+    const mockHc = new HardcoverService();
+    jest.spyOn(mockHc, "searchBooks").mockResolvedValueOnce([
+      {
+        id: "media_hardcover_202",
+        externalId: "202",
+        source: "hardcover",
+        type: "BOOK",
+        subtype: "HQ",
+        title: "Watchmen",
+        coverUrl: "https://assets.hardcover.app/watchmen.jpg",
+        synopsis: null,
+        releaseYear: 1986
+      }
+    ]);
+    const mockGb = new GoogleBooksService();
+    jest.spyOn(mockGb, "searchBooks").mockResolvedValueOnce([]);
+    mockFetch({
+      "/subjects/comic_books.json": { works: [] }
+    });
+
+    const servico = criarServico(mockGb, mockHc);
+    const itens = await servico.listar(undefined, "book", "quadrinhos");
+
+    expect(itens.some((i) => i.title === "Watchmen")).toBe(true);
+    expect(mockHc.searchBooks).toHaveBeenCalledWith("graphic novel", 20);
+  });
 });
 
 describe("CatalogoService.extras", () => {

@@ -2,7 +2,7 @@ import { API_BASE_URL } from "./api-base";
 
 export type MediaType = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
-export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA";
+export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA" | "MANGA" | "HQ";
 
 export type CatalogItem = {
   id: string;
@@ -153,6 +153,12 @@ export function getMediaTypeLabel(type: MediaType, subtype?: string | null, lang
   }
   if (subtype === "ANIMACAO") {
     return isEn ? "Animation" : "Animação";
+  }
+  if (subtype === "MANGA") {
+    return "Mangá";
+  }
+  if (subtype === "HQ") {
+    return isEn ? "Comic" : "HQ";
   }
   switch (type) {
     case "MOVIE":

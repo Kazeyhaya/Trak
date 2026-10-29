@@ -22,6 +22,8 @@ type GenreOption = { label: string; value: string };
 const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
   "": [
     { label: "Todos os gêneros", value: "" },
+    { label: "Mangás", value: "manga" },
+    { label: "Quadrinhos e HQs", value: "quadrinhos" },
     { label: "Ação", value: "acao" },
     { label: "Aventura", value: "aventura" },
     { label: "Comédia", value: "comedia" },
@@ -112,6 +114,8 @@ const GENRES_BY_TYPE: Record<string, GenreOption[]> = {
   ],
   book: [
     { label: "Todos os gêneros", value: "" },
+    { label: "Mangás", value: "manga" },
+    { label: "Quadrinhos e HQs", value: "quadrinhos" },
     { label: "Fantasia", value: "fantasia" },
     { label: "Ficção Científica", value: "ficcao" },
     { label: "Romance", value: "romance" },
@@ -341,6 +345,42 @@ export function FilterBar() {
           </select>
         </label>
       </div>
+
+      {activeType === "book" && (
+        <div className="filter-controls-row" style={{ marginTop: "0.25rem" }}>
+          <div className="filter-group">
+            <span className="filter-group-label">Formato de leitura</span>
+            <div className="filter-chips" role="group" aria-label="Formatos de leitura">
+              {[
+                { label: "Todos os livros", value: "" },
+                { label: "Mangás", value: "manga" },
+                { label: "Quadrinhos e HQs", value: "quadrinhos" }
+              ].map((sub) => {
+                const isSubActive =
+                  sub.value === ""
+                    ? activeGenre !== "manga" && activeGenre !== "quadrinhos" && activeGenre !== "hq"
+                    : activeGenre === sub.value || (sub.value === "quadrinhos" && activeGenre === "hq");
+
+                return (
+                  <button
+                    key={sub.value || "all-formats"}
+                    type="button"
+                    className={`filter-chip${isSubActive ? " is-active" : ""}`}
+                    aria-pressed={isSubActive}
+                    onClick={() => {
+                      const nextGenre = sub.value;
+                      setActiveGenre(nextGenre);
+                      updateUrl(query, activeType, nextGenre);
+                    }}
+                  >
+                    {sub.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

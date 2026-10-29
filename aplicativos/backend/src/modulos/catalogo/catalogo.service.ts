@@ -49,7 +49,7 @@ type TmdbEpisodio = {
   runtime?: number | null;
 };
 
-type FiltroTipo = "movie" | "series" | "game" | "book" | "anime" | "novela" | "dorama";
+type FiltroTipo = "movie" | "series" | "game" | "book" | "anime" | "novela" | "dorama" | "manga" | "hq" | "quadrinhos";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 1000;
@@ -249,9 +249,9 @@ export class CatalogoService implements OnModuleInit {
     const idioma = lang === "en-US" ? "en-US" : "pt-BR";
     // Fontes sem chave configurada simplesmente nao retornam itens.
     const busca = query?.trim().slice(0, 50) || undefined;
-    const filtro = (["movie", "series", "game", "book", "anime", "novela", "dorama"] as const).find(
-      (t) => t === tipo
-    );
+    const filtro = (
+      ["movie", "series", "game", "book", "anime", "novela", "dorama", "manga", "hq", "quadrinhos"] as const
+    ).find((t) => t === tipo);
     const generoValido = GENEROS_CATALOGO.find((g) => g === genero?.toLowerCase());
 
     // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
@@ -269,6 +269,14 @@ export class CatalogoService implements OnModuleInit {
 
     if (filtro === "dorama") {
       return this.listarDoramas(busca, generoValido, idioma);
+    }
+
+    if (filtro === "manga") {
+      return this.listarLivros(busca, "manga");
+    }
+
+    if (filtro === "hq" || filtro === "quadrinhos") {
+      return this.listarLivros(busca, "quadrinhos");
     }
 
     const incluir = (t: FiltroTipo) => !filtro || filtro === t;
@@ -560,14 +568,20 @@ export class CatalogoService implements OnModuleInit {
       return [];
     }
 
+    const ehManga = genero === "manga";
+    const ehHq = genero === "quadrinhos" || genero === "hq";
+
     // 1. Busca com termo digitado pelo usuário: consulta as 3 APIs em paralelo (Hardcover, Google Books, OpenLibrary)
     if (query) {
-      const q = subject ? `${query} subject:${subject}` : query;
+      const gbooksTerm = ehManga ? `${query} manga` : (ehHq ? `${query} comics` : (subject ? `${query} subject:${subject}` : query));
+      const hcTerm = ehManga ? `${query} manga` : (ehHq ? `${query} graphic novel` : query);
+      const olTerm = ehManga ? `${query} manga` : (ehHq ? `${query} comic books` : (subject ? `${query} subject:${subject}` : query));
+
       const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.searchBooks(query, LIMITE_POR_FONTE),
-        this.googleBooksService.searchBooks(q, LIMITE_POR_FONTE),
+        this.hardcoverService.searchBooks(hcTerm, LIMITE_POR_FONTE),
+        this.googleBooksService.searchBooks(gbooksTerm, LIMITE_POR_FONTE),
         this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
-          q,
+          q: olTerm,
           limit: String(LIMITE_POR_FONTE),
           fields: "key,title,cover_i,first_publish_year,description"
         })
@@ -585,10 +599,12 @@ export class CatalogoService implements OnModuleInit {
 
     // 2. Filtro por gênero sem termo específico:
     if (subject) {
-      const termoGenero = genero ?? subject;
+      const hcTerm = ehManga ? "manga" : (ehHq ? "graphic novel" : (genero ?? subject));
+      const gbooksTerm = ehManga ? "manga" : (ehHq ? 'subject:"comics"' : `subject:${subject}`);
+
       const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.searchBooks(termoGenero, LIMITE_POR_FONTE),
-        this.googleBooksService.searchBooks(`subject:${subject}`, LIMITE_POR_FONTE),
+        this.hardcoverService.searchBooks(hcTerm, LIMITE_POR_FONTE),
+        this.googleBooksService.searchBooks(gbooksTerm, LIMITE_POR_FONTE),
         this.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
           limit: String(LIMITE_POR_FONTE)
         })

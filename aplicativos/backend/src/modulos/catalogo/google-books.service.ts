@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
+import { detectarSubtipoLivro } from "./catalogo.fontes";
 
 export interface GoogleBooksVolume {
   id: string;
@@ -81,12 +82,14 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
   }
 
   const synopsis = info?.description ? info.description.replace(/<[^>]+>/g, "").trim() || null : null;
+  const subtype = detectarSubtipoLivro(info?.title ?? "", info?.categories ?? []);
 
   return {
     id: `media_gbooks_${volume.id}`,
     externalId: volume.id,
     source: "gbooks",
     type: "BOOK",
+    subtype: subtype ?? undefined,
     title: info?.title ?? "Sem título",
     coverUrl,
     synopsis,

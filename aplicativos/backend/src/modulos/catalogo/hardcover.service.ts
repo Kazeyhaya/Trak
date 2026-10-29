@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
+import { detectarSubtipoLivro } from "./catalogo.fontes";
 
 export interface HardcoverImage {
   id?: number;
@@ -89,11 +90,20 @@ export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocumen
 
   const rawDescription = book.description ? book.description.replace(/<[^>]+>/g, "").trim() : null;
 
+  const genresList: string[] = [
+    ...("genres" in book && Array.isArray(book.genres) ? (book.genres as string[]) : []),
+    ...("cached_tags" in book && book.cached_tags?.Genre
+      ? book.cached_tags.Genre.flatMap((g) => (g.tag ? [g.tag] : []))
+      : [])
+  ];
+  const subtype = detectarSubtipoLivro(book.title ?? "", genresList);
+
   return {
     id: `media_hardcover_${numericId}`,
     externalId: String(numericId),
     source: "hardcover",
     type: "BOOK",
+    subtype: subtype ?? undefined,
     title: book.title?.trim() || "Sem título",
     coverUrl: coverUrl?.trim() || null,
     synopsis: rawDescription || null,

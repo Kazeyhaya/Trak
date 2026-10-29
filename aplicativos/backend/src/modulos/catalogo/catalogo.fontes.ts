@@ -65,7 +65,10 @@ export const GENEROS_CATALOGO = [
   "indie",
   "biografia",
   "poesia",
-  "autoajuda"
+  "autoajuda",
+  "manga",
+  "quadrinhos",
+  "hq"
 ] as const;
 
 export type GeneroCatalogo = (typeof GENEROS_CATALOGO)[number];
@@ -103,7 +106,10 @@ export const MAPA_GENEROS: Record<
   indie: { rawg: "indie" },
   biografia: { openLibrary: "biography" },
   poesia: { openLibrary: "poetry" },
-  autoajuda: { openLibrary: "self-help" }
+  autoajuda: { openLibrary: "self-help" },
+  manga: { openLibrary: "manga" },
+  quadrinhos: { openLibrary: "comic_books" },
+  hq: { openLibrary: "comic_books" }
 };
 
 export type RawgItem = {
@@ -277,6 +283,31 @@ export function mapearRawg(item: RawgItem): ItemCatalogo {
   };
 }
 
+export function detectarSubtipoLivro(
+  title: string,
+  categoriesOrGenres: string[] = []
+): SubtipoMidia | null {
+  const texto = `${title} ${categoriesOrGenres.join(" ")}`.toLowerCase();
+  if (
+    texto.includes("manga") ||
+    texto.includes("mangá") ||
+    texto.includes("manhwa") ||
+    texto.includes("manhua")
+  ) {
+    return "MANGA";
+  }
+  if (
+    texto.includes("comic") ||
+    texto.includes("graphic novel") ||
+    texto.includes("quadrinho") ||
+    texto.includes("hq") ||
+    texto.includes("tiras")
+  ) {
+    return "HQ";
+  }
+  return null;
+}
+
 export function mapearOpenLibrary(doc: OpenLibraryDoc): ItemCatalogo {
   const externalId = doc.key.replace("/works/", "");
   const rawCoverId = [doc.cover_i, doc.cover_id, ...(doc.covers ?? [])].find(
@@ -284,12 +315,14 @@ export function mapearOpenLibrary(doc: OpenLibraryDoc): ItemCatalogo {
   );
   const coverUrl = rawCoverId ? `https://covers.openlibrary.org/b/id/${rawCoverId}-L.jpg` : null;
   const descricao = typeof doc.description === "string" ? doc.description : doc.description?.value;
+  const subtype = detectarSubtipoLivro(doc.title, doc.subjects ?? []);
 
   return {
     id: montarId("openlibrary", "BOOK", externalId),
     externalId,
     source: "openlibrary",
     type: "BOOK",
+    subtype: subtype ?? undefined,
     title: doc.title,
     coverUrl,
     synopsis: descricao?.trim() || null,

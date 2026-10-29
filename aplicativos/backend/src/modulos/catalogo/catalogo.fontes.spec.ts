@@ -1,5 +1,6 @@
 import {
   anoDe,
+  detectarSubtipoLivro,
   detectarSubtipoTmdb,
   mapearOpenLibrary,
   mapearRawg,
@@ -73,6 +74,14 @@ describe("mapeadores", () => {
 
     // Override manual
     expect(detectarSubtipoTmdb({ id: 9 }, "SERIES", "NOVELA")).toBe("NOVELA");
+  });
+
+  it("detectarSubtipoLivro classifica manga e HQ/quadrinho corretamente", () => {
+    expect(detectarSubtipoLivro("Chainsaw Man (Manga) Vol 1")).toBe("MANGA");
+    expect(detectarSubtipoLivro("Solo Leveling", ["manhwa"])).toBe("MANGA");
+    expect(detectarSubtipoLivro("Watchmen", ["Comics & Graphic Novels"])).toBe("HQ");
+    expect(detectarSubtipoLivro("Turma da Mônica", ["quadrinhos"])).toBe("HQ");
+    expect(detectarSubtipoLivro("O Senhor dos Anéis", ["Fantasy", "Fiction"])).toBeNull();
   });
 
   it("RAWG preserva a imagem em alta resolucao", () => {
