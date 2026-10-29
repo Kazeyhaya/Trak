@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { GoogleBooksService } from "./google-books.service";
+import { HardcoverService } from "./hardcover.service";
 import {
   GeneroCatalogo,
   GENEROS_CATALOGO,
@@ -75,7 +76,8 @@ export class CatalogoService implements OnModuleInit {
 
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly googleBooksService: GoogleBooksService
+    private readonly googleBooksService: GoogleBooksService,
+    private readonly hardcoverService: HardcoverService
   ) {}
 
   private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
@@ -119,7 +121,8 @@ export class CatalogoService implements OnModuleInit {
   onModuleInit() {
     for (const [variavel, fonte] of [
       ["TMDB_API_KEY", "filmes e series (TMDB)"],
-      ["RAWG_API_KEY", "jogos (RAWG)"]
+      ["RAWG_API_KEY", "jogos (RAWG)"],
+      ["HARDCOVER_API_KEY", "dados enriquecidos de livros (Hardcover)"]
     ] as const) {
       if (!process.env[variavel]?.trim()) {
         this.logger.warn(`${variavel} nao configurada: o catalogo ficara sem ${fonte}.`);
@@ -483,6 +486,7 @@ export class CatalogoService implements OnModuleInit {
   }
 
   private mesclarLivros(
+    hardcover: ItemCatalogo[],
     gbooks: ItemCatalogo[],
     openLibrary: ItemCatalogo[],
     limite = LIMITE_POR_FONTE
@@ -503,26 +507,44 @@ export class CatalogoService implements OnModuleInit {
       // Funde dados: enriquece com sinopse se o existente nao tiver ou for mais completo
       if (!existente.synopsis && item.synopsis) {
         existente.synopsis = item.synopsis;
+      } else if (existente.synopsis && item.synopsis && existente.synopsis.length < 50 && item.synopsis.length > 50) {
+        existente.synopsis = item.synopsis;
       }
-      // Preserva melhor capa: prioriza capas do Google Books (arte oficial de editora sem códigos de barras ou adesivos de biblioteca)
+
+      // Preserva melhor capa: prioriza capas oficiais da Hardcover (arte de editora em alta resolução)
+      // e depois Google Books sobre capas da Open Library
       if (!existente.coverUrl && item.coverUrl) {
         existente.coverUrl = item.coverUrl;
-      } else if (item.source === "gbooks" && item.coverUrl && existente.coverUrl?.includes("covers.openlibrary.org")) {
+      } else if (
+        item.source === "hardcover" &&
+        item.coverUrl &&
+        !existente.coverUrl?.includes("assets.hardcover.app")
+      ) {
+        existente.coverUrl = item.coverUrl;
+      } else if (
+        item.source === "gbooks" &&
+        item.coverUrl &&
+        existente.coverUrl?.includes("covers.openlibrary.org")
+      ) {
         existente.coverUrl = item.coverUrl;
       }
+
       if (!existente.releaseYear && item.releaseYear) {
         existente.releaseYear = item.releaseYear;
       }
     };
 
-    // Intercala as duas fontes para equilibrar o catálogo entre títulos nacionais e internacionais
-    const maxLen = Math.max(gbooks.length, openLibrary.length);
+    // Intercala as tres fontes para equilibrar o catálogo entre titulos enriquecidos, nacionais e internacionais
+    const maxLen = Math.max(hardcover.length, gbooks.length, openLibrary.length);
     for (let i = 0; i < maxLen; i++) {
-      if (i < openLibrary.length) {
-        registrarOuFundir(openLibrary[i]);
+      if (i < hardcover.length) {
+        registrarOuFundir(hardcover[i]);
       }
       if (i < gbooks.length) {
         registrarOuFundir(gbooks[i]);
+      }
+      if (i < openLibrary.length) {
+        registrarOuFundir(openLibrary[i]);
       }
     }
 
@@ -538,10 +560,11 @@ export class CatalogoService implements OnModuleInit {
       return [];
     }
 
-    // 1. Busca com termo digitado pelo usuário: consulta ambas as APIs em paralelo
+    // 1. Busca com termo digitado pelo usuário: consulta as 3 APIs em paralelo (Hardcover, Google Books, OpenLibrary)
     if (query) {
       const q = subject ? `${query} subject:${subject}` : query;
-      const [gbooksResult, openLibResult] = await Promise.allSettled([
+      const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
+        this.hardcoverService.searchBooks(query, LIMITE_POR_FONTE),
         this.googleBooksService.searchBooks(q, LIMITE_POR_FONTE),
         this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
           q,
@@ -550,48 +573,54 @@ export class CatalogoService implements OnModuleInit {
         })
       ]);
 
+      const hardcoverItens = hardcoverResult.status === "fulfilled" ? hardcoverResult.value : [];
       const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
       const openLibItens =
         openLibResult.status === "fulfilled"
           ? (openLibResult.value?.docs ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
           : [];
 
-      return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
+      return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
     }
 
     // 2. Filtro por gênero sem termo específico:
     if (subject) {
-      const [gbooksResult, openLibResult] = await Promise.allSettled([
+      const termoGenero = genero ?? subject;
+      const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
+        this.hardcoverService.searchBooks(termoGenero, LIMITE_POR_FONTE),
         this.googleBooksService.searchBooks(`subject:${subject}`, LIMITE_POR_FONTE),
         this.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
           limit: String(LIMITE_POR_FONTE)
         })
       ]);
 
+      const hardcoverItens = hardcoverResult.status === "fulfilled" ? hardcoverResult.value : [];
       const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
       const openLibItens =
         openLibResult.status === "fulfilled"
           ? (openLibResult.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
           : [];
 
-      return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
+      return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
     }
 
-    // 3. Vitrine inicial da aba Livros: combina tendências da OpenLibrary com populares da Google Books
-    const [openLibTrending, gbooksPopular] = await Promise.allSettled([
+    // 3. Vitrine inicial da aba Livros: combina populares da Hardcover, tendências da OpenLibrary e populares da Google Books
+    const [hardcoverPopular, openLibTrending, gbooksPopular] = await Promise.allSettled([
+      this.hardcoverService.getPopularBooks(LIMITE_POR_FONTE),
       this.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
         limit: String(LIMITE_POR_FONTE)
       }),
       this.googleBooksService.searchBooks("subject:fiction", LIMITE_POR_FONTE)
     ]);
 
+    const hardcoverItens = hardcoverPopular.status === "fulfilled" ? hardcoverPopular.value : [];
     const openLibItens =
       openLibTrending.status === "fulfilled"
         ? (openLibTrending.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
         : [];
     const gbooksItens = gbooksPopular.status === "fulfilled" ? gbooksPopular.value : [];
 
-    return this.mesclarLivros(gbooksItens, openLibItens, LIMITE_POR_FONTE);
+    return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
   }
 
   async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
@@ -771,6 +800,64 @@ export class CatalogoService implements OnModuleInit {
       };
     }
 
+    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
+      const [book, trakRating] = await Promise.all([
+        this.hardcoverService.getBookRaw(parsed?.externalId ?? id),
+        trakPromise
+      ]);
+
+      const externalRatings: NotaExterna[] = [];
+      if (book?.rating && Number.isFinite(book.rating) && book.rating > 0) {
+        externalRatings.push({
+          source: "Hardcover",
+          value: `${(Math.round(book.rating * 10) / 10).toFixed(1)}/5`
+        });
+      }
+
+      const genres: string[] = [];
+      if (book?.cached_tags?.Genre && Array.isArray(book.cached_tags.Genre)) {
+        for (const g of book.cached_tags.Genre) {
+          if (g.tag?.trim()) {
+            genres.push(g.tag.trim());
+          }
+        }
+      }
+
+      const watchProviders: ProvedorOndeAssistir[] = [];
+      const watchLink = book?.slug ? `https://hardcover.app/books/${book.slug}` : null;
+      if (watchLink) {
+        watchProviders.push({
+          name: "Hardcover",
+          category: "READ",
+          url: watchLink
+        });
+      }
+
+      const tituloLivro = book?.title ?? "";
+      if (tituloLivro) {
+        watchProviders.push(
+          {
+            name: "Amazon Livros",
+            category: "STORE",
+            url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
+          },
+          {
+            name: "Google Livros",
+            category: "READ",
+            url: `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(tituloLivro)}`
+          }
+        );
+      }
+
+      return {
+        genres: Array.from(new Set(genres)).slice(0, 5),
+        watchProviders,
+        watchLink,
+        trakRating,
+        externalRatings
+      };
+    }
+
     if (parsed?.source === "gbooks") {
       const [volume, trakRating] = await Promise.all([
         this.googleBooksService.getVolumeRaw(parsed.externalId),
@@ -893,6 +980,34 @@ export class CatalogoService implements OnModuleInit {
         ...mapeado,
         coverUrl: capaVertical ?? mapeado.coverUrl,
         synopsis
+      };
+    }
+
+    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
+      const item = await this.hardcoverService.getBookById(id);
+      if (!item) {
+        return null;
+      }
+      let sinopse = item.synopsis;
+      if (idioma === "pt-BR") {
+        const sinopseGoogle = await this.googleBooksBuscarSinopse(item.title, "pt-BR");
+        if (sinopseGoogle) {
+          sinopse = sinopseGoogle;
+        } else if (sinopse) {
+          sinopse = await this.traduzirParaPtBr(sinopse);
+        }
+      }
+      let coverUrl = item.coverUrl;
+      if (!coverUrl) {
+        const gbooks = await this.googleBooksService.searchBooks(item.title, 1);
+        if (gbooks[0]?.coverUrl) {
+          coverUrl = gbooks[0].coverUrl;
+        }
+      }
+      return {
+        ...item,
+        coverUrl,
+        synopsis: sinopse
       };
     }
 
@@ -1034,6 +1149,16 @@ export class CatalogoService implements OnModuleInit {
       return (data?.results ?? []).map((item) => ({ ...mapearRawg(item), synopsis: null }));
     }
 
+    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
+      const book = await this.hardcoverService.getBookRaw(parsed?.externalId ?? id);
+      const termoBusca = book?.cached_tags?.Genre?.[0]?.tag || book?.title;
+      if (!termoBusca) {
+        return [];
+      }
+      const resultados = await this.hardcoverService.searchBooks(termoBusca, 8);
+      return resultados.filter((item) => item.id !== id);
+    }
+
     if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
       const volume = await this.googleBooksService.getVolumeRaw(id);
       const categoria = volume?.volumeInfo?.categories?.[0] ?? volume?.volumeInfo?.title;
@@ -1172,6 +1297,12 @@ export class CatalogoService implements OnModuleInit {
     if (parsed?.source === "rawg") {
       const jogo = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
       return jogo?.playtime && jogo.playtime > 0 ? jogo.playtime * 60 : null;
+    }
+
+    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
+      const book = await this.hardcoverService.getBookRaw(parsed?.externalId ?? id);
+      const paginas = book?.pages;
+      return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
     }
 
     if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {

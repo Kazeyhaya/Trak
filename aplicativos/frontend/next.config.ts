@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "media.rawg.io", pathname: "/media/**" },
       { protocol: "https", hostname: "covers.openlibrary.org", pathname: "/b/**" },
       { protocol: "https", hostname: "cdn2.steamgriddb.com", pathname: "/**" },
-      { protocol: "https", hostname: "books.google.com", pathname: "/**" }
+      { protocol: "https", hostname: "books.google.com", pathname: "/**" },
+      { protocol: "https", hostname: "assets.hardcover.app", pathname: "/**" }
     ]
   },
   async headers() {

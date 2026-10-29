@@ -137,9 +137,11 @@ export type IdParseado =
   | { source: "tmdb"; type: "MOVIE" | "SERIES"; externalId: string }
   | { source: "rawg"; type: "GAME"; externalId: string }
   | { source: "gbooks"; type: "BOOK"; externalId: string }
-  | { source: "openlibrary"; type: "BOOK"; externalId: string };
+  | { source: "openlibrary"; type: "BOOK"; externalId: string }
+  | { source: "hardcover"; type: "BOOK"; externalId: string };
 
-const ID_PATTERN = /^(?:tmdb_(movie|series)_(\d+)|rawg_game_(\d+)|openlibrary_book_(OL\d+W)|media_gbooks_([A-Za-z0-9_-]+))$/;
+const ID_PATTERN =
+  /^(?:tmdb_(movie|series)_(\d+)|rawg_game_(\d+)|openlibrary_book_(OL\d+W)|media_gbooks_([A-Za-z0-9_-]+)|(?:media_hardcover_|hardcover_book_)(\d+))$/;
 
 export function parsearId(id: string): IdParseado | null {
   const match = ID_PATTERN.exec(id);
@@ -156,7 +158,10 @@ export function parsearId(id: string): IdParseado | null {
   if (match[4]) {
     return { source: "openlibrary", type: "BOOK", externalId: match[4] };
   }
-  return { source: "gbooks", type: "BOOK", externalId: match[5] };
+  if (match[5]) {
+    return { source: "gbooks", type: "BOOK", externalId: match[5] };
+  }
+  return { source: "hardcover", type: "BOOK", externalId: match[6] };
 }
 
 export function montarId(source: FonteCatalogo, type: TipoMidia, externalId: string | number) {
@@ -165,6 +170,9 @@ export function montarId(source: FonteCatalogo, type: TipoMidia, externalId: str
   }
   if (source === "gbooks") {
     return `media_gbooks_${externalId}`;
+  }
+  if (source === "hardcover") {
+    return `media_hardcover_${externalId}`;
   }
   return source === "rawg" ? `rawg_game_${externalId}` : `openlibrary_book_${externalId}`;
 }

@@ -3,6 +3,7 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { criarSupabaseServiceMock } from "../../testes/supabase.mock";
 import { CatalogoService } from "./catalogo.service";
 import { GoogleBooksService } from "./google-books.service";
+import { HardcoverService } from "./hardcover.service";
 
 type Rotas = Record<string, unknown>;
 
@@ -18,9 +19,16 @@ function mockFetch(rotas: Rotas) {
   });
 }
 
-function criarServico(googleBooksService = new GoogleBooksService()) {
+function criarServico(
+  googleBooksService = new GoogleBooksService(),
+  hardcoverService = new HardcoverService()
+) {
   const supabase = criarSupabaseServiceMock();
-  return new CatalogoService(supabase.service as unknown as SupabaseService, googleBooksService);
+  return new CatalogoService(
+    supabase.service as unknown as SupabaseService,
+    googleBooksService,
+    hardcoverService
+  );
 }
 
 const envOriginal = { ...process.env };
@@ -325,7 +333,8 @@ describe("CatalogoService.extras", () => {
     }));
     const servico = new CatalogoService(
       supabase.service as unknown as SupabaseService,
-      new GoogleBooksService()
+      new GoogleBooksService(),
+      new HardcoverService()
     );
 
     const extras = await servico.extras("tmdb_movie_550");
@@ -342,5 +351,68 @@ describe("CatalogoService.extras", () => {
       { source: "Metacritic", value: "67/100" },
       { source: "TMDB", value: "8.4/10" }
     ]);
+  });
+
+  describe("Hardcover integration", () => {
+    it("carrega livro da Hardcover pelo id media_hardcover_", async () => {
+      const mockHc = new HardcoverService();
+      jest.spyOn(mockHc, "getBookById").mockResolvedValueOnce({
+        id: "media_hardcover_1803823",
+        externalId: "1803823",
+        source: "hardcover",
+        type: "BOOK",
+        title: "As 48 Leis do Poder",
+        coverUrl: "https://assets.hardcover.app/edition/power.jpg",
+        synopsis: "Sinopse em portugues do livro de estrategia.",
+        releaseYear: 1998
+      });
+
+      const servico = criarServico(new GoogleBooksService(), mockHc);
+      const item = await servico.buscarPorId("media_hardcover_1803823");
+
+      expect(item).toMatchObject({
+        id: "media_hardcover_1803823",
+        title: "As 48 Leis do Poder",
+        source: "hardcover",
+        coverUrl: "https://assets.hardcover.app/edition/power.jpg"
+      });
+    });
+
+    it("retorna extras com nota da Hardcover e generos", async () => {
+      const mockHc = new HardcoverService();
+      jest.spyOn(mockHc, "getBookRaw").mockResolvedValueOnce({
+        id: 1803823,
+        title: "As 48 Leis do Poder",
+        rating: 4.8,
+        slug: "as-48-leis-do-poder",
+        pages: 460,
+        cached_tags: {
+          Genre: [{ tag: "Classics" }, { tag: "Philosophy" }]
+        }
+      });
+
+      const servico = criarServico(new GoogleBooksService(), mockHc);
+      const extras = await servico.extras("media_hardcover_1803823");
+
+      expect(extras.genres).toEqual(["Classics", "Philosophy"]);
+      expect(extras.watchLink).toBe("https://hardcover.app/books/as-48-leis-do-poder");
+      expect(extras.externalRatings).toEqual([{ source: "Hardcover", value: "4.8/5" }]);
+      expect(extras.watchProviders.some((p) => p.name === "Hardcover")).toBe(true);
+    });
+
+    it("calcula duracao em minutos com base nas paginas da Hardcover", async () => {
+      const mockHc = new HardcoverService();
+      jest.spyOn(mockHc, "getBookRaw").mockResolvedValueOnce({
+        id: 1803823,
+        title: "As 48 Leis do Poder",
+        pages: 400
+      });
+
+      const servico = criarServico(new GoogleBooksService(), mockHc);
+      const minutos = await servico.duracaoMinutos("media_hardcover_1803823");
+
+      // 400 paginas * 1.5 minutos/pagina = 600 minutos
+      expect(minutos).toBe(600);
+    });
   });
 });
