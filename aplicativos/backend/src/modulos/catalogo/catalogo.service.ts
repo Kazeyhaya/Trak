@@ -1445,7 +1445,9 @@ export class CatalogoService implements OnModuleInit {
       (data ?? []).map((item) => {
         const coverUrl =
           typeof item.coverUrl === "string"
-            ? item.coverUrl.replace("/media/resize/640/-/games/", "/media/games/")
+            ? item.coverUrl.includes("media.rawg.io/media/games/")
+              ? item.coverUrl.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
+              : item.coverUrl
             : null;
         return [item.id as string, { ...(item as ItemCatalogo), coverUrl }];
       })

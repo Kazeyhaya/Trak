@@ -29,6 +29,8 @@ import { CatalogItem, getMediaTypeLabel, MediaType } from "../lib/catalogo-api";
 
 type ProfileTab = "overview" | "library" | "favorites" | "achievements" | "activity";
 
+const ITENS_POR_PAGINA = 24;
+
 const MEDIA_FILTERS: Array<{ label: string; value: MediaType | "" }> = [
   { label: "Todos", value: "" },
   { label: "Filmes", value: "MOVIE" },
@@ -45,9 +47,17 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
   const [statusFilter, setStatusFilter] = useState<TrackingStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<MediaType | "">("");
   const [favTypeFilter, setFavTypeFilter] = useState<MediaType | "">("");
+  const libraryFilterKey = `${statusFilter}:${typeFilter}`;
+  const [prevLibraryFilterKey, setPrevLibraryFilterKey] = useState(libraryFilterKey);
+  const [libraryDisplayCount, setLibraryDisplayCount] = useState(ITENS_POR_PAGINA);
   const [busyFav, setBusyFav] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [followModalTab, setFollowModalTab] = useState<"followers" | "following" | null>(null);
+
+  if (libraryFilterKey !== prevLibraryFilterKey) {
+    setPrevLibraryFilterKey(libraryFilterKey);
+    setLibraryDisplayCount(ITENS_POR_PAGINA);
+  }
 
   const currentYear = new Date().getFullYear();
   const [annualGoal, setAnnualGoal] = useState<number>(24);
@@ -600,31 +610,43 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                   )}
                 </UiCard>
               ) : (
-                <div className="catalog-grid">
-                  {filteredLibrary.map((entry) => {
-                    const item = entry.item;
-                    const statusLabel = getStatusLabel(entry.status, item.type);
-                    const supportsPercent = item.type === "GAME" || item.type === "BOOK";
-                    const progressText =
-                      supportsPercent && entry.progress > 0 && entry.status !== "COMPLETED"
-                        ? `${statusLabel} · ${entry.progress}%`
-                        : statusLabel;
-                    const ratingText = entry.rating ? ` · ${entry.rating} ★` : "";
+                <>
+                  <div className="catalog-grid">
+                    {filteredLibrary.slice(0, libraryDisplayCount).map((entry) => {
+                      const item = entry.item;
+                      const statusLabel = getStatusLabel(entry.status, item.type);
+                      const supportsPercent = item.type === "GAME" || item.type === "BOOK";
+                      const progressText =
+                        supportsPercent && entry.progress > 0 && entry.status !== "COMPLETED"
+                          ? `${statusLabel} · ${entry.progress}%`
+                          : statusLabel;
+                      const ratingText = entry.rating ? ` · ${entry.rating} ★` : "";
 
-                    return (
-                      <Link key={entry.mediaItemId} href={`/itens/${entry.mediaItemId}`}>
-                        <MediaCard
-                          type={getMediaTypeLabel(item.type, item.subtype)}
-                          mediaType={item.type}
-                          title={item.title}
-                          meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
-                          coverUrl={item.coverUrl}
-                          progress={`${progressText}${ratingText}`}
-                        />
-                      </Link>
-                    );
-                  })}
-                </div>
+                      return (
+                        <Link key={entry.mediaItemId} href={`/itens/${entry.mediaItemId}`}>
+                          <MediaCard
+                            type={getMediaTypeLabel(item.type, item.subtype)}
+                            mediaType={item.type}
+                            title={item.title}
+                            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
+                            coverUrl={item.coverUrl}
+                            progress={`${progressText}${ratingText}`}
+                          />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  {libraryDisplayCount < filteredLibrary.length && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: "1.5rem" }}>
+                      <UiButton
+                        variant="secondary"
+                        onClick={() => setLibraryDisplayCount((prev) => prev + ITENS_POR_PAGINA)}
+                      >
+                        Carregar mais obras ({filteredLibrary.length - libraryDisplayCount} restantes)
+                      </UiButton>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           )}

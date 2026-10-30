@@ -448,7 +448,9 @@ export class SocialService {
       this.db
         .from(TABELA_TRACKING)
         .select("mediaItemId,status,personalRating,progressCurrent,updatedAt")
-        .eq("userId", perfil.userId),
+        .eq("userId", perfil.userId)
+        .order("updatedAt", { ascending: false })
+        .limit(200),
       this.db
         .from("Favorite")
         .select("mediaItemId")

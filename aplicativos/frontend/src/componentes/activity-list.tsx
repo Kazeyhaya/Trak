@@ -117,10 +117,16 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                   <div className="activity-media-cover">
                     {hasValidCover ? (
                       <Image
-                        src={item.coverUrl!.replace("/media/resize/640/-/games/", "/media/games/")}
+                        src={
+                          item.coverUrl!.includes("media.rawg.io/media/games/")
+                            ? item.coverUrl!.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
+                            : item.coverUrl!
+                        }
                         alt=""
                         fill
                         sizes="72px"
+                        quality={70}
+                        loading="lazy"
                         onError={() => setBrokenImages((prev) => ({ ...prev, [atividade.id]: true }))}
                       />
                     ) : (
