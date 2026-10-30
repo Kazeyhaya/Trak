@@ -32,7 +32,6 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [watched, setWatched] = useState<WatchedEpisode[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,16 +80,31 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
     if (selected === null || episodeNumbers.length === 0) {
       return;
     }
-    setSaving(true);
-    setError(null);
+
+    const previousWatched = watched;
+
+    // Atualização Otimista: acende o visto instantaneamente na tela
+    setWatched((prev) => {
+      const epSet = new Set(episodeNumbers);
+      if (value) {
+        const jaTem = new Set(prev.filter((w) => w.season === selected).map((w) => w.episode));
+        const novos = episodeNumbers
+          .filter((n) => !jaTem.has(n))
+          .map((ep) => ({ season: selected, episode: ep }));
+        return [...prev, ...novos];
+      } else {
+        return prev.filter((w) => !(w.season === selected && epSet.has(w.episode)));
+      }
+    });
+
     try {
       const result = await markEpisodes(mediaItemId, selected, episodeNumbers, value);
+      // Sincroniza com a resposta oficial do backend
       setWatched(result.episodes);
       onTrackingChange(result.tracking);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
+    } catch {
+      // Em caso de falha, desfaz a ação silenciosamente zerando o delay percebido
+      setWatched(previousWatched);
     }
   }
 
@@ -137,7 +151,7 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
         <button
           type="button"
           className="secondary-button"
-          disabled={saving || loadingEpisodes || aired.length === 0}
+          disabled={loadingEpisodes || aired.length === 0}
           onClick={() => toggle(aired, !allWatched)}
         >
           {allWatched ? "Desmarcar temporada" : "Marcar temporada como vista"}
@@ -157,7 +171,7 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                   <input
                     type="checkbox"
                     checked={isWatched}
-                    disabled={saving || !disponivel}
+                    disabled={!disponivel}
                     onChange={(event) => toggle([episode.episodeNumber], event.target.checked)}
                   />
                   <span className="episode-number">{episode.episodeNumber}</span>

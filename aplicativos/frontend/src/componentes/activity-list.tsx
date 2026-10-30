@@ -19,19 +19,17 @@ type ActivityListProps = {
 export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
   const { user } = useAuth();
   const [trackedMap, setTrackedMap] = useState<Record<string, boolean>>({});
-  const [savingMap, setSavingMap] = useState<Record<string, boolean>>({});
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   async function handleQuickTrack(mediaItemId: string) {
-    if (!user || trackedMap[mediaItemId] || savingMap[mediaItemId]) return;
-    setSavingMap((prev) => ({ ...prev, [mediaItemId]: true }));
+    if (!user || trackedMap[mediaItemId]) return;
+    // Atualização otimista: acende o botão instantaneamente
+    setTrackedMap((prev) => ({ ...prev, [mediaItemId]: true }));
     try {
       await saveTrackingItem(mediaItemId, { status: "WANT" });
-      setTrackedMap((prev) => ({ ...prev, [mediaItemId]: true }));
     } catch {
-      // Ignora falha silenciosa
-    } finally {
-      setSavingMap((prev) => ({ ...prev, [mediaItemId]: false }));
+      // Desfaz silenciosamente se falhar
+      setTrackedMap((prev) => ({ ...prev, [mediaItemId]: false }));
     }
   }
 
@@ -51,7 +49,6 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
 
         const typeLabel = item ? getMediaTypeLabel(item.type, item.subtype) : null;
         const isTracked = Boolean(atividade.mediaItemId && trackedMap[atividade.mediaItemId]);
-        const isSaving = Boolean(atividade.mediaItemId && savingMap[atividade.mediaItemId]);
 
         return (
           <li key={atividade.id}>
@@ -152,14 +149,12 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                         <button
                           type="button"
                           className={`activity-quick-track-btn ${isTracked ? "is-saved" : ""}`}
-                          disabled={isTracked || isSaving}
+                          disabled={isTracked}
                           onClick={() => handleQuickTrack(atividade.mediaItemId!)}
                         >
                           {isTracked
                             ? "✓ Na sua estante"
-                            : isSaving
-                              ? "Salvando..."
-                              : `+ Quero ${item.type === "GAME" ? "jogar" : item.type === "BOOK" ? "ler" : "ver"}`}
+                            : `+ Quero ${item.type === "GAME" ? "jogar" : item.type === "BOOK" ? "ler" : "ver"}`}
                         </button>
                       )}
                       <Link href={`/itens/${encodeURIComponent(atividade.mediaItemId)}`} className="activity-details-link">

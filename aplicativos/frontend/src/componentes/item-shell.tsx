@@ -438,6 +438,63 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
     }
   }
 
+  async function handleStatusSelect(option: TrackingStatus) {
+    if (draft.status === option) return;
+
+    const previousDraft = draft;
+    const previousTracking = tracking;
+
+    const nextProgress =
+      option === "COMPLETED"
+        ? 100
+        : option === "WANT" && draft.progress === 100
+          ? 0
+          : draft.progress;
+
+    // Atualização otimista: acende o botão de status instantaneamente
+    updateDraft({ status: option, progress: nextProgress });
+
+    try {
+      const entry = await saveTrackingItem(item.id, {
+        status: option,
+        progress: nextProgress,
+        rating: draft.rating,
+        notes: draft.notes.trim() || null
+      });
+      setTracking(entry);
+      setDraft(draftFromEntry(entry));
+      setNotice(t("tracking.saved", "Status salvo!"));
+    } catch {
+      // Reverte silenciosamente se der erro
+      setDraft(previousDraft);
+      setTracking(previousTracking);
+    }
+  }
+
+  async function handleMilestoneSelect(nextProgress: number, nextStatus: TrackingStatus) {
+    const previousDraft = draft;
+    const previousTracking = tracking;
+
+    // Atualização otimista imediata
+    updateDraft({ progress: nextProgress, status: nextStatus });
+
+    try {
+      const entry = await saveTrackingItem(item.id, {
+        status: nextStatus,
+        progress: nextProgress,
+        rating: draft.rating,
+        notes: draft.notes.trim() || null
+      });
+      setTracking(entry);
+      setDraft(draftFromEntry(entry));
+      setNotice(t("tracking.saved", "Progresso salvo!"));
+    } catch {
+      // Reverte silenciosamente se der erro
+      setDraft(previousDraft);
+      setTracking(previousTracking);
+    }
+  }
+
   function handleDiscard() {
     setDraft(draftFromEntry(tracking));
     pendingMetaRef.current = null;
@@ -517,8 +574,8 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
                 type="button"
                 className={`filter-chip${isActive ? " is-active" : ""}`}
                 aria-pressed={isActive}
-                disabled={loading || saving}
-                onClick={() => updateDraft({ status: option })}
+                disabled={loading}
+                onClick={() => void handleStatusSelect(option)}
               >
                 {getDynamicStatusLabel(option, item.type, language)}
               </button>
@@ -538,9 +595,9 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
             item={item}
             progress={progress}
             status={draft.status}
-            disabled={loading || saving}
+            disabled={loading}
             onProgressChange={(nextProgress) => updateDraft({ progress: nextProgress })}
-            onMilestoneSelect={(nextProgress, nextStatus) => updateDraft({ progress: nextProgress, status: nextStatus })}
+            onMilestoneSelect={(nextProgress, nextStatus) => void handleMilestoneSelect(nextProgress, nextStatus)}
             pagesRead={draft.pagesRead}
             totalPages={draft.totalPages}
             onPagesChange={(pagesRead, totalPages) => updateDraft({ pagesRead, totalPages })}
