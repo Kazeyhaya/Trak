@@ -615,6 +615,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                       <Link key={entry.mediaItemId} href={`/itens/${entry.mediaItemId}`}>
                         <MediaCard
                           type={getMediaTypeLabel(item.type, item.subtype)}
+                          mediaType={item.type}
                           title={item.title}
                           meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
                           coverUrl={item.coverUrl}
@@ -675,6 +676,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                         <Link href={`/itens/${item.id}`} className="favorite-manage-card-link">
                           <MediaCard
                             type={`#${globalIndex + 1} · ${getMediaTypeLabel(item.type, item.subtype)}`}
+                            mediaType={item.type}
                             title={item.title}
                             meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
                             coverUrl={item.coverUrl}

@@ -16,6 +16,7 @@ export function MediaGrid({ items, label = "Itens" }: MediaGridProps) {
         <Link key={item.id} href={`/itens/${item.id}`}>
           <MediaCard
             type={getMediaTypeLabel(item.type, item.subtype)}
+            mediaType={item.type}
             title={item.title}
             meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
             coverUrl={item.coverUrl}

@@ -247,6 +247,7 @@ export function RecapShell() {
                   <Link href={`/itens/${winner.mediaItemId}`} className="recap-award-card-link">
                     <MediaCard
                       type={`🏆 ${cat.award}`}
+                      mediaType={winner.item.type}
                       title={winner.item.title}
                       meta={winner.item.releaseYear ? String(winner.item.releaseYear) : "Sem ano"}
                       coverUrl={winner.item.coverUrl}
@@ -287,6 +288,7 @@ export function RecapShell() {
               <Link key={entry.id} href={`/itens/${entry.mediaItemId}`}>
                 <MediaCard
                   type={entry.item ? getMediaTypeLabel(entry.item.type, entry.item.subtype) : "Item"}
+                  mediaType={entry.item?.type}
                   title={entry.item?.title ?? entry.mediaItemId}
                   meta={entry.item?.releaseYear ? String(entry.item.releaseYear) : "Sem ano"}
                   coverUrl={entry.item?.coverUrl}

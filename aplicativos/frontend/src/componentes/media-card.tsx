@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { BookOpen, Clapperboard, Gamepad2, Tv } from "lucide-react";
 
 import { UiBadge } from "./ui-badge";
 
 type MediaCardProps = {
   type: string;
+  mediaType?: string;
   title: string;
   meta: string;
   coverUrl?: string | null;
@@ -14,7 +16,35 @@ type MediaCardProps = {
   accent?: string;
 };
 
-export function MediaCard({ type, title, meta, coverUrl, progress, accent }: MediaCardProps) {
+function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
+  const norm = `${mediaType ?? ""} ${type}`.toUpperCase();
+
+  if (norm.includes("GAME") || norm.includes("JOGO")) {
+    return <Gamepad2 size={14} className="media-card-type-icon" aria-hidden="true" />;
+  }
+  if (
+    norm.includes("BOOK") ||
+    norm.includes("LIVRO") ||
+    norm.includes("MANGÁ") ||
+    norm.includes("MANGA") ||
+    norm.includes("HQ") ||
+    norm.includes("COMIC")
+  ) {
+    return <BookOpen size={14} className="media-card-type-icon" aria-hidden="true" />;
+  }
+  if (
+    norm.includes("SERIES") ||
+    norm.includes("SÉRIE") ||
+    norm.includes("DORAMA") ||
+    norm.includes("NOVELA") ||
+    norm.includes("TV")
+  ) {
+    return <Tv size={14} className="media-card-type-icon" aria-hidden="true" />;
+  }
+  return <Clapperboard size={14} className="media-card-type-icon" aria-hidden="true" />;
+}
+
+export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, accent }: MediaCardProps) {
   const [imgError, setImgError] = useState(false);
 
   const hasValidCover = Boolean(
@@ -43,7 +73,8 @@ export function MediaCard({ type, title, meta, coverUrl, progress, accent }: Med
 
       <div className="media-card-copy">
         <UiBadge tone="secondary" className="media-card-type">
-          {type}
+          <MediaIcon type={type} mediaType={mediaType} />
+          <span>{type}</span>
         </UiBadge>
         <h3>{title}</h3>
         <p>{meta}</p>

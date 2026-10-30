@@ -35,6 +35,12 @@
 
 .ui-badge.media-card-type {
   width: fit-content;
+  gap: 6px;
+}
+
+.media-card-type-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 
 .ui-card {
