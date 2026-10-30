@@ -11,9 +11,18 @@ type ProfilePageProps = { params: Promise<{ username: string }> };
 
 export const dynamic = "force-dynamic";
 
+function sanitizarUsername(raw: string): string {
+  try {
+    return decodeURIComponent(raw).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
 const getProfile = cache(async (username: string) => {
+  const limpo = sanitizarUsername(username);
   const token = await tokenDoServidor();
-  return fetchJson<PublicProfile>(`/perfis/${encodeURIComponent(username.toLowerCase())}`, token);
+  return fetchJson<PublicProfile>(`/perfis/${encodeURIComponent(limpo.toLowerCase())}`, token);
 });
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {

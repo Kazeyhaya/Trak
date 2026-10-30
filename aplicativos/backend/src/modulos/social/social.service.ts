@@ -136,12 +136,23 @@ export class SocialService {
   }
 
   private async perfilPorUsername(username: string) {
+    let limpo = username;
+    try {
+      limpo = decodeURIComponent(username);
+    } catch {
+      limpo = username;
+    }
+    limpo = limpo.trim();
+
+    if (!limpo) {
+      throw new NotFoundException("Perfil nao encontrado.");
+    }
+
     const inicial = await this.db
       .from("User")
       .select(CAMPOS_PERFIL)
-      .ilike("username", usernameExato(username))
-      .limit(1)
-      .maybeSingle();
+      .ilike("username", limpo)
+      .limit(10);
 
     let data: unknown = inicial.data;
     let error = inicial.error;
@@ -152,20 +163,55 @@ export class SocialService {
       const legado = await this.db
         .from("User")
         .select(CAMPOS_PERFIL_LEGADO)
-        .ilike("username", usernameExato(username))
-        .limit(1)
-        .maybeSingle();
+        .ilike("username", limpo)
+        .limit(10);
       data = legado.data;
       error = legado.error;
     }
     falha(error);
 
-    if (!data) {
+    const linhas = Array.isArray(data)
+      ? (data as LinhaUser[]).filter((l) => l && typeof l.id === "string")
+      : data && typeof (data as LinhaUser).id === "string"
+        ? [data as LinhaUser]
+        : [];
+    let match = linhas.find((l) => l.username?.toLowerCase() === limpo.toLowerCase()) ?? null;
+
+    if (!match) {
+      const campos = usarMetaLegado ? CAMPOS_PERFIL_LEGADO : CAMPOS_PERFIL;
+      try {
+        const exatoEq = await this.db
+          .from("User")
+          .select(campos)
+          .eq("username", limpo)
+          .limit(1)
+          .maybeSingle();
+
+        const dadosEq = exatoEq.data as unknown as LinhaUser | null;
+        if (dadosEq && typeof dadosEq === "object" && !Array.isArray(dadosEq) && typeof dadosEq.id === "string") {
+          match = dadosEq;
+        } else {
+          const exatoLower = await this.db
+            .from("User")
+            .select(campos)
+            .eq("username", limpo.toLowerCase())
+            .limit(1)
+            .maybeSingle();
+          const dadosLower = exatoLower.data as unknown as LinhaUser | null;
+          if (dadosLower && typeof dadosLower === "object" && !Array.isArray(dadosLower) && typeof dadosLower.id === "string") {
+            match = dadosLower;
+          }
+        }
+      } catch {
+        // Fallback silencioso se falhar
+      }
+    }
+
+    if (!match || !match.id) {
       throw new NotFoundException("Perfil nao encontrado.");
     }
-    const linha = data as LinhaUser;
-    const meta = usarMetaLegado ? await this.lerMetaLegado(linha.id) : null;
-    return perfilDe(linha, meta);
+    const meta = usarMetaLegado ? await this.lerMetaLegado(match.id) : null;
+    return perfilDe(match, meta);
   }
 
   private async perfisPorIds(userIds: string[]) {
@@ -329,7 +375,13 @@ export class SocialService {
   // Perfil publico
 
   async buscarPerfis(query: string) {
-    const termo = query.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    let limpo = query;
+    try {
+      limpo = decodeURIComponent(query);
+    } catch {
+      limpo = query;
+    }
+    const termo = limpo.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (termo.length < 2) {
       return [];
     }

@@ -136,4 +136,57 @@ describe("SocialService (perfil na tabela User)", () => {
       })
     ]);
   });
+
+  it("perfilPublico encontra usuario com underscore e diferenca de caixa (ex: joe_joestar vs Joe_Joestar)", async () => {
+    const userJoe = {
+      id: "u_joe",
+      username: "joe_joestar",
+      displayName: "Joe Joestar",
+      bio: "É preciso imaginar Sísifo feliz",
+      isPublic: true,
+      createdAt: "2026"
+    };
+
+    const { service } = montar((op) => {
+      if (op.table === "User") {
+        return { data: [userJoe] };
+      }
+      return { data: [], count: 0 };
+    });
+
+    const resultado = await service.perfilPublico("Joe_Joestar");
+    expect(resultado.profile).toMatchObject({
+      username: "joe_joestar",
+      displayName: "Joe Joestar",
+      bio: "É preciso imaginar Sísifo feliz"
+    });
+  });
+
+  it("perfilPublico decodifica usernames codificados em URL (ex: joe%5Fjoestar)", async () => {
+    const userJoe = {
+      id: "u_joe",
+      username: "joe_joestar",
+      displayName: "Joe Joestar",
+      bio: "É preciso imaginar Sísifo feliz",
+      isPublic: true,
+      createdAt: "2026"
+    };
+
+    const { service } = montar((op) => {
+      if (op.table === "User") {
+        return { data: [userJoe] };
+      }
+      return { data: [], count: 0 };
+    });
+
+    const resultado = await service.perfilPublico("joe%5Fjoestar");
+    expect(resultado.profile.username).toBe("joe_joestar");
+  });
+
+  it("perfilPublico lanca NotFoundException quando usuario nao existe", async () => {
+    const { service } = montar(() => ({ data: [] }));
+    await expect(service.perfilPublico("inexistente")).rejects.toMatchObject({
+      status: 404
+    });
+  });
 });
