@@ -2,11 +2,13 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
+import { NotificacoesService } from "../notificacoes/notificacoes.service";
 import { AtividadesService } from "../social/atividades.service";
 
 export const CONTEUDO_REMOVIDO = "[comentário removido]";
@@ -17,7 +19,8 @@ export class ComentariosService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly catalogoService: CatalogoService,
-    private readonly atividadesService: AtividadesService
+    private readonly atividadesService: AtividadesService,
+    @Optional() private readonly notificacoesService?: NotificacoesService
   ) {}
 
   private async autoresPorIds(userIds: string[]) {
@@ -123,6 +126,34 @@ export class ComentariosService {
       this.autoresPorIds([userId]),
       this.atividadesService.registrar(userId, "COMMENT", mediaItemId, { commentId: data.id })
     ]);
+
+    if (this.notificacoesService) {
+      try {
+        const autor = autores.get(userId);
+        const autorNome = autor?.displayName || (autor?.username ? `@${autor.username}` : "Alguém");
+        const { data: outros } = await supabase
+          .from("Comment")
+          .select("userId")
+          .eq("mediaItemId", mediaItemId)
+          .neq("userId", userId)
+          .limit(20);
+
+        const destinatarios = [...new Set((outros ?? []).map((c) => c.userId as string))];
+        for (const destId of destinatarios) {
+          await this.notificacoesService.criar({
+            userId: destId,
+            actorId: userId,
+            type: "COMMENT",
+            title: `${autorNome} comentou em uma obra que você acompanha`,
+            body: content.slice(0, 120),
+            mediaItemId,
+            link: `/itens/${mediaItemId}`
+          });
+        }
+      } catch {
+        // Notificação não interrompe a criação do comentário
+      }
+    }
 
     return {
       ...data,

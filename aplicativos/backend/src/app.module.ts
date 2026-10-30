@@ -9,6 +9,7 @@ import { ComentariosModule } from "./modulos/comentarios/comentarios.module";
 import { FavoritosModule } from "./modulos/favoritos/favoritos.module";
 import { ImportacaoModule } from "./modulos/importacao/importacao.module";
 import { ModeracaoModule } from "./modulos/moderacao/moderacao.module";
+import { NotificacoesModule } from "./modulos/notificacoes/notificacoes.module";
 import { RecomendacoesModule } from "./modulos/recomendacoes/recomendacoes.module";
 import { SocialModule } from "./modulos/social/social.module";
 import { TrackingModule } from "./modulos/tracking/tracking.module";
@@ -25,7 +26,8 @@ import { TrackingModule } from "./modulos/tracking/tracking.module";
     SocialModule,
     RecomendacoesModule,
     ImportacaoModule,
-    ModeracaoModule
+    ModeracaoModule,
+    NotificacoesModule
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }]

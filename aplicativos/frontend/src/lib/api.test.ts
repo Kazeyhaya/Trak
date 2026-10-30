@@ -3,9 +3,13 @@ import {
   ApiError,
   ehUsernameProvisorio,
   errorMessage,
+  getNotifications,
   getStatusLabel,
   getTrackingItem,
+  getUnreadNotificationsCount,
+  markAllNotificationsRead,
   markEpisodes,
+  markNotificationRead,
   request,
   saveTrackingItem,
   TRACKING_STATUSES
@@ -102,5 +106,34 @@ describe("errorMessage", () => {
   it("usa a mensagem da API ou o texto padrao", () => {
     expect(errorMessage(new ApiError("Nome em uso", 409))).toBe("Nome em uso");
     expect(errorMessage(new Error("interno"), "Padrão")).toBe("Padrão");
+  });
+});
+
+describe("notificacoes API", () => {
+  it("getNotifications chama endpoint com limite", async () => {
+    const spy = mockFetch(new Response(JSON.stringify([{ id: "n1", title: "Olá" }]), { status: 200 }));
+    const result = await getNotifications(10);
+    expect(result).toHaveLength(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("/notificacoes?limite=10"), expect.any(Object));
+  });
+
+  it("getUnreadNotificationsCount retorna count", async () => {
+    mockFetch(new Response(JSON.stringify({ count: 5 }), { status: 200 }));
+    const result = await getUnreadNotificationsCount();
+    expect(result).toEqual({ count: 5 });
+  });
+
+  it("markNotificationRead chama patch com id", async () => {
+    const spy = mockFetch(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const result = await markNotificationRead("notif-1");
+    expect(result).toEqual({ ok: true });
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("/notificacoes/notif-1/lida"), expect.objectContaining({ method: "PATCH" }));
+  });
+
+  it("markAllNotificationsRead chama post", async () => {
+    const spy = mockFetch(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const result = await markAllNotificationsRead();
+    expect(result).toEqual({ ok: true });
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("/notificacoes/marcar-todas-lidas"), expect.objectContaining({ method: "POST" }));
   });
 });

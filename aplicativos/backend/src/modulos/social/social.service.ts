@@ -4,12 +4,14 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { ehAdmin } from "../../comum/autenticacao/supabase-auth.guard";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
+import { NotificacoesService } from "../notificacoes/notificacoes.service";
 import { statusDoBanco, TABELA_TRACKING } from "../tracking/tracking.banco";
 import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
@@ -101,7 +103,8 @@ function falha(error: { message: string } | null) {
 export class SocialService {
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly catalogoService: CatalogoService
+    private readonly catalogoService: CatalogoService,
+    @Optional() private readonly notificacoesService?: NotificacoesService
   ) {}
 
   private get db() {
@@ -564,6 +567,28 @@ export class SocialService {
       .from("Follow")
       .upsert({ followerId: userId, followingId: alvo.userId }, { onConflict: "followerId,followingId", ignoreDuplicates: true });
     falha(error);
+
+    if (this.notificacoesService) {
+      try {
+        const { data: seguidor } = await this.db
+          .from("User")
+          .select("username,displayName")
+          .eq("id", userId)
+          .maybeSingle();
+
+        const nome = seguidor?.displayName || (seguidor?.username ? `@${seguidor.username}` : "Alguém");
+        await this.notificacoesService.criar({
+          userId: alvo.userId,
+          actorId: userId,
+          type: "FOLLOW",
+          title: `${nome} começou a seguir você`,
+          link: `/u/${seguidor?.username || ""}`
+        });
+      } catch {
+        // Notificação falha silenciosamente sem interromper o follow
+      }
+    }
+
     return { ok: true };
   }
 

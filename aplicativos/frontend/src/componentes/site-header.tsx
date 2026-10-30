@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { NotificationBell } from "./notification-bell";
 import { useAuth } from "../contextos/auth-context";
 import { useI18n } from "../contextos/i18n-context";
 
@@ -56,6 +57,8 @@ export function SiteHeader() {
 
       {user ? (
         <div className="header-user">
+          <NotificationBell />
+
           <Link
             className={`header-avatar-link${isProfilePage ? " is-active" : ""}`}
             href={profile ? `/u/${profile.username}` : "/perfil"}
