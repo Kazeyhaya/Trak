@@ -43,6 +43,13 @@ describe("SalvarTrackingDto", () => {
     expect(dto.notes).toBeNull();
   });
 
+  it("aceita notas fracionadas (ex: 4.5 e 0.5)", async () => {
+    const dto1 = await validar(SalvarTrackingDto, { rating: 4.5 });
+    expect(dto1.rating).toBe(4.5);
+    const dto2 = await validar(SalvarTrackingDto, { rating: 0.5 });
+    expect(dto2.rating).toBe(0.5);
+  });
+
   it("aceita paginas lidas e total da edicao dentro do limite", async () => {
     const dto = await validar(SalvarTrackingDto, { pagesRead: 0, totalPages: 50000 });
     expect(dto).toMatchObject({ pagesRead: 0, totalPages: 50000 });
@@ -53,7 +60,9 @@ describe("SalvarTrackingDto", () => {
     { progress: 101 },
     { progress: 1.5 },
     { rating: 0 },
+    { rating: 0.4 },
     { rating: 6 },
+    { rating: 4.55 },
     { notes: "a".repeat(1001) },
     { pagesRead: -1 },
     { pagesRead: 50001 },

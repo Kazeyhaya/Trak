@@ -62,6 +62,16 @@ describe("TrackingService.salvar", () => {
     expect(atividades.registrar).toHaveBeenCalledWith("u1", "RATING", "tmdb_movie_1", { rating: 5 });
   });
 
+  it("salvar aceita nota fracionada (ex: 4.5)", async () => {
+    const { service, atividades } = montar((op) =>
+      op.action === "update" ? { data: { ...existente, personalRating: 4.5 } } : { data: existente }
+    );
+
+    const resultado = await service.salvar("u1", "tmdb_movie_1", { rating: 4.5 });
+    expect(resultado.rating).toBe(4.5);
+    expect(atividades.registrar).toHaveBeenCalledWith("u1", "RATING", "tmdb_movie_1", { rating: 4.5 });
+  });
+
   it("paginas lidas e total da edicao vao so para a linha do usuario, nunca para MediaItem", async () => {
     const { service, chamadas } = montar((op) =>
       op.action === "update" ? { data: { ...existente, pagesRead: 150, totalPages: 412 } } : { data: existente }

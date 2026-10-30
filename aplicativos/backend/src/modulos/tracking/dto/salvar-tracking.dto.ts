@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export const STATUS_TRACKING = ["WANT", "WATCHING", "COMPLETED", "PAUSED", "DROPPED"] as const;
 
@@ -16,10 +16,10 @@ export class SalvarTrackingDto {
   @Max(100)
   progress?: number;
 
-  // null remove a avaliacao.
+  // null remove a avaliacao. Aceita notas inteiras e fracionadas (ex: 0.5 a 5.0).
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0.5)
   @Max(5)
   rating?: number | null;
 

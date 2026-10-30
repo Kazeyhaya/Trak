@@ -14,34 +14,123 @@
   color: var(--muted);
 }
 
-.rating-stars {
+.rating-stars,
+.rating-stars-wrapper {
   display: inline-flex;
-  gap: 2px;
-  color: rgba(160, 184, 214, 0.35);
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  user-select: none;
+  vertical-align: middle;
 }
 
-.rating-stars button {
-  padding: 2px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-size: 1.6rem;
+.rating-stars-track {
+  position: relative;
+  display: inline-block;
   line-height: 1;
+  font-size: 1.5rem;
+  letter-spacing: 0;
+}
+
+.rating-stars-layer {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.rating-stars-empty {
+  color: rgba(160, 184, 214, 0.25);
+}
+
+.rating-stars-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow: hidden;
+  color: #f59e0b;
+  pointer-events: none;
+  transition: width 100ms ease-out;
+}
+
+.rating-star-char {
+  display: inline-block;
+  width: 1.15em;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.rating-stars-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(5 * 1.15em);
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
   cursor: pointer;
+  z-index: 2;
 }
 
-.rating-stars--sm,
-.rating-stars--sm button {
-  font-size: 1rem;
+.rating-stars-slider:disabled {
+  cursor: not-allowed;
 }
 
-.rating-stars .is-on {
-  color: var(--accent);
+.rating-stars-wrapper:focus-within .rating-stars-track {
+  outline: 2px solid var(--accent, #10b981);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-.rating-stars button:focus-visible {
-  outline: 2px solid var(--primary);
-  border-radius: 6px;
+.rating-value-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 9999px;
+  min-width: 48px;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.rating-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted, #94a3b8);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rating-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rating-stars--sm .rating-stars-track {
+  font-size: 0.95rem;
+}
+
+.rating-stars--sm .rating-value-badge {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  min-width: 40px;
+}
+
+.rating-stars--lg .rating-stars-track {
+  font-size: 2rem;
 }
 
 .notes-form textarea {

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { UiBadge } from "./ui-badge";
+import { RatingStars } from "./rating-stars";
 import { Activity, getStatusLabel, saveTrackingItem } from "../lib/api";
 import { getMediaTypeLabel } from "../lib/catalogo-api";
 import { descreverAtividade, tempoRelativo } from "../lib/atividades";
@@ -89,14 +90,7 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                     <div className="activity-action-text">
                       <span>{descreverAtividade(atividade)}</span>
                       {atividade.type === "RATING" && typeof atividade.data.rating === "number" && (
-                        <span className="activity-rating-stars">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span key={star} style={{ opacity: star <= (atividade.data.rating ?? 0) ? 1 : 0.25 }}>
-                              ★
-                            </span>
-                          ))}
-                          <strong>{atividade.data.rating}</strong>
-                        </span>
+                        <RatingStars value={atividade.data.rating} size="sm" />
                       )}
                       {atividade.type === "STATUS" && atividade.data.status && (
                         <UiBadge tone="secondary">

@@ -67,6 +67,7 @@ describe("paraBanco", () => {
   });
   it("envia so os campos informados, com os nomes do banco", () => {
     expect(paraBanco({ rating: 5 }, linha, AGORA)).toEqual({ personalRating: 5 });
+    expect(paraBanco({ rating: 4.5 }, linha, AGORA)).toEqual({ personalRating: 4.5 });
     expect(paraBanco({ progress: 60, notes: null }, linha, AGORA)).toEqual({ progressCurrent: 60, notes: null });
     expect(paraBanco({ rating: null }, linha, AGORA)).toEqual({ personalRating: null });
   });
