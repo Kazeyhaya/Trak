@@ -4,6 +4,46 @@
   gap: 18px;
   align-items: end;
   margin-bottom: 22px;
+  position: relative;
+}
+
+.catalog-hero {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  animation: heroFadeIn 200ms ease;
+}
+
+.catalog-hero-dismiss {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  margin-top: 14px;
+  transition: all 0.15s ease;
+}
+
+.catalog-hero-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .content-hero h1 {

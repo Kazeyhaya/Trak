@@ -517,7 +517,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                     const count = library.filter((i) => (!typeFilter || i.item.type === typeFilter) && i.status === st).length;
                     const label =
                       st === "WANT" && !typeFilter
-                        ? "Na fila / Quero ver"
+                        ? "Na fila"
                         : st === "WATCHING" && !typeFilter
                           ? "Em andamento"
                           : getStatusLabel(st, typeFilter || undefined);

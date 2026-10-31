@@ -18,7 +18,7 @@ type ActivityListProps = {
 };
 
 export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [trackedMap, setTrackedMap] = useState<Record<string, boolean>>({});
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
@@ -49,8 +49,12 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
         );
 
         const typeLabel = item ? getMediaTypeLabel(item.type, item.subtype) : null;
+        const isOwnActivity = Boolean(
+          (user && (atividade.userId === user.id || (user as { userId?: string }).userId === atividade.userId)) ||
+          (profile?.username && author?.username && author.username.toLowerCase() === profile.username.toLowerCase())
+        );
         const isTracked = Boolean(
-          atividade.mediaItemId && (trackedMap[atividade.mediaItemId] || atividade.inMyLibrary)
+          atividade.mediaItemId && (isOwnActivity || trackedMap[atividade.mediaItemId] || atividade.inMyLibrary)
         );
 
         return (
@@ -147,7 +151,7 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                     )}
 
                     <div className="activity-media-footer">
-                      {user && (
+                      {user && !isOwnActivity && (
                         <button
                           type="button"
                           className={`activity-quick-track-btn ${isTracked ? "is-saved" : ""}`}

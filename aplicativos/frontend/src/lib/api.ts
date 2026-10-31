@@ -245,6 +245,7 @@ export type ActivityType = "STATUS" | "RATING" | "COMMENT" | "FAVORITE" | "EPISO
 
 export type Activity = {
   id: string;
+  userId?: string;
   type: ActivityType;
   mediaItemId: string | null;
   data: { status?: TrackingStatus; rating?: number; season?: number; count?: number };

@@ -1,5 +1,5 @@
 import { SupabaseService } from "../../comum/supabase/supabase.service";
-import { criarSupabaseServiceMock, Operacao, Resposta } from "../../testes/supabase.mock";
+import { criarSupabaseServiceMock, Operacao, Resposta, valorDoFiltro } from "../../testes/supabase.mock";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { SocialService, usernameExato } from "./social.service";
 
@@ -189,6 +189,57 @@ describe("SocialService (perfil na tabela User)", () => {
     const { service } = montar(() => ({ data: [] }));
     await expect(service.perfilPublico("inexistente")).rejects.toMatchObject({
       status: 404
+    });
+  });
+
+  describe("feed", () => {
+    it("marca inMyLibrary como true para atividades proprias e itens ja salvos na estante", async () => {
+      const atividadesMock = [
+        { id: "act1", userId: "u1", type: "STATUS", mediaItemId: "item_proprio", data: { status: "WANT" }, createdAt: "2026-10-31" },
+        { id: "act2", userId: "u2", type: "STATUS", mediaItemId: "item_amigo_salvo", data: { status: "WANT" }, createdAt: "2026-10-31" },
+        { id: "act3", userId: "u2", type: "STATUS", mediaItemId: "item_amigo_novo", data: { status: "WANT" }, createdAt: "2026-10-31" }
+      ];
+
+      const { service } = montar((op) => {
+        if (op.table === "Follow") {
+          return { data: [{ followingId: "u2" }] };
+        }
+        if (op.table === "Activity") {
+          return { data: atividadesMock };
+        }
+        if (op.table === "User") {
+          return {
+            data: [
+              { id: "u1", username: "alex", displayName: "Alex", isPublic: true },
+              { id: "u2", username: "amigo", displayName: "Amigo", isPublic: true }
+            ]
+          };
+        }
+        if (op.table === "UserMedia") {
+          const userIdEq = valorDoFiltro(op, "userId");
+          if (userIdEq === "u1") {
+            return { data: [{ mediaItemId: "item_proprio" }, { mediaItemId: "item_amigo_salvo" }] };
+          }
+          return {
+            data: [
+              { userId: "u1", mediaItemId: "item_proprio" },
+              { userId: "u2", mediaItemId: "item_amigo_salvo" },
+              { userId: "u2", mediaItemId: "item_amigo_novo" }
+            ]
+          };
+        }
+        return { data: [] };
+      });
+
+      const feed = await service.feed("u1");
+
+      expect(feed.items).toHaveLength(3);
+      // Item próprio sempre marcado como inMyLibrary
+      expect(feed.items[0]).toMatchObject({ id: "act1", inMyLibrary: true });
+      // Item do amigo que u1 tem na estante
+      expect(feed.items[1]).toMatchObject({ id: "act2", inMyLibrary: true });
+      // Item do amigo que u1 NÃO tem na estante
+      expect(feed.items[2]).toMatchObject({ id: "act3", inMyLibrary: false });
     });
   });
 });

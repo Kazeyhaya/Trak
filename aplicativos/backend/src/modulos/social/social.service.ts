@@ -635,23 +635,24 @@ export class SocialService {
     );
 
     const validas = await this.filtrarAtividadesValidas(visiveis);
-    const mediaItemIds = [...new Set(validas.map((a) => a.mediaItemId).filter(Boolean) as string[])];
 
     const [enrichedItems, userTracking] = await Promise.all([
       this.enriquecer(validas),
-      mediaItemIds.length > 0
-        ? this.db
-            .from(TABELA_TRACKING)
-            .select("mediaItemId")
-            .eq("userId", userId)
-            .in("mediaItemId", mediaItemIds)
-            .then((r) => new Set((r.data ?? []).map((row) => row.mediaItemId as string)))
-        : Promise.resolve(new Set<string>())
+      this.db
+        .from(TABELA_TRACKING)
+        .select("mediaItemId")
+        .eq("userId", userId)
+        .then((r) => {
+          if (r.error) {
+            return new Set<string>();
+          }
+          return new Set((r.data ?? []).map((row) => row.mediaItemId as string));
+        })
     ]);
 
     const items = enrichedItems.map((item) => ({
       ...item,
-      inMyLibrary: item.mediaItemId ? userTracking.has(item.mediaItemId) : false
+      inMyLibrary: item.mediaItemId ? (item.userId === userId || userTracking.has(item.mediaItemId)) : false
     }));
 
     return {

@@ -49,8 +49,25 @@ export function CatalogShell({
   const filterKey = `${query}:${typeFilter}:${genreFilter}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   const [displayCount, setDisplayCount] = useState(ITENS_POR_PAGINA);
+  const [showHero, setShowHero] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return !window.localStorage.getItem("trak:catalog:hero:dismissed");
+    } catch {
+      return true;
+    }
+  });
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedType = typeFilter.toLowerCase();
+
+  function handleDismissHero() {
+    setShowHero(false);
+    try {
+      window.localStorage.setItem("trak:catalog:hero:dismissed", "true");
+    } catch {
+      // Ignora
+    }
+  }
 
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -81,11 +98,22 @@ export function CatalogShell({
     <main className="content-shell">
       <SiteHeader />
 
-      <section className="content-hero">
-        <div>
-          <h1>Descubra filmes, séries, jogos e livros para acompanhar.</h1>
-        </div>
-      </section>
+      {showHero && (
+        <section className="content-hero catalog-hero">
+          <div>
+            <h1>Descubra filmes, séries, jogos e livros para acompanhar.</h1>
+          </div>
+          <button
+            type="button"
+            className="catalog-hero-dismiss"
+            onClick={handleDismissHero}
+            aria-label="Dispensar introdução"
+            title="Dispensar introdução"
+          >
+            ✕
+          </button>
+        </section>
+      )}
 
       <FilterBar />
 
