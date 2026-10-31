@@ -182,73 +182,80 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="notif-dropdown" role="dialog" aria-label="Painel de Notificações">
-          <div className="notif-dropdown-header">
-            <h3>Notificações</h3>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                className="notif-mark-all-btn"
-                onClick={handleMarkAll}
-              >
-                Marcar todas como lidas
-              </button>
-            )}
+        <>
+          <div
+            className="notif-backdrop"
+            aria-hidden="true"
+            onClick={() => setOpen(false)}
+          />
+          <div className="notif-dropdown" role="dialog" aria-label="Painel de Notificações">
+            <div className="notif-dropdown-header">
+              <h3>Notificações</h3>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="notif-mark-all-btn"
+                  onClick={handleMarkAll}
+                >
+                  Marcar todas como lidas
+                </button>
+              )}
+            </div>
+
+            <div className="notif-dropdown-body">
+              {loading && items.length === 0 ? (
+                <div className="notif-loading">
+                  <span>Carregando notificações...</span>
+                </div>
+              ) : items.length === 0 ? (
+                <div className="notif-empty">
+                  <p>Tudo em dia!</p>
+                  <small>Nenhuma notificação por enquanto.</small>
+                </div>
+              ) : (
+                <ul className="notif-list">
+                  {items.map((item) => {
+                    const avatarInitial = (
+                      item.actor?.displayName ||
+                      item.actor?.username ||
+                      "?"
+                    )
+                      .charAt(0)
+                      .toUpperCase();
+
+                    return (
+                      <li key={item.id} className={`notif-item${!item.read ? " is-unread" : ""}`}>
+                        <button
+                          type="button"
+                          className="notif-item-btn"
+                          onClick={() => void handleClickItem(item)}
+                        >
+                          <div className="notif-item-avatar">
+                            {item.actor?.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={item.actor.avatarUrl} alt="" />
+                            ) : item.actor ? (
+                              <span className="notif-avatar-initial">{avatarInitial}</span>
+                            ) : null}
+                            {getNotificationIcon(item.type)}
+                          </div>
+
+                          <div className="notif-item-content">
+                            <p className="notif-item-title">{item.title}</p>
+                            {item.body && <p className="notif-item-body">{item.body}</p>}
+                            <span className="notif-item-time">{tempoRelativo(item.createdAt)}</span>
+                          </div>
+
+                          {!item.read && <span className="notif-unread-dot" aria-label="Não lida" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
-
-          <div className="notif-dropdown-body">
-            {loading && items.length === 0 ? (
-              <div className="notif-loading">
-                <span>Carregando notificações...</span>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="notif-empty">
-                <p>Tudo em dia!</p>
-                <small>Nenhuma notificação por enquanto.</small>
-              </div>
-            ) : (
-              <ul className="notif-list">
-                {items.map((item) => {
-                  const avatarInitial = (
-                    item.actor?.displayName ||
-                    item.actor?.username ||
-                    "?"
-                  )
-                    .charAt(0)
-                    .toUpperCase();
-
-                  return (
-                    <li key={item.id} className={`notif-item${!item.read ? " is-unread" : ""}`}>
-                      <button
-                        type="button"
-                        className="notif-item-btn"
-                        onClick={() => void handleClickItem(item)}
-                      >
-                        <div className="notif-item-avatar">
-                          {item.actor?.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.actor.avatarUrl} alt="" />
-                          ) : item.actor ? (
-                            <span className="notif-avatar-initial">{avatarInitial}</span>
-                          ) : null}
-                          {getNotificationIcon(item.type)}
-                        </div>
-
-                        <div className="notif-item-content">
-                          <p className="notif-item-title">{item.title}</p>
-                          {item.body && <p className="notif-item-body">{item.body}</p>}
-                          <span className="notif-item-time">{tempoRelativo(item.createdAt)}</span>
-                        </div>
-
-                        {!item.read && <span className="notif-unread-dot" aria-label="Não lida" />}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,4 +1,6 @@
 .site-header {
+  position: relative;
+  z-index: 950;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -170,6 +172,10 @@
   line-height: 1;
   box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
   border: 2px solid #0d1117;
+}
+
+.notif-backdrop {
+  display: none;
 }
 
 /* Dropdown */
@@ -513,6 +519,35 @@
 
   .site-header {
     margin-bottom: 16px;
+  }
+
+  /* Backdrop suave para fechar ao tocar fora e dar foco ao dropdown */
+  .notif-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 998;
+  }
+
+  /* No mobile, ajusta o dropdown para o centro da tela sem estourar margens e acima de todos os cards */
+  .notif-dropdown {
+    position: fixed;
+    top: 72px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: 440px;
+    margin: 0 auto;
+    max-height: calc(100dvh - 160px);
+    z-index: 999;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+
+  .notif-dropdown-body {
+    max-height: calc(100dvh - 230px);
   }
 }
 
