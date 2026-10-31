@@ -106,6 +106,7 @@ describe("SocialService (perfil na tabela User)", () => {
         username: "pedro",
         displayName: "Pedro",
         isFollowing: false,
+        followsYou: false,
         isMe: false
       })
     ]);
@@ -132,6 +133,7 @@ describe("SocialService (perfil na tabela User)", () => {
         username: "lucas",
         displayName: "Lucas",
         isFollowing: false,
+        followsYou: false,
         isMe: false
       })
     ]);

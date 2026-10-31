@@ -11,15 +11,18 @@ type ProfileActionsProps = {
   username: string;
   initialIsMe?: boolean;
   initialFollowing?: boolean;
+  initialFollowsYou?: boolean;
 };
 
 // O servidor ja envia isMe e isFollowing quando ha cookie de sessao;
 // fazemos fallback no cliente apenas se o usuario logou sem cookie no SSR.
-export function ProfileActions({ username, initialIsMe, initialFollowing }: ProfileActionsProps) {
+export function ProfileActions({ username, initialIsMe, initialFollowing, initialFollowsYou }: ProfileActionsProps) {
   const { user, profile, loading } = useAuth();
   const temEstadoInicial = initialIsMe !== undefined && initialFollowing !== undefined;
-  const [state, setState] = useState<{ isMe: boolean; isFollowing: boolean } | null>(
-    temEstadoInicial ? { isMe: initialIsMe, isFollowing: initialFollowing } : null
+  const [state, setState] = useState<{ isMe: boolean; isFollowing: boolean; followsYou: boolean } | null>(
+    temEstadoInicial
+      ? { isMe: initialIsMe, isFollowing: initialFollowing, followsYou: Boolean(initialFollowsYou) }
+      : null
   );
 
   const isMeByAuth = Boolean(user && profile?.username.toLowerCase() === username.toLowerCase());
@@ -33,8 +36,8 @@ export function ProfileActions({ username, initialIsMe, initialFollowing }: Prof
     }
     let active = true;
     getPublicProfile(username)
-      .then((data) => active && setState({ isMe: data.isMe, isFollowing: data.isFollowing }))
-      .catch(() => active && setState({ isMe: false, isFollowing: false }));
+      .then((data) => active && setState({ isMe: data.isMe, isFollowing: data.isFollowing, followsYou: Boolean(data.followsYou) }))
+      .catch(() => active && setState({ isMe: false, isFollowing: false, followsYou: false }));
     return () => {
       active = false;
     };
@@ -64,5 +67,12 @@ export function ProfileActions({ username, initialIsMe, initialFollowing }: Prof
     );
   }
 
-  return <FollowButton username={username} initialFollowing={user ? (state?.isFollowing ?? initialFollowing ?? false) : false} />;
+  const followsYou = user ? Boolean(state?.followsYou ?? initialFollowsYou) : false;
+
+  return (
+    <div className="profile-action-group">
+      {followsYou && <span className="profile-follows-you-pill">Segue você</span>}
+      <FollowButton username={username} initialFollowing={user ? (state?.isFollowing ?? initialFollowing ?? false) : false} />
+    </div>
+  );
 }

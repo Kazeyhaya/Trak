@@ -199,9 +199,14 @@ export function FollowListModal({
                         )}
                       </div>
                       <div className="follow-user-text">
-                        <span className="follow-user-name">
-                          {item.displayName || `@${item.username}`}
-                        </span>
+                        <div className="follow-user-title-row">
+                          <span className="follow-user-name">
+                            {item.displayName || `@${item.username}`}
+                          </span>
+                          {item.followsYou && !isMe && (
+                            <span className="follow-user-pill">Segue você</span>
+                          )}
+                        </div>
                         {item.displayName && (
                           <span className="follow-user-handle">@{item.username}</span>
                         )}

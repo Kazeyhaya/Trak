@@ -247,6 +247,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
               username={profile.username}
               initialIsMe={isOwner}
               initialFollowing={data.isFollowing}
+              initialFollowsYou={data.followsYou}
             />
           </div>
 

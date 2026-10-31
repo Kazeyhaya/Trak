@@ -292,6 +292,7 @@ export type PublicProfile = {
   followers: number;
   following: number;
   isFollowing: boolean;
+  followsYou?: boolean;
   isMe: boolean;
   isPrivate: boolean;
   stats: { total: number; byStatus: Partial<Record<TrackingStatus, number>>; averageRating: number | null } | null;
@@ -329,6 +330,7 @@ export type FollowUser = {
   bio: string | null;
   avatarUrl: string | null;
   isFollowing?: boolean;
+  followsYou?: boolean;
   isMe?: boolean;
 };
 

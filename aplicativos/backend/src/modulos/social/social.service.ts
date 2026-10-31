@@ -404,7 +404,7 @@ export class SocialService {
     const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
     const isMe = visitanteId === perfil.userId;
 
-    const [seguidores, seguindo, segueEle] = await Promise.all([
+    const [seguidores, seguindo, segueEle, eleSegue] = await Promise.all([
       this.db.from("Follow").select("followerId", { count: "exact", head: true }).eq("followingId", perfil.userId),
       this.db.from("Follow").select("followingId", { count: "exact", head: true }).eq("followerId", perfil.userId),
       visitanteId && !isMe
@@ -413,6 +413,14 @@ export class SocialService {
             .select("followerId")
             .eq("followerId", visitanteId)
             .eq("followingId", perfil.userId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      visitanteId && !isMe
+        ? this.db
+            .from("Follow")
+            .select("followerId")
+            .eq("followerId", perfil.userId)
+            .eq("followingId", visitanteId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null })
     ]);
@@ -430,6 +438,7 @@ export class SocialService {
       followers: seguidores.count ?? 0,
       following: seguindo.count ?? 0,
       isFollowing: Boolean(segueEle.data),
+      followsYou: Boolean(eleSegue.data),
       isMe
     };
 
@@ -655,7 +664,7 @@ export class SocialService {
       return [];
     }
 
-    const [perfisMap, seguidosPeloVisitante] = await Promise.all([
+    const [perfisMap, seguidosPeloVisitante, seguemVisitante] = await Promise.all([
       this.perfisPorIds(followerIds),
       visitanteId
         ? this.db
@@ -664,6 +673,14 @@ export class SocialService {
             .eq("followerId", visitanteId)
             .in("followingId", followerIds)
             .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
+        : Promise.resolve(new Set<string>()),
+      visitanteId
+        ? this.db
+            .from("Follow")
+            .select("followerId")
+            .eq("followingId", visitanteId)
+            .in("followerId", followerIds)
+            .then((r) => new Set((r.data ?? []).map((row) => row.followerId as string)))
         : Promise.resolve(new Set<string>())
     ]);
 
@@ -680,6 +697,7 @@ export class SocialService {
           bio: p.bio,
           avatarUrl: p.avatarUrl,
           isFollowing: seguidosPeloVisitante.has(p.userId),
+          followsYou: seguemVisitante.has(p.userId),
           isMe: visitanteId === p.userId
         }
       ];
@@ -708,7 +726,7 @@ export class SocialService {
       return [];
     }
 
-    const [perfisMap, seguidosPeloVisitante] = await Promise.all([
+    const [perfisMap, seguidosPeloVisitante, seguemVisitante] = await Promise.all([
       this.perfisPorIds(followingIds),
       visitanteId
         ? this.db
@@ -717,6 +735,14 @@ export class SocialService {
             .eq("followerId", visitanteId)
             .in("followingId", followingIds)
             .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
+        : Promise.resolve(new Set<string>()),
+      visitanteId
+        ? this.db
+            .from("Follow")
+            .select("followerId")
+            .eq("followingId", visitanteId)
+            .in("followerId", followingIds)
+            .then((r) => new Set((r.data ?? []).map((row) => row.followerId as string)))
         : Promise.resolve(new Set<string>())
     ]);
 
@@ -733,6 +759,7 @@ export class SocialService {
           bio: p.bio,
           avatarUrl: p.avatarUrl,
           isFollowing: seguidosPeloVisitante.has(p.userId),
+          followsYou: seguemVisitante.has(p.userId),
           isMe: visitanteId === p.userId
         }
       ];
