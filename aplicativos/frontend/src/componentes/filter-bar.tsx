@@ -311,9 +311,12 @@ export function FilterBar() {
                   aria-pressed={isActive}
                   onClick={() => {
                     const nextType = filter.value;
-                    const nextTypeGenres = GENRES_BY_TYPE[nextType] ?? GENRES_BY_TYPE[""];
-                    const genreStillValid = nextTypeGenres.some((g) => g.value === activeGenre);
-                    const nextGenre = genreStillValid ? activeGenre : "";
+                    if (nextType === activeType) {
+                      return;
+                    }
+                    // Trocar o tipo de mídia sempre reinicia o gênero: cada aba começa "limpa",
+                    // sem herdar filtros específicos de outra categoria (ex.: Mangás de Livros).
+                    const nextGenre = "";
                     setActiveType(nextType);
                     setActiveGenre(nextGenre);
                     updateUrl(query, nextType, nextGenre);
