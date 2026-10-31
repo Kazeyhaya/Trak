@@ -635,10 +635,28 @@ export class SocialService {
     );
 
     const validas = await this.filtrarAtividadesValidas(visiveis);
+    const mediaItemIds = [...new Set(validas.map((a) => a.mediaItemId).filter(Boolean) as string[])];
+
+    const [enrichedItems, userTracking] = await Promise.all([
+      this.enriquecer(validas),
+      mediaItemIds.length > 0
+        ? this.db
+            .from(TABELA_TRACKING)
+            .select("mediaItemId")
+            .eq("userId", userId)
+            .in("mediaItemId", mediaItemIds)
+            .then((r) => new Set((r.data ?? []).map((row) => row.mediaItemId as string)))
+        : Promise.resolve(new Set<string>())
+    ]);
+
+    const items = enrichedItems.map((item) => ({
+      ...item,
+      inMyLibrary: item.mediaItemId ? userTracking.has(item.mediaItemId) : false
+    }));
 
     return {
       followingCount: autores.length - 1,
-      items: await this.enriquecer(validas)
+      items
     };
   }
 

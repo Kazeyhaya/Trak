@@ -251,6 +251,7 @@ export type Activity = {
   createdAt: string;
   user: { username: string; displayName: string | null; avatarUrl?: string | null } | null;
   item: CatalogItem | null;
+  inMyLibrary?: boolean;
 };
 
 export type ProfileSummary = {

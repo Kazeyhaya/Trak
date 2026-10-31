@@ -49,7 +49,9 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
         );
 
         const typeLabel = item ? getMediaTypeLabel(item.type, item.subtype) : null;
-        const isTracked = Boolean(atividade.mediaItemId && trackedMap[atividade.mediaItemId]);
+        const isTracked = Boolean(
+          atividade.mediaItemId && (trackedMap[atividade.mediaItemId] || atividade.inMyLibrary)
+        );
 
         return (
           <li key={atividade.id}>
