@@ -501,6 +501,16 @@
     display: none;
   }
 
+  /* No mobile, esconde o avatar do perfil e o botão de entrar do topo pois já estão na barra inferior */
+  .header-avatar-link,
+  .site-header .header-cta {
+    display: none;
+  }
+
+  .header-user {
+    gap: 8px;
+  }
+
   .site-header {
     margin-bottom: 16px;
   }
