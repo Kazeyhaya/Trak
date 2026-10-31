@@ -323,13 +323,15 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                 {unlockedBadges.length}/{achievements.length}
               </span>
             </button>
-            <button
-              type="button"
-              className={`profile-hub-tab${activeTab === "activity" ? " is-active" : ""}`}
-              onClick={() => setActiveTab("activity")}
-            >
-              Atividade
-            </button>
+            {!isOwner && (
+              <button
+                type="button"
+                className={`profile-hub-tab${activeTab === "activity" ? " is-active" : ""}`}
+                onClick={() => setActiveTab("activity")}
+              >
+                Atividade
+              </button>
+            )}
           </nav>
 
           {activeTab === "overview" && (
@@ -469,29 +471,31 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                 </section>
               )}
 
-              <section className="content-panel">
-                <div className="panel-header">
-                  <SectionHeading
-                    eyebrow="Atividade"
-                    title="Atividade recente"
-                    description="O que mudou na estante."
-                  />
-                  {data.activity.length > 5 && (
-                    <button
-                      type="button"
-                      className="filter-chip"
-                      onClick={() => setActiveTab("activity")}
-                    >
-                      Ver tudo ({data.activity.length}) →
-                    </button>
+              {!isOwner && (
+                <section className="content-panel">
+                  <div className="panel-header">
+                    <SectionHeading
+                      eyebrow="Atividade"
+                      title="Atividade recente"
+                      description="O que mudou na estante."
+                    />
+                    {data.activity.length > 5 && (
+                      <button
+                        type="button"
+                        className="filter-chip"
+                        onClick={() => setActiveTab("activity")}
+                      >
+                        Ver tudo ({data.activity.length}) →
+                      </button>
+                    )}
+                  </div>
+                  {data.activity.length > 0 ? (
+                    <ActivityList items={data.activity.slice(0, 5)} showAuthor={false} />
+                  ) : (
+                    <p className="panel-note">Nenhuma atividade ainda.</p>
                   )}
-                </div>
-                {data.activity.length > 0 ? (
-                  <ActivityList items={data.activity.slice(0, 5)} showAuthor={false} />
-                ) : (
-                  <p className="panel-note">Nenhuma atividade ainda.</p>
-                )}
-              </section>
+                </section>
+              )}
             </>
           )}
 
@@ -772,7 +776,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
             </section>
           )}
 
-          {activeTab === "activity" && (
+          {!isOwner && activeTab === "activity" && (
             <section className="content-panel">
               <SectionHeading
                 eyebrow="Atividade"
