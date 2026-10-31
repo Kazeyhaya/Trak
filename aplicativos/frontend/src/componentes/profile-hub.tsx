@@ -515,6 +515,12 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                   </button>
                   {TRACKING_STATUSES.map((st) => {
                     const count = library.filter((i) => (!typeFilter || i.item.type === typeFilter) && i.status === st).length;
+                    const label =
+                      st === "WANT" && !typeFilter
+                        ? "Na fila / Quero ver"
+                        : st === "WATCHING" && !typeFilter
+                          ? "Em andamento"
+                          : getStatusLabel(st, typeFilter || undefined);
                     return (
                       <button
                         key={st}
@@ -523,7 +529,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                         aria-pressed={statusFilter === st}
                         onClick={() => setStatusFilter(st)}
                       >
-                        {getStatusLabel(st, typeFilter || undefined)} ({count})
+                        {label} ({count})
                       </button>
                     );
                   })}
