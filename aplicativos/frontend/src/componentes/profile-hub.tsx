@@ -380,57 +380,6 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                 </>
               )}
 
-              {inProgress.length > 0 && (
-                <section className="content-panel">
-                  <div className="panel-header">
-                    <SectionHeading
-                      eyebrow="Em foco agora"
-                      title="Obras do momento"
-                      description="O que está sendo jogado, lido ou assistido atualmente."
-                    />
-                    <button
-                      type="button"
-                      className="filter-chip"
-                      onClick={() => {
-                        setStatusFilter("WATCHING");
-                        setActiveTab("library");
-                      }}
-                    >
-                      Ver estante completa →
-                    </button>
-                  </div>
-                  <div className="featured-showcase-grid">
-                    {inProgress.map(({ item, status, progress }) => (
-                      <Link key={item.id} href={`/itens/${item.id}`} className="featured-showcase-card">
-                        <div className="featured-showcase-art">
-                          {item.coverUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.coverUrl} alt={item.title} />
-                          ) : (
-                            <span className="media-card-orb" />
-                          )}
-                          <div className="featured-showcase-overlay">
-                            <UiBadge tone="primary">{getStatusLabel(status, item.type)}</UiBadge>
-                          </div>
-                        </div>
-                        <div className="featured-showcase-body">
-                          <span className="featured-showcase-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
-                          <h3>{item.title}</h3>
-                          {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (
-                            <div className="featured-progress-wrap">
-                              <div className="featured-progress-bar">
-                                <span style={{ width: `${Math.min(100, progress)}%` }} />
-                              </div>
-                              <small>{progress}% concluído</small>
-                            </div>
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
-
               {topFavorites.length > 0 && (
                 <section className="content-panel">
                   <div className="panel-header">

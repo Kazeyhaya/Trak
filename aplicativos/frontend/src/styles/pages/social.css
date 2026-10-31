@@ -502,6 +502,182 @@
   color: var(--text);
 }
 
+/* Faixa Continuando Agora no Topo do Feed */
+
+.feed-in-progress-panel {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(124, 225, 199, 0.2);
+  background: linear-gradient(180deg, rgba(16, 28, 44, 0.85), rgba(10, 18, 30, 0.95));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.feed-in-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.feed-in-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.feed-in-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary, #7ce1c7);
+  box-shadow: 0 0 10px var(--primary, #7ce1c7);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.4;
+  }
+}
+
+.feed-in-progress-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(124, 225, 199, 0.15);
+  color: var(--primary, #7ce1c7);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.feed-in-progress-all {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.feed-in-progress-all:hover {
+  color: var(--primary, #7ce1c7);
+}
+
+.feed-in-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.feed-in-progress-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.feed-in-progress-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(124, 225, 199, 0.3);
+}
+
+.feed-in-progress-art {
+  position: relative;
+  width: 52px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.feed-in-progress-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.feed-in-progress-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 0.65rem;
+  display: none; /* Mantido clean no mini card */
+}
+
+.feed-in-progress-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feed-in-progress-type {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--primary, #7ce1c7);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.feed-in-progress-body h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-in-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.feed-in-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.feed-in-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary, #7ce1c7);
+}
+
+.feed-in-progress-bar-wrap small {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* Sidebar do Feed */
 
 .feed-sidebar {
