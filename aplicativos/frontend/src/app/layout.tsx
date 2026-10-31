@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { BottomNav } from "../componentes/bottom-nav";
 import { PwaRegister } from "../componentes/pwa-register";
 import { AuthProvider } from "../contextos/auth-context";
 import { I18nProvider } from "../contextos/i18n-context";
@@ -38,6 +39,7 @@ export default function RootLayout({
         <AuthProvider>
           <I18nProvider>{children}</I18nProvider>
         </AuthProvider>
+        <BottomNav />
         <PwaRegister />
       </body>
     </html>

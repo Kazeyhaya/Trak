@@ -391,3 +391,118 @@
   flex-shrink: 0;
   margin-top: 6px;
 }
+
+/* ==========================================================================
+   Barra Inferior Móvel (Bottom Nav)
+   ========================================================================== */
+
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 990;
+    background: rgba(8, 16, 28, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .bottom-nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
+    color: var(--muted, #94a3b8);
+    text-decoration: none;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border-radius: 12px;
+    transition: color 0.15s ease, transform 0.15s ease;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bottom-nav-item svg {
+    transition: transform 0.15s ease;
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .bottom-nav-item.is-active {
+    color: var(--primary, #7ce1c7);
+    font-weight: 700;
+  }
+
+  .bottom-nav-item.is-active svg {
+    stroke: var(--primary, #7ce1c7);
+  }
+
+  .bottom-nav-item span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    line-height: 1;
+  }
+
+  .bottom-nav-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border: 1.5px solid transparent;
+    transition: border-color 0.15s ease;
+  }
+
+  .bottom-nav-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .bottom-nav-item.is-active .bottom-nav-avatar {
+    border-color: var(--primary, #7ce1c7);
+  }
+
+  /* Compensa o padding inferior nas páginas para a barra não cobrir conteúdos */
+  body {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* No mobile, esconde a lista de links do topo pois agora estão na barra inferior */
+  .site-header .site-nav {
+    display: none;
+  }
+
+  .site-header {
+    margin-bottom: 16px;
+  }
+}
+
