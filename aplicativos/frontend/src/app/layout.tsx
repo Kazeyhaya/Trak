@@ -37,9 +37,11 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
         <AuthProvider>
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider>
+            {children}
+            <BottomNav />
+          </I18nProvider>
         </AuthProvider>
-        <BottomNav />
         <PwaRegister />
       </body>
     </html>

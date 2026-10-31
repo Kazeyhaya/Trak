@@ -6,7 +6,7 @@ import { useAuth } from "../contextos/auth-context";
 import { useI18n } from "../contextos/i18n-context";
 
 export function BottomNav() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { t } = useI18n();
   const pathname = usePathname();
 
@@ -77,7 +77,7 @@ export function BottomNav() {
           <span>{t("nav.catalog", "Catálogo")}</span>
         </Link>
 
-        {user ? (
+        {loading ? null : user ? (
           <>
             <Link
               href="/feed"
