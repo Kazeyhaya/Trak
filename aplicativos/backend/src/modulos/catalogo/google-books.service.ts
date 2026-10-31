@@ -89,11 +89,12 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
     externalId: volume.id,
     source: "gbooks",
     type: "BOOK",
-    subtype: subtype ?? undefined,
+    ...(subtype ? { subtype } : {}),
     title: info?.title ?? "Sem título",
     coverUrl,
     synopsis,
-    releaseYear
+    releaseYear,
+    ...(typeof info?.pageCount === "number" && info.pageCount > 0 ? { pageCount: info.pageCount } : {})
   };
 }
 

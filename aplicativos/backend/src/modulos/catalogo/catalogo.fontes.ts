@@ -137,6 +137,8 @@ export type OpenLibraryDoc = {
   description?: string | { value: string };
   subjects?: string[];
   ratings_average?: number;
+  number_of_pages?: number;
+  number_of_pages_median?: number;
 };
 
 export type IdParseado =
@@ -316,17 +318,24 @@ export function mapearOpenLibrary(doc: OpenLibraryDoc): ItemCatalogo {
   const coverUrl = rawCoverId ? `https://covers.openlibrary.org/b/id/${rawCoverId}-L.jpg` : null;
   const descricao = typeof doc.description === "string" ? doc.description : doc.description?.value;
   const subtype = detectarSubtipoLivro(doc.title, doc.subjects ?? []);
+  const pageCount =
+    typeof doc.number_of_pages_median === "number" && doc.number_of_pages_median > 0
+      ? doc.number_of_pages_median
+      : typeof doc.number_of_pages === "number" && doc.number_of_pages > 0
+        ? doc.number_of_pages
+        : null;
 
   return {
     id: montarId("openlibrary", "BOOK", externalId),
     externalId,
     source: "openlibrary",
     type: "BOOK",
-    subtype: subtype ?? undefined,
+    ...(subtype ? { subtype } : {}),
     title: doc.title,
     coverUrl,
     synopsis: descricao?.trim() || null,
-    releaseYear: doc.first_publish_year ?? anoDe(doc.first_publish_date)
+    releaseYear: doc.first_publish_year ?? anoDe(doc.first_publish_date),
+    ...(pageCount ? { pageCount } : {})
   };
 }
 

@@ -139,6 +139,7 @@ export type CatalogExtras = {
     count: number;
   };
   externalRatings: ExternalRating[];
+  pageCount?: number | null;
 };
 
 export const getCatalogExtras = (mediaItemId: string) =>

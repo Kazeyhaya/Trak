@@ -103,11 +103,12 @@ export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocumen
     externalId: String(numericId),
     source: "hardcover",
     type: "BOOK",
-    subtype: subtype ?? undefined,
+    ...(subtype ? { subtype } : {}),
     title: book.title?.trim() || "Sem título",
     coverUrl: coverUrl?.trim() || null,
     synopsis: rawDescription || null,
-    releaseYear: book.release_year ?? null
+    releaseYear: book.release_year ?? null,
+    ...(typeof book.pages === "number" && book.pages > 0 ? { pageCount: book.pages } : {})
   };
 }
 

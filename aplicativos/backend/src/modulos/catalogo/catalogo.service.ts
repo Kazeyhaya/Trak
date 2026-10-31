@@ -870,7 +870,8 @@ export class CatalogoService implements OnModuleInit {
         watchProviders,
         watchLink,
         trakRating,
-        externalRatings
+        externalRatings,
+        pageCount: typeof book?.pages === "number" && book.pages > 0 ? book.pages : null
       };
     }
 
@@ -906,7 +907,8 @@ export class CatalogoService implements OnModuleInit {
         watchProviders,
         watchLink: googleBooksUrl,
         trakRating,
-        externalRatings
+        externalRatings,
+        pageCount: typeof info?.pageCount === "number" && info.pageCount > 0 ? info.pageCount : null
       };
     }
 
@@ -941,12 +943,30 @@ export class CatalogoService implements OnModuleInit {
           ]
         : [])
     ];
+    let olPages: number | null = null;
+    try {
+      const edicoes = await this.openLibrary<{ entries?: Array<{ number_of_pages?: number }> }>(
+        `/works/${parsed.externalId}/editions.json`,
+        { limit: "10" }
+      );
+      const paginas = (edicoes?.entries ?? [])
+        .map((e) => e.number_of_pages ?? 0)
+        .filter((p) => p > 0)
+        .sort((a, b) => a - b);
+      if (paginas.length > 0) {
+        olPages = paginas[Math.floor(paginas.length / 2)];
+      }
+    } catch {
+      // ignora falha de edicoes
+    }
+
     return {
       genres: (livro?.subjects ?? []).slice(0, 5),
       watchProviders,
       watchLink: openLibraryUrl,
       trakRating,
-      externalRatings
+      externalRatings,
+      pageCount: olPages
     };
   }
 

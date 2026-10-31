@@ -14,6 +14,7 @@ export type CatalogItem = {
   coverUrl: string | null;
   synopsis: string | null;
   releaseYear: number | null;
+  pageCount?: number | null;
 };
 
 // Exibidos apenas quando a API esta fora do ar. Os ids seguem o formato do

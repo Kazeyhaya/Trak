@@ -194,7 +194,11 @@ export function ItemShell({ item }: ItemShellProps) {
           </div>
 
           {authLoading ? null : user ? (
-            <PersonalTracking item={item} isSeries={isSeries} />
+            <PersonalTracking
+              item={item}
+              isSeries={isSeries}
+              catalogPageCount={item.pageCount ?? extras?.pageCount ?? null}
+            />
           ) : (
             <UiCard className="tracking-summary">
               <div>
@@ -303,7 +307,15 @@ function draftFromEntry(entry: TrackingEntry | null): TrackingDraft {
 
 const checkpointStorageKey = (mediaItemId: string) => `trak:checkpoint:${mediaItemId}`;
 
-function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boolean }) {
+function PersonalTracking({
+  item,
+  isSeries,
+  catalogPageCount
+}: {
+  item: CatalogItem;
+  isSeries: boolean;
+  catalogPageCount?: number | null;
+}) {
   const { t, language } = useI18n();
   const [tracking, setTracking] = useState<TrackingEntry | null>(null);
   const [draft, setDraft] = useState<TrackingDraft>(() => draftFromEntry(null));
@@ -600,6 +612,7 @@ function PersonalTracking({ item, isSeries }: { item: CatalogItem; isSeries: boo
             onMilestoneSelect={(nextProgress, nextStatus) => void handleMilestoneSelect(nextProgress, nextStatus)}
             pagesRead={draft.pagesRead}
             totalPages={draft.totalPages}
+            catalogPageCount={catalogPageCount ?? item.pageCount ?? null}
             onPagesChange={(pagesRead, totalPages) => updateDraft({ pagesRead, totalPages })}
             onMetaChange={handleMetaChange}
           />
@@ -702,6 +715,7 @@ function MediaProgressTracker({
   onMilestoneSelect,
   pagesRead,
   totalPages: savedTotalPages,
+  catalogPageCount,
   onPagesChange,
   onMetaChange
 }: {
@@ -713,11 +727,14 @@ function MediaProgressTracker({
   onMilestoneSelect: (progress: number, status: TrackingStatus) => void;
   pagesRead: number | null;
   totalPages: number | null;
+  catalogPageCount?: number | null;
   onPagesChange: (pagesRead: number, totalPages: number) => void;
   onMetaChange: (meta: CheckpointMeta) => void;
 }) {
   const isGame = item.type === "GAME";
   const [totalInput, setTotalInput] = useState<string | null>(null);
+  const resolvedCatalogPages =
+    typeof catalogPageCount === "number" && catalogPageCount > 0 ? catalogPageCount : null;
   // Le o checkpoint salvo na montagem. Este componente so renderiza no cliente, depois que a
   // sessao carrega, e remonta (via key) quando o item muda ou o usuario descarta alteracoes.
   const [meta, setMeta] = useState<CheckpointMeta>(() => {
@@ -726,7 +743,7 @@ function MediaProgressTracker({
       platform: "PC / Steam",
       platinum: false,
       currentPage: 0,
-      totalPages: 320
+      totalPages: resolvedCatalogPages ?? 320
     };
     if (typeof window === "undefined") {
       return defaults;
@@ -915,8 +932,14 @@ function MediaProgressTracker({
   }
 
   // Livro: Marcador de Leitura por Paginas + Ritmo + Marcos.
-  // Paginas vem do tracking do usuario na API; o checkpoint local antigo so serve de valor inicial.
-  const totalPages = Math.max(1, savedTotalPages ?? meta.totalPages ?? 320);
+  // Paginas vem do tracking do usuario na API; o catalogo informa o total real; fallback somente se nada informado.
+  const totalPages = Math.max(
+    1,
+    savedTotalPages ??
+      resolvedCatalogPages ??
+      (meta.totalPages && meta.totalPages !== 320 ? meta.totalPages : null) ??
+      320
+  );
   const currentPage = Math.min(
     totalPages,
     Math.max(0, pagesRead ?? meta.currentPage ?? Math.round((progress / 100) * totalPages))

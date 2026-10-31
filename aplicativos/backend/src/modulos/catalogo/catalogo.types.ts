@@ -14,6 +14,7 @@ export interface ItemCatalogo {
   coverUrl: string | null;
   synopsis: string | null;
   releaseYear: number | null;
+  pageCount?: number | null;
 }
 
 export type CatalogItem = ItemCatalogo;
@@ -60,4 +61,5 @@ export interface ExtrasCatalogo {
     count: number;
   };
   externalRatings: NotaExterna[];
+  pageCount?: number | null;
 }
