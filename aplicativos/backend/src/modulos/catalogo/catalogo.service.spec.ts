@@ -471,4 +471,84 @@ describe("CatalogoService.extras", () => {
       expect(minutos).toBe(600);
     });
   });
+
+  describe("persistencia e backfill de subtype oficial (TMDB)", () => {
+    it("garantirNoBanco grava subtype ANIME retornado pelo TMDB (genre 16 + JP)", async () => {
+      mockFetch({
+        "/tv/30984": {
+          id: 30984,
+          name: "Bleach",
+          genres: [{ id: 16, name: "Animation" }],
+          origin_country: ["JP"],
+          original_language: "ja",
+          first_air_date: "2004-10-05"
+        }
+      });
+
+      const supabase = criarSupabaseServiceMock((op) => {
+        if (op.action === "select") return { data: null };
+        return { data: null };
+      });
+      const servico = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService()
+      );
+
+      await servico.garantirNoBanco("tmdb_series_30984");
+
+      const upsert = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "upsert");
+      expect(upsert?.payload).toMatchObject({
+        id: "tmdb_series_30984",
+        type: "SERIES",
+        subtype: "ANIME",
+        title: "Bleach"
+      });
+    });
+
+    it("buscarSalvos faz backfill do subtype oficial no TMDB quando a linha antiga nao possui subtype", async () => {
+      mockFetch({
+        "/tv/30981": {
+          id: 30981,
+          name: "Monster",
+          genres: [{ id: 16, name: "Animation" }, { id: 18, name: "Drama" }],
+          origin_country: ["JP"],
+          original_language: "ja",
+          first_air_date: "2004-04-07"
+        }
+      });
+
+      const supabase = criarSupabaseServiceMock((op) => {
+        if (op.action === "select") {
+          return {
+            data: [
+              {
+                id: "tmdb_series_30981",
+                externalId: "30981",
+                source: "tmdb",
+                type: "SERIES",
+                subtype: null,
+                title: "Monster",
+                coverUrl: null,
+                synopsis: "Dr. Kenzo Tenma...",
+                releaseYear: 2004
+              }
+            ]
+          };
+        }
+        return { data: null };
+      });
+      const servico = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService()
+      );
+
+      const mapa = await servico.buscarSalvos(["tmdb_series_30981"]);
+      expect(mapa.get("tmdb_series_30981")?.subtype).toBe("ANIME");
+
+      const update = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
+      expect(update?.payload).toEqual({ subtype: "ANIME" });
+    });
+  });
 });

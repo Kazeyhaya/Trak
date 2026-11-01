@@ -48,9 +48,7 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
           !item.coverUrl.includes("/id/0-")
         );
 
-        const typeLabel = item
-          ? getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)
-          : null;
+        const typeLabel = item ? getMediaTypeLabel(item.type, item.subtype) : null;
         const isOwnActivity = Boolean(
           (user && (atividade.userId === user.id || (user as { userId?: string }).userId === atividade.userId)) ||
           (profile?.username && author?.username && author.username.toLowerCase() === profile.username.toLowerCase())

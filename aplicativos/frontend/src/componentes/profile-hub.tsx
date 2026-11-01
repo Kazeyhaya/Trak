@@ -410,9 +410,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                           </div>
                         </div>
                         <div className="featured-showcase-body">
-                          <span className="featured-showcase-type">
-                            {getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}
-                          </span>
+                          <span className="featured-showcase-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
                           <h3>{item.title}</h3>
                           {item.releaseYear && <small>{item.releaseYear}</small>}
                         </div>
@@ -574,7 +572,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                       return (
                         <Link key={entry.mediaItemId} href={`/itens/${entry.mediaItemId}`}>
                           <MediaCard
-                            type={getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}
+                            type={getMediaTypeLabel(item.type, item.subtype)}
                             mediaType={item.type}
                             title={item.title}
                             meta={item.releaseYear ? String(item.releaseYear) : ""}
@@ -645,7 +643,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                       <div key={item.id} className="favorite-manage-slot">
                         <Link href={`/itens/${item.id}`} className="favorite-manage-card-link">
                           <MediaCard
-                            type={`#${globalIndex + 1} · ${getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}`}
+                            type={`#${globalIndex + 1} · ${getMediaTypeLabel(item.type, item.subtype)}`}
                             mediaType={item.type}
                             title={item.title}
                             meta={item.releaseYear ? String(item.releaseYear) : ""}
@@ -710,9 +708,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                           </div>
                         </div>
                         <div className="featured-showcase-body">
-                          <span className="featured-showcase-type">
-                            {getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}
-                          </span>
+                          <span className="featured-showcase-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
                           <h3>{item.title}</h3>
                           {item.releaseYear && <small>{item.releaseYear}</small>}
                         </div>

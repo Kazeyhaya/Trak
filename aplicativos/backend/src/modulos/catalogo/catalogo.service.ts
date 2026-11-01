@@ -10,7 +10,7 @@ import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
 import {
   chaveDeduplicacaoLivro,
-  detectarSubtipoSalvo,
+  detectarSubtipoTmdb,
   GeneroCatalogo,
   GENEROS_CATALOGO,
   IDIOMAS_DORAMA,
@@ -1422,7 +1422,7 @@ export class CatalogoService implements OnModuleInit {
   }
 
   // Garante que o item exista em "MediaItem" antes de ser referenciado por
-  // tracking, favoritos ou comentarios.
+  // tracking, favoritos ou comentarios, gravando tambem o subtipo oficial vindo da API.
   async garantirNoBanco(id: string, itemConhecido?: ItemCatalogo) {
     const supabase = this.supabaseService.getClient();
 
@@ -1443,49 +1443,129 @@ export class CatalogoService implements OnModuleInit {
 
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
-    const { subtype: _subtype, ...itemParaSalvar } = item;
-    void _subtype;
+    const { subtype, pageCount: _pageCount, ...itemParaSalvar } = item;
+    void _pageCount;
+
     const { error: insertError } = await supabase
       .from("MediaItem")
-      .upsert({ ...itemParaSalvar, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
+      .upsert(
+        {
+          ...itemParaSalvar,
+          ...(subtype ? { subtype } : {}),
+          createdAt: agora,
+          updatedAt: agora
+        },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
 
     if (insertError) {
+      // Caso a migracao da coluna "subtype" ainda nao tenha sido aplicada no banco, salva sem ela.
+      if (subtype && insertError.message?.includes("subtype")) {
+        const { error: fallbackError } = await supabase
+          .from("MediaItem")
+          .upsert({ ...itemParaSalvar, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
+        if (!fallbackError) {
+          return;
+        }
+        this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${fallbackError.message}`);
+        throw new InternalServerErrorException(fallbackError.message);
+      }
+
       this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${insertError.message}`);
       throw new InternalServerErrorException(insertError.message);
     }
   }
 
-  async buscarSalvos(ids: string[]) {
+  private async obterSubtipoOficialTmdb(
+    id: string,
+    type: "MOVIE" | "SERIES",
+    externalId: string
+  ) {
+    return this.comCache(`subtipo:${id}`, async () => {
+      const rota = type === "MOVIE" ? `/movie/${externalId}` : `/tv/${externalId}`;
+      const tmdbItem = await this.tmdb<TmdbItem>(rota);
+      return tmdbItem ? detectarSubtipoTmdb(tmdbItem, type) : null;
+    });
+  }
+
+  async buscarSalvos(ids: string[], limiteBackfill = 20) {
     const unicos = [...new Set(ids)];
     if (unicos.length === 0) {
       return new Map<string, ItemCatalogo>();
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
+    const db = this.supabaseService.getClient();
+    let colunaSubtipoDisponivel = true;
+
+    let { data, error } = await db
       .from("MediaItem")
-      .select("id,externalId,source,type,title,coverUrl,synopsis,releaseYear")
+      .select("id,externalId,source,type,subtype,title,coverUrl,synopsis,releaseYear")
       .in("id", unicos);
+
+    if (error && error.message?.includes("subtype")) {
+      colunaSubtipoDisponivel = false;
+      const fallback = await db
+        .from("MediaItem")
+        .select("id,externalId,source,type,title,coverUrl,synopsis,releaseYear")
+        .in("id", unicos);
+      data = fallback.data as typeof data;
+      error = fallback.error;
+    }
 
     if (error) {
       this.logger.warn(`Nao foi possivel ler MediaItem: ${error.message}`);
     }
 
+    const linhas = (data ?? []) as Array<ItemCatalogo & { subtype?: ItemCatalogo["subtype"] | null }>;
+
+    // Para itens antigos salvos antes da coluna `subtype`, consulta a API oficial do TMDB
+    // usando os genre_ids / origin_country / original_language oficiais e grava no banco.
+    if (process.env.TMDB_API_KEY?.trim()) {
+      const pendentesTmdb = linhas
+        .filter(
+          (item) =>
+            !item.subtype &&
+            item.source === "tmdb" &&
+            (item.type === "MOVIE" || item.type === "SERIES") &&
+            Boolean(item.externalId)
+        )
+        .slice(0, limiteBackfill);
+
+      await Promise.all(
+        pendentesTmdb.map(async (item) => {
+          const subtipo = await this.obterSubtipoOficialTmdb(
+            item.id,
+            item.type as "MOVIE" | "SERIES",
+            String(item.externalId)
+          ).catch(() => null);
+
+          if (subtipo) {
+            item.subtype = subtipo;
+            if (colunaSubtipoDisponivel) {
+              await db
+                .from("MediaItem")
+                .update({ subtype: subtipo })
+                .eq("id", item.id);
+            }
+          }
+        })
+      );
+    }
+
     return new Map(
-      (data ?? []).map((item) => {
+      linhas.map((item) => {
         const coverUrl =
           typeof item.coverUrl === "string"
             ? item.coverUrl.includes("media.rawg.io/media/games/")
               ? item.coverUrl.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
               : item.coverUrl
             : null;
-        const subtype = detectarSubtipoSalvo(item as ItemCatalogo);
         return [
           item.id as string,
           {
-            ...(item as ItemCatalogo),
+            ...item,
             coverUrl,
-            ...(subtype ? { subtype } : {})
+            ...(item.subtype ? { subtype: item.subtype } : {})
           }
         ];
       })
