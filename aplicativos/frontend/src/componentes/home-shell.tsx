@@ -93,7 +93,9 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
                   </div>
 
                   <div className="feed-in-progress-body">
-                    <span className="feed-in-progress-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
+                    <span className="feed-in-progress-type">
+                      {getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}
+                    </span>
                     <h3>{item.title}</h3>
 
                     {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (

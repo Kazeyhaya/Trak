@@ -17,6 +17,10 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  width: fit-content;
+  justify-self: start;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .brand-copy {

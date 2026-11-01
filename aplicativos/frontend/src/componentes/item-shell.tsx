@@ -172,7 +172,9 @@ export function ItemShell({ item }: ItemShellProps) {
 
         <div className="item-copy">
           <div className="status-chips">
-            <UiBadge tone="secondary">{getMediaTypeLabel(item.type, item.subtype)}</UiBadge>
+            <UiBadge tone="secondary">
+              {getMediaTypeLabel(item.type, item.subtype, "pt-BR", item.title, item.synopsis)}
+            </UiBadge>
             {extras?.genres.map((genre) => (
               <UiBadge key={genre} tone="neutral">
                 {genre}

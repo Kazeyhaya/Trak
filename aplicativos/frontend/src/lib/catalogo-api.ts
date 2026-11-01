@@ -141,24 +141,193 @@ export async function getCatalogItemById(id: string, lang = "") {
   return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }
 
-export function getMediaTypeLabel(type: MediaType, subtype?: string | null, lang = "pt-BR") {
+const TITULOS_ANIME_CONHECIDOS = new Set([
+  "bleach",
+  "monster",
+  "naruto",
+  "naruto shippuden",
+  "boruto",
+  "one piece",
+  "dragon ball",
+  "dragon ball z",
+  "dragon ball super",
+  "dragon ball gt",
+  "dragon ball daima",
+  "jujutsu kaisen",
+  "demon slayer",
+  "kimetsu no yaiba",
+  "attack on titan",
+  "shingeki no kyojin",
+  "death note",
+  "fullmetal alchemist",
+  "fullmetal alchemist brotherhood",
+  "hunter x hunter",
+  "chainsaw man",
+  "one punch man",
+  "my hero academia",
+  "boku no hero academia",
+  "frieren",
+  "solo leveling",
+  "neon genesis evangelion",
+  "evangelion",
+  "cowboy bebop",
+  "code geass",
+  "steins gate",
+  "vinland saga",
+  "berserk",
+  "haikyu",
+  "blue lock",
+  "black clover",
+  "fairy tail",
+  "gintama",
+  "yu yu hakusho",
+  "inuyasha",
+  "sailor moon",
+  "saint seiya",
+  "os cavaleiros do zodiaco",
+  "tokyo ghoul",
+  "mob psycho 100",
+  "spy x family",
+  "dandadan",
+  "sakamoto days",
+  "kaiju no 8",
+  "cyberpunk edgerunners",
+  "akira",
+  "a viagem de chihiro",
+  "spirited away",
+  "your name",
+  "kimi no na wa",
+  "suzume",
+  "princesa mononoke",
+  "meu amigo totoro",
+  "o castelo animado"
+]);
+
+const PREFIXOS_ANIME_CONHECIDOS = [
+  "bleach",
+  "dragon ball",
+  "naruto",
+  "one piece",
+  "jujutsu kaisen",
+  "demon slayer",
+  "kimetsu no yaiba",
+  "attack on titan",
+  "shingeki no kyojin",
+  "hunter x hunter",
+  "fullmetal alchemist",
+  "my hero academia",
+  "boku no hero",
+  "jojo s bizarre adventure",
+  "jojo no kimyou na bouken",
+  "neon genesis evangelion",
+  "evangelion",
+  "fate stay night",
+  "fate zero",
+  "sword art online",
+  "tokyo revengers",
+  "baki",
+  "hajime no ippo",
+  "slam dunk",
+  "yugioh",
+  "yu gi oh",
+  "pokemon",
+  "digimon",
+  "inazuma eleven",
+  "saint seiya",
+  "cavaleiros do zodiaco",
+  "frieren",
+  "kusuriya no hitorigoto",
+  "the apothecary diaries",
+  "diarios de uma apotecaria"
+];
+
+const PADROES_SINOPSE_ANIME =
+  /\b(anime|mang[aá]|shinigami|saiyajin|super saiyan|soul society|ichigo kurosaki|goku|vegeta|beerus|luffy|zoro|uzumaki naruto|konoha|hokage|uchiha|alquimista federal|elric|kenzo tenma|naoki urasawa|johan liebert|shonen|shounen|seinen|isekai|toei animation|studio pierrot|mappa|ufotable|madhouse|kyoto animation|wit studio|studio ghibli|hayao miyazaki)\b/i;
+
+function normalizarTextoSimples(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function inferirSubtipoMidia(
+  type: MediaType,
+  subtype?: string | null,
+  title?: string | null,
+  synopsis?: string | null
+): string | null {
+  if (subtype) {
+    return subtype;
+  }
+
+  const titulo = title ?? "";
+  const sinopse = synopsis ?? "";
+
+  if (type === "BOOK") {
+    const texto = `${titulo} ${sinopse}`.toLowerCase();
+    if (
+      texto.includes("manga") ||
+      texto.includes("mangá") ||
+      texto.includes("manhwa") ||
+      texto.includes("manhua")
+    ) {
+      return "MANGA";
+    }
+    if (
+      texto.includes("comic") ||
+      texto.includes("graphic novel") ||
+      texto.includes("quadrinho") ||
+      texto.includes("hq")
+    ) {
+      return "HQ";
+    }
+    return null;
+  }
+
+  if (type === "SERIES" || type === "MOVIE") {
+    const tituloNorm = normalizarTextoSimples(titulo);
+    if (
+      TITULOS_ANIME_CONHECIDOS.has(tituloNorm) ||
+      PREFIXOS_ANIME_CONHECIDOS.some(
+        (pref) => tituloNorm === pref || tituloNorm.startsWith(`${pref} `)
+      ) ||
+      PADROES_SINOPSE_ANIME.test(`${titulo} ${sinopse}`)
+    ) {
+      return "ANIME";
+    }
+  }
+
+  return null;
+}
+
+export function getMediaTypeLabel(
+  type: MediaType,
+  subtype?: string | null,
+  lang = "pt-BR",
+  title?: string | null,
+  synopsis?: string | null
+) {
   const isEn = lang === "en-US";
-  if (subtype === "NOVELA") {
+  const resolvedSubtype = inferirSubtipoMidia(type, subtype, title, synopsis);
+  if (resolvedSubtype === "NOVELA") {
     return isEn ? "Telenovela" : "Novela";
   }
-  if (subtype === "DORAMA") {
+  if (resolvedSubtype === "DORAMA") {
     return isEn ? "K-Drama" : "Dorama";
   }
-  if (subtype === "ANIME") {
+  if (resolvedSubtype === "ANIME") {
     return "Anime";
   }
-  if (subtype === "ANIMACAO") {
+  if (resolvedSubtype === "ANIMACAO") {
     return isEn ? "Animation" : "Animação";
   }
-  if (subtype === "MANGA") {
+  if (resolvedSubtype === "MANGA") {
     return "Mangá";
   }
-  if (subtype === "HQ") {
+  if (resolvedSubtype === "HQ") {
     return isEn ? "Comic" : "HQ";
   }
   switch (type) {

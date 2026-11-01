@@ -146,8 +146,70 @@
 
 /* Episodios */
 
+.episode-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.episode-range-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.episode-range-chip.is-complete:not(.is-active) {
+  border-color: rgba(110, 231, 200, 0.22);
+  color: var(--text);
+}
+
+.episode-range-count {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.episode-range-chip.is-active .episode-range-count {
+  color: var(--primary);
+}
+
 .episode-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 14px 0;
+}
+
+.episode-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.episode-search-wrap {
+  flex: 1 1 220px;
+  max-width: 300px;
+}
+
+.episode-search-input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.episode-search-input::placeholder {
+  color: var(--muted);
 }
 
 .episode-list {
@@ -158,13 +220,21 @@
   list-style: none;
 }
 
+.episode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .episode-list label {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: auto 2.5rem 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--surface-border);
   background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
@@ -177,7 +247,7 @@
 }
 
 .episode-list .is-watched label {
-  background: rgba(124, 225, 199, 0.06);
+  background: rgba(110, 231, 200, 0.06);
 }
 
 .episode-number {
@@ -185,9 +255,55 @@
   font-variant-numeric: tabular-nums;
 }
 
+.episode-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .episode-date {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.episode-mark-until-btn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.episode-mark-until-btn:hover {
+  color: var(--primary);
+  border-color: rgba(110, 231, 200, 0.35);
+  background: rgba(110, 231, 200, 0.08);
+}
+
+@media (max-width: 640px) {
+  .episode-search-wrap {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .episode-list label {
+    grid-template-columns: auto 2rem 1fr;
+    gap: 8px;
+    padding: 9px 11px;
+  }
+
+  .episode-date {
+    grid-column: 3;
+    font-size: 0.76rem;
+  }
 }
 
 /* Feed e atividades */

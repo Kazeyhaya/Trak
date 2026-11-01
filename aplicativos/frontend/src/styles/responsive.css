@@ -43,18 +43,20 @@
 @media (max-width: 860px) {
   .site-header {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr;
     grid-template-areas:
       "brand user"
       "nav nav";
     gap: 12px;
-    border-radius: 20px;
-    padding: 12px 14px;
+    border-radius: 14px;
+    padding: 10px 14px;
     align-items: center;
   }
 
   .brand-mark {
     grid-area: brand;
+    width: fit-content;
+    justify-self: start;
   }
 
   .header-user {
@@ -110,6 +112,15 @@
     padding: 0 14px;
     font-size: 0.86rem;
     width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 }
 

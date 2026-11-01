@@ -10,6 +10,7 @@ import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
 import {
   chaveDeduplicacaoLivro,
+  detectarSubtipoSalvo,
   GeneroCatalogo,
   GENEROS_CATALOGO,
   IDIOMAS_DORAMA,
@@ -1478,7 +1479,15 @@ export class CatalogoService implements OnModuleInit {
               ? item.coverUrl.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
               : item.coverUrl
             : null;
-        return [item.id as string, { ...(item as ItemCatalogo), coverUrl }];
+        const subtype = detectarSubtipoSalvo(item as ItemCatalogo);
+        return [
+          item.id as string,
+          {
+            ...(item as ItemCatalogo),
+            coverUrl,
+            ...(subtype ? { subtype } : {})
+          }
+        ];
       })
     );
   }
