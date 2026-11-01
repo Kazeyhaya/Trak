@@ -10,7 +10,6 @@ import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
-import { UiBadge } from "./ui-badge";
 import { useAuth } from "../contextos/auth-context";
 import {
   Activity,
@@ -18,11 +17,10 @@ import {
   errorMessage,
   getFeed,
   getPublicProfile,
-  getStatusLabel,
   PublicProfile,
   searchProfiles
 } from "../lib/api";
-import { getMediaTypeLabel, MediaType } from "../lib/catalogo-api";
+import { MediaType } from "../lib/catalogo-api";
 
 export function FeedShell() {
   const { profile } = useAuth();
@@ -133,67 +131,6 @@ export function FeedShell() {
         </div>
       )}
 
-      {/* Faixa Continuando Agora (Obras em progresso do usuário) */}
-      {myPublicProfile && myPublicProfile.inProgress && myPublicProfile.inProgress.length > 0 && (
-        <section className="feed-in-progress-panel">
-          <div className="feed-in-progress-header">
-            <div className="feed-in-progress-title">
-              <span className="feed-in-progress-dot" aria-hidden="true" />
-              <strong>Continuando agora</strong>
-              <span className="feed-in-progress-count">
-                {myPublicProfile.inProgress.length}
-              </span>
-            </div>
-            {profile && (
-              <Link
-                href={`/u/${encodeURIComponent(profile.username)}`}
-                className="feed-in-progress-all"
-              >
-                Ver minha estante →
-              </Link>
-            )}
-          </div>
-
-          <div className="feed-in-progress-grid">
-            {myPublicProfile.inProgress.map(({ item, status, progress }) => (
-              <Link
-                key={item.id}
-                href={`/itens/${item.id}`}
-                className="feed-in-progress-card"
-              >
-                <div className="feed-in-progress-art">
-                  {item.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.coverUrl} alt={item.title} />
-                  ) : (
-                    <span className="media-card-orb" />
-                  )}
-                  <div className="feed-in-progress-badge">
-                    <UiBadge tone="primary">{getStatusLabel(status, item.type)}</UiBadge>
-                  </div>
-                </div>
-
-                <div className="feed-in-progress-body">
-                  <span className="feed-in-progress-type">
-                    {getMediaTypeLabel(item.type, item.subtype)}
-                  </span>
-                  <h3>{item.title}</h3>
-
-                  {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (
-                    <div className="feed-in-progress-bar-wrap">
-                      <div className="feed-in-progress-bar">
-                        <span style={{ width: `${Math.min(100, progress)}%` }} />
-                      </div>
-                      <small>{progress}%</small>
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
       <div className="feed-layout">
         {/* Coluna Principal: Timeline */}
         <div className="feed-main">
@@ -268,11 +205,7 @@ export function FeedShell() {
           </div>
 
           <section className="content-panel">
-            <SectionHeading
-              eyebrow="Timeline"
-              title="Atividades recentes"
-              description="Atualizações culturais dos seus círculos."
-            />
+            <SectionHeading title="Atividades recentes" />
 
             {error && (
               <p className="auth-error" role="alert">

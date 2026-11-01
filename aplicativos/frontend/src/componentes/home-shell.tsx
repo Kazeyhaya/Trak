@@ -75,11 +75,6 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
                 <strong>Continuando agora</strong>
                 <span className="feed-in-progress-count">{inProgress.length}</span>
               </div>
-              {profile && (
-                <Link href={`/u/${encodeURIComponent(profile.username)}`} className="feed-in-progress-all">
-                  Ver minha estante
-                </Link>
-              )}
             </div>
 
             <div className="feed-in-progress-grid">
