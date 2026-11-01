@@ -174,12 +174,21 @@ export function ItemShell({ item }: ItemShellProps) {
           <div className="status-chips">
             <UiBadge tone="secondary">{getMediaTypeLabel(item.type, item.subtype)}</UiBadge>
             {extras?.genres.map((genre) => (
-              <UiBadge key={genre} tone="secondary">
+              <UiBadge key={genre} tone="neutral">
                 {genre}
               </UiBadge>
             ))}
           </div>
           <h1>{item.title}</h1>
+          <div className="item-meta-line">
+            {item.releaseYear && <span>{item.releaseYear}</span>}
+            {item.pageCount && item.type === "BOOK" && <span>{item.pageCount} páginas</span>}
+            <span>
+              {extras?.trakRating.average
+                ? `${extras.trakRating.average.toLocaleString("pt-BR")} ★ no Trak (${extras.trakRating.count})`
+                : "Sem avaliações no Trak"}
+            </span>
+          </div>
           <div className="item-synopsis">
             <p>{displayedSynopsis}</p>
             {isLongSynopsis && (
@@ -211,25 +220,6 @@ export function ItemShell({ item }: ItemShellProps) {
             </UiCard>
           )}
         </div>
-      </section>
-
-      <section className="item-details-grid">
-        <UiCard>
-          <span>Ano</span>
-          <strong>{item.releaseYear ?? "—"}</strong>
-        </UiCard>
-        <UiCard>
-          <span>Tipo</span>
-          <strong>{getMediaTypeLabel(item.type, item.subtype)}</strong>
-        </UiCard>
-        <UiCard>
-          <span>Nota no Trak</span>
-          <strong>
-            {extras?.trakRating.average
-              ? `${extras.trakRating.average.toLocaleString("pt-BR")} ★ (${extras.trakRating.count})`
-              : "Sem avaliações"}
-          </strong>
-        </UiCard>
       </section>
 
       {extras && (extras.externalRatings.length > 0 || extras.watchProviders.length > 0) && (
@@ -774,9 +764,9 @@ function MediaProgressTracker({
             <span className="eyebrow">Progresso no jogo</span>
             <strong>
               {meta.platinum
-                ? "💎 Platina / 100% Completo"
+                ? "Platina / 100% Completo"
                 : isCompleted
-                  ? "🏆 Campanha Zerada"
+                  ? "Campanha Zerada"
                   : `Progresso: ${progress}%`}
             </strong>
           </div>
@@ -830,7 +820,7 @@ function MediaProgressTracker({
               onMilestoneSelect(15, "WATCHING");
             }}
           >
-            🌱 Início (15%)
+            Início (15%)
           </button>
           <button
             type="button"
@@ -841,7 +831,7 @@ function MediaProgressTracker({
               onMilestoneSelect(50, "WATCHING");
             }}
           >
-            ⚔️ Metade (50%)
+            Metade (50%)
           </button>
           <button
             type="button"
@@ -852,7 +842,7 @@ function MediaProgressTracker({
               onMilestoneSelect(85, "WATCHING");
             }}
           >
-            🔥 Reta Final (85%)
+            Reta final (85%)
           </button>
           <button
             type="button"
@@ -863,7 +853,7 @@ function MediaProgressTracker({
               onMilestoneSelect(100, "COMPLETED");
             }}
           >
-            🏆 História Zerada
+            História zerada
           </button>
           <button
             type="button"
@@ -874,7 +864,7 @@ function MediaProgressTracker({
               onMilestoneSelect(100, "COMPLETED");
             }}
           >
-            💎 Platina / 100%
+            Platina / 100%
           </button>
         </div>
 
@@ -985,7 +975,7 @@ function MediaProgressTracker({
             Página {currentPage} de {totalPages} ({progress}%)
           </strong>
         </div>
-        <span className="trak-reading-pace">📖 Faltam {remainingPages} págs · {remainingHoursText}</span>
+        <span className="trak-reading-pace">Faltam {remainingPages} págs · {remainingHoursText}</span>
       </div>
 
       <div className="trak-progress-bar-wrap">
@@ -1084,7 +1074,7 @@ function MediaProgressTracker({
             onMilestoneSelect(15, "WATCHING");
           }}
         >
-          📖 Início (15%)
+          Início (15%)
         </button>
         <button
           type="button"
@@ -1095,7 +1085,7 @@ function MediaProgressTracker({
             onMilestoneSelect(50, "WATCHING");
           }}
         >
-          🔖 Metade (50%)
+          Metade (50%)
         </button>
         <button
           type="button"
@@ -1106,7 +1096,7 @@ function MediaProgressTracker({
             onMilestoneSelect(80, "WATCHING");
           }}
         >
-          ⚡ Clímax (80%)
+          Clímax (80%)
         </button>
         <button
           type="button"
@@ -1117,7 +1107,7 @@ function MediaProgressTracker({
             onMilestoneSelect(100, "COMPLETED");
           }}
         >
-          ✨ Livro Lido (100%)
+          Livro lido (100%)
         </button>
       </div>
     </div>

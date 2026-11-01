@@ -1,37 +1,27 @@
 .item-hero {
   display: grid;
-  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
-  gap: 24px;
-  /* "stretch" esticava a capa ate a altura da coluna de texto e recortava a imagem. */
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 32px;
   align-items: start;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .item-poster {
-  /* Proporcao de poster (2:3), independente do tamanho da coluna ao lado. */
   aspect-ratio: 2 / 3;
   position: sticky;
   top: 24px;
   overflow: hidden;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--surface-border);
-  background:
-    radial-gradient(circle at 30% 20%, rgba(124, 225, 199, 0.2), transparent 26%),
-    radial-gradient(circle at 70% 35%, rgba(122, 167, 255, 0.18), transparent 25%),
-    linear-gradient(180deg, rgba(18, 32, 51, 0.86), rgba(8, 16, 28, 0.94));
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface-strong);
   box-shadow: var(--shadow);
-  padding: 18px;
 }
 
 .item-poster span {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: calc(var(--radius-xl) - 10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+  background: linear-gradient(145deg, #161e2e 0%, #0f1520 100%);
 }
 
 .item-poster img {
@@ -40,22 +30,36 @@
   height: 100%;
   object-fit: cover;
   object-position: center 20%;
-  border-radius: calc(var(--radius-xl) - 10px);
 }
 
 .item-copy {
   display: grid;
   align-content: start;
-  gap: 18px;
-  padding: 18px 0;
+  gap: 14px;
+  padding: 4px 0;
 }
 
 .item-copy h1 {
-  margin: 14px 0 12px;
+  margin: 4px 0 0;
   font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: clamp(2.6rem, 6vw, 4.8rem);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
+  font-size: clamp(1.75rem, 3.6vw, 2.6rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.item-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.item-meta-line span + span::before {
+  content: "·";
+  margin-right: 16px;
+  opacity: 0.5;
 }
 
 .item-copy p {
@@ -117,13 +121,10 @@
 .trak-progress-panel {
   display: grid;
   gap: 14px;
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(124, 225, 199, 0.22);
-  background:
-    radial-gradient(circle at top right, rgba(124, 225, 199, 0.1), transparent 45%),
-    linear-gradient(180deg, rgba(14, 26, 44, 0.88), rgba(8, 16, 28, 0.94));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 28px rgba(0, 0, 0, 0.26);
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .trak-progress-header {

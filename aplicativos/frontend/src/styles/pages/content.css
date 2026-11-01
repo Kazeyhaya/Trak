@@ -248,13 +248,14 @@
 }
 
 .filter-genre-select select {
-  min-width: 210px;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(160, 184, 214, 0.2);
-  background: rgba(8, 16, 28, 0.75);
+  min-width: 200px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface-strong);
   color: var(--text);
+  font-size: 0.88rem;
   cursor: pointer;
 }
 
@@ -263,41 +264,34 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
-  padding: 0 15px;
-  border-radius: 999px;
-  border: 1px solid rgba(160, 184, 214, 0.2);
-  background: linear-gradient(180deg, rgba(24, 40, 64, 0.72), rgba(10, 20, 34, 0.82));
-  color: #dbe7f6;
-  font-size: 0.88rem;
-  font-weight: 600;
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  font-weight: 500;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
   transition:
-    transform 150ms ease,
-    border-color 150ms ease,
-    background 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
 }
 
 .filter-chip:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(124, 225, 199, 0.42);
-  background: linear-gradient(180deg, rgba(124, 225, 199, 0.14), rgba(18, 34, 54, 0.86));
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
   color: #ffffff;
 }
 
 .filter-chip.is-active,
 .filter-chip[aria-pressed="true"],
 .filter-chip[aria-selected="true"] {
-  background: linear-gradient(135deg, #8af0d6 0%, var(--primary) 50%, var(--primary-strong) 100%);
-  border-color: rgba(255, 255, 255, 0.26);
-  color: #04121a;
-  font-weight: 800;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 4px 16px rgba(124, 225, 199, 0.28);
+  background: rgba(110, 231, 200, 0.14);
+  border-color: rgba(110, 231, 200, 0.36);
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .catalog-grid {

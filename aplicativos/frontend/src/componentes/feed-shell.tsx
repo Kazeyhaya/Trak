@@ -150,7 +150,7 @@ export function FeedShell() {
                 className={`feed-filter-chip ${mediaFilter === "MOVIE" ? "is-active" : ""}`}
                 onClick={() => setMediaFilter("MOVIE")}
               >
-                🎬 Filmes
+                Filmes
                 <span className="feed-filter-badge">{counts.movie}</span>
               </button>
               <button
@@ -158,7 +158,7 @@ export function FeedShell() {
                 className={`feed-filter-chip ${mediaFilter === "SERIES" ? "is-active" : ""}`}
                 onClick={() => setMediaFilter("SERIES")}
               >
-                📺 Séries
+                Séries
                 <span className="feed-filter-badge">{counts.series}</span>
               </button>
               <button
@@ -166,7 +166,7 @@ export function FeedShell() {
                 className={`feed-filter-chip ${mediaFilter === "GAME" ? "is-active" : ""}`}
                 onClick={() => setMediaFilter("GAME")}
               >
-                🎮 Jogos
+                Jogos
                 <span className="feed-filter-badge">{counts.game}</span>
               </button>
               <button
@@ -174,7 +174,7 @@ export function FeedShell() {
                 className={`feed-filter-chip ${mediaFilter === "BOOK" ? "is-active" : ""}`}
                 onClick={() => setMediaFilter("BOOK")}
               >
-                📚 Livros
+                Livros
                 <span className="feed-filter-badge">{counts.book}</span>
               </button>
             </div>

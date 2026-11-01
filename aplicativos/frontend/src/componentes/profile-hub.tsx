@@ -370,10 +370,10 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                       <span style={{ width: `${goalPct}%` }} />
                     </div>
                     <div className="annual-goal-breakdown">
-                      <span>🎬 {completedThisYear.filter((i) => i.item.type === "MOVIE").length} filmes</span>
-                      <span>📺 {completedThisYear.filter((i) => i.item.type === "SERIES").length} séries</span>
-                      <span>🎮 {completedThisYear.filter((i) => i.item.type === "GAME").length} jogos</span>
-                      <span>📚 {completedThisYear.filter((i) => i.item.type === "BOOK").length} livros</span>
+                      <span>{completedThisYear.filter((i) => i.item.type === "MOVIE").length} filmes</span>
+                      <span>{completedThisYear.filter((i) => i.item.type === "SERIES").length} séries</span>
+                      <span>{completedThisYear.filter((i) => i.item.type === "GAME").length} jogos</span>
+                      <span>{completedThisYear.filter((i) => i.item.type === "BOOK").length} livros</span>
                     </div>
                   </section>
 
@@ -406,7 +406,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             <span className="media-card-orb" />
                           )}
                           <div className="featured-showcase-overlay">
-                            <UiBadge tone="secondary">#{index + 1} Favorito</UiBadge>
+                            <UiBadge tone="secondary">#{index + 1}</UiBadge>
                           </div>
                         </div>
                         <div className="featured-showcase-body">
@@ -704,7 +704,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             <span className="media-card-orb" />
                           )}
                           <div className="featured-showcase-overlay">
-                            <UiBadge tone="secondary">#{index + 1} Favorito</UiBadge>
+                            <UiBadge tone="secondary">#{index + 1}</UiBadge>
                           </div>
                         </div>
                         <div className="featured-showcase-body">

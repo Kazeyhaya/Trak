@@ -136,8 +136,8 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
 
                   <div className="activity-media-details">
                     <div className="activity-media-badges">
-                      {typeLabel && <UiBadge tone="secondary">{typeLabel}</UiBadge>}
-                      {item.releaseYear && <span className="feed-filter-badge">{item.releaseYear}</span>}
+                      {typeLabel && <span className="media-card-type-label">{typeLabel}</span>}
+                      {item.releaseYear && <span className="media-card-year">· {item.releaseYear}</span>}
                     </div>
 
                     <h3 className="activity-media-title">
@@ -145,10 +145,6 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                         {item.title}
                       </Link>
                     </h3>
-
-                    {item.synopsis && (
-                      <p className="activity-media-synopsis">{item.synopsis}</p>
-                    )}
 
                     <div className="activity-media-footer">
                       {user && !isOwnActivity && (
@@ -159,12 +155,12 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                           onClick={() => handleQuickTrack(atividade.mediaItemId!)}
                         >
                           {isTracked
-                            ? "✓ Na sua estante"
+                            ? "Na sua estante"
                             : `+ Quero ${item.type === "GAME" ? "jogar" : item.type === "BOOK" ? "ler" : "ver"}`}
                         </button>
                       )}
                       <Link href={`/itens/${encodeURIComponent(atividade.mediaItemId)}`} className="activity-details-link">
-                        Ver detalhes →
+                        Ver detalhes
                       </Link>
                     </div>
                   </div>

@@ -1,36 +1,36 @@
 .auth-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: 28px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 32px;
+  align-items: center;
 }
 
 .auth-hero-copy {
   display: grid;
   align-content: start;
-  gap: 18px;
-  padding: 22px 0;
+  gap: 12px;
+  padding: 16px 0;
 }
 
 .auth-hero-copy h1 {
   margin: 0;
-  max-width: 14ch;
+  max-width: 16ch;
   font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: clamp(2.8rem, 6vw, 5.2rem);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
+  font-size: clamp(2rem, 4.2vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .auth-hero-copy p {
   margin: 0;
-  max-width: 58ch;
+  max-width: 52ch;
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .auth-benefits {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
@@ -40,31 +40,21 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--muted);
-  line-height: 1.6;
-}
-
-.auth-benefits li::before {
-  content: "";
-  flex: 0 0 10px;
-  width: 10px;
-  height: 10px;
-  margin-top: 0.45rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  line-height: 1.55;
 }
 
 .auth-card {
   display: grid;
-  gap: 18px;
-  padding: 22px;
-  border-radius: var(--radius-xl);
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--surface-border);
-  background: linear-gradient(180deg, rgba(18, 32, 51, 0.82), rgba(8, 16, 28, 0.9));
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 
@@ -79,18 +69,19 @@
 }
 
 .auth-mode-button {
-  min-height: 40px;
+  min-height: 36px;
   border: 0;
-  border-radius: calc(var(--radius-md) - 4px);
+  border-radius: calc(var(--radius-md) - 3px);
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .auth-mode-button.is-active {
-  background: rgba(124, 225, 199, 0.14);
+  background: rgba(110, 231, 200, 0.14);
   color: var(--primary);
 }
 
