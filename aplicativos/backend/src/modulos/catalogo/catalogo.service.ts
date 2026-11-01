@@ -1299,13 +1299,16 @@ export class CatalogoService implements OnModuleInit {
           capasSet.add(c);
         }
       }
-      const rawgScreens = await this.rawg<{ results?: Array<{ image: string }> }>(
-        `/games/${parsed.externalId}/screenshots`
-      );
-      if (rawgScreens?.results?.length) {
-        for (const s of rawgScreens.results.slice(0, 8)) {
-          if (s.image) {
-            capasSet.add(s.image);
+      // Usa capturas do RAWG apenas se a IGDB nao tiver retornado capas verticais alternativas
+      if (capasSet.size <= 1) {
+        const rawgScreens = await this.rawg<{ results?: Array<{ image: string }> }>(
+          `/games/${parsed.externalId}/screenshots`
+        );
+        if (rawgScreens?.results?.length) {
+          for (const s of rawgScreens.results.slice(0, 8)) {
+            if (s.image) {
+              capasSet.add(s.image);
+            }
           }
         }
       }
@@ -1545,31 +1548,59 @@ export class CatalogoService implements OnModuleInit {
     const { subtype, pageCount: _pageCount, ...itemParaSalvar } = item;
     void _pageCount;
 
-    const { error: insertError } = await supabase
-      .from("MediaItem")
-      .upsert(
-        {
-          ...itemParaSalvar,
-          ...(subtype ? { subtype } : {}),
-          createdAt: agora,
-          updatedAt: agora
-        },
-        { onConflict: "id", ignoreDuplicates: true }
-      );
+    const tentarSalvar = async (incluirSubtipo: boolean) => {
+      const payload = {
+        ...itemParaSalvar,
+        ...(incluirSubtipo && subtype ? { subtype } : {}),
+        createdAt: agora,
+        updatedAt: agora
+      };
+      return supabase.from("MediaItem").upsert(payload, { onConflict: "id", ignoreDuplicates: true });
+    };
 
-    if (insertError) {
-      // Caso a migracao da coluna "subtype" ainda nao tenha sido aplicada no banco, salva sem ela.
-      if (subtype && insertError.message?.includes("subtype")) {
-        const { error: fallbackError } = await supabase
-          .from("MediaItem")
-          .upsert({ ...itemParaSalvar, createdAt: agora, updatedAt: agora }, { onConflict: "id", ignoreDuplicates: true });
-        if (!fallbackError) {
-          return;
-        }
-        this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${fallbackError.message}`);
-        throw new InternalServerErrorException(fallbackError.message);
+    let { error: insertError } = await tentarSalvar(true);
+
+    // Caso a migracao da coluna "subtype" ainda nao tenha sido aplicada no banco, salva sem ela.
+    if (insertError && subtype && insertError.message?.includes("subtype")) {
+      const retry = await tentarSalvar(false);
+      insertError = retry.error;
+    }
+
+    // Se ja existir uma linha legada com a mesma chave (externalId, source, type) mas id diferente,
+    // renomeia o externalId legado para liberar a constraint unica e insere o item com o id canonico.
+    if (
+      insertError &&
+      (insertError.message?.includes("MediaItem_externalId_source_type_key") ||
+        insertError.message?.includes("duplicate key"))
+    ) {
+      const { data: conflito } = await supabase
+        .from("MediaItem")
+        .select("id")
+        .eq("externalId", itemParaSalvar.externalId)
+        .eq("source", itemParaSalvar.source)
+        .eq("type", itemParaSalvar.type)
+        .maybeSingle();
+
+      if (conflito?.id === id) {
+        return;
       }
 
+      if (conflito?.id) {
+        await supabase
+          .from("MediaItem")
+          .update({ externalId: `legacy_${conflito.id}` })
+          .eq("id", conflito.id);
+
+        const retry = await tentarSalvar(true);
+        insertError = retry.error;
+        if (insertError && subtype && insertError.message?.includes("subtype")) {
+          const retrySemSubtipo = await tentarSalvar(false);
+          insertError = retrySemSubtipo.error;
+        }
+      }
+    }
+
+    if (insertError) {
       this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${insertError.message}`);
       throw new InternalServerErrorException(insertError.message);
     }

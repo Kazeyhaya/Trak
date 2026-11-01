@@ -177,7 +177,7 @@ export function ItemShell({ item }: ItemShellProps) {
               unoptimized={Boolean(customCoverUrl)}
             />
           ) : (
-            <span />
+            <div className="item-poster-empty" aria-hidden="true" />
           )}
           {user && (
             <button

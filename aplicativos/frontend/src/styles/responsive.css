@@ -28,7 +28,8 @@
 
   /* Em telas estreitas a capa nao deve empurrar o titulo para fora da tela. */
   .item-poster {
-    position: static;
+    position: relative;
+    top: auto;
     width: min(100%, 260px);
     margin: 0 auto;
     padding: 0;

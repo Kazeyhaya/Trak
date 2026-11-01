@@ -212,7 +212,7 @@ export class IgdbService {
   }
 
   /**
-   * Busca opções de capas e artworks de alta qualidade para um jogo na IGDB.
+   * Busca opções de capas verticais oficiais (edições e variantes regionais) para um jogo na IGDB.
    */
   async buscarCapasAlternativas(nomeJogo: string): Promise<string[]> {
     if (!nomeJogo || !nomeJogo.trim()) {
@@ -224,12 +224,12 @@ export class IgdbService {
       return [];
     }
 
-    const query = `search "${nomeLimpo}"; fields name,cover.image_id,artworks.image_id; limit 3;`;
+    const query = `search "${nomeLimpo}"; fields name,cover.image_id,game_localizations.cover.image_id; limit 12;`;
     const resultado = await this.consulta<
       Array<{
         id: number;
         cover?: { image_id: string };
-        artworks?: Array<{ image_id: string }>;
+        game_localizations?: Array<{ cover?: { image_id: string } }>;
       }>
     >("games", query);
 
@@ -242,10 +242,10 @@ export class IgdbService {
       if (item.cover?.image_id) {
         capas.push(formatarUrlCapaIgdb(item.cover.image_id, "cover_big_2x"));
       }
-      if (item.artworks?.length) {
-        for (const art of item.artworks) {
-          if (art.image_id) {
-            capas.push(formatarUrlCapaIgdb(art.image_id, "cover_big_2x"));
+      if (item.game_localizations?.length) {
+        for (const loc of item.game_localizations) {
+          if (loc.cover?.image_id) {
+            capas.push(formatarUrlCapaIgdb(loc.cover.image_id, "cover_big_2x"));
           }
         }
       }

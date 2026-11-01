@@ -112,7 +112,7 @@ export function CustomCoverModal({
         <div className="cover-modal-header">
           <div>
             <h3>Capa personalizada</h3>
-            <p>Escolha a edição que mais gosta de <em>{itemTitle}</em> para a sua estante e perfil.</p>
+            <p>Escolha a edição que mais gosta de <strong>{itemTitle}</strong> para a sua estante e perfil.</p>
           </div>
           <button
             type="button"

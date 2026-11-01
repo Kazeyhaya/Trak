@@ -611,7 +611,7 @@ describe("CatalogoService.extras", () => {
       expect(resultado.capas).toContain("https://image.tmdb.org/t/p/w780/poster2.jpg");
     });
 
-    it("busca opções de capas alternativas na IGDB para jogos", async () => {
+    it("busca opções de capas alternativas na IGDB para jogos sem misturar screenshots horizontais", async () => {
       process.env.RAWG_API_KEY = "mock_rawg_key";
       const mockIgdb = new IgdbService();
       jest.spyOn(mockIgdb, "isConfigurado").mockReturnValue(true);
@@ -636,7 +636,53 @@ describe("CatalogoService.extras", () => {
 
       expect(resultado.capas).toContain("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt1.jpg");
       expect(resultado.capas).toContain("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt2.jpg");
-      expect(resultado.capas).toContain("https://media.rawg.io/screenshot1.jpg");
+      expect(resultado.capas).not.toContain("https://media.rawg.io/screenshot1.jpg");
+    });
+
+    it("garantirNoBanco resolve conflito legado MediaItem_externalId_source_type_key", async () => {
+      let tentativasUpsert = 0;
+      const supabase = criarSupabaseServiceMock((op) => {
+        if (op.table === "MediaItem" && op.action === "select") {
+          const filtroId = op.filtros.find((f) => f[1] === "id");
+          if (filtroId) return { data: null };
+          return { data: { id: "media_legado_3498" } };
+        }
+        if (op.table === "MediaItem" && op.action === "upsert") {
+          tentativasUpsert++;
+          if (tentativasUpsert === 1) {
+            return {
+              data: null,
+              error: { message: 'duplicate key value violates unique constraint "MediaItem_externalId_source_type_key"' }
+            };
+          }
+          return { data: null, error: null };
+        }
+        return { data: null, error: null };
+      });
+
+      const servico = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService(),
+        new IgdbService()
+      );
+
+      await expect(
+        servico.garantirNoBanco("rawg_game_3498", {
+          id: "rawg_game_3498",
+          externalId: "3498",
+          source: "rawg",
+          type: "GAME",
+          title: "Grand Theft Auto V",
+          coverUrl: null,
+          synopsis: null,
+          releaseYear: 2013
+        })
+      ).resolves.toBeUndefined();
+
+      expect(tentativasUpsert).toBe(2);
+      const updateLegado = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
+      expect(updateLegado?.payload).toEqual({ externalId: "legacy_media_legado_3498" });
     });
   });
 });
