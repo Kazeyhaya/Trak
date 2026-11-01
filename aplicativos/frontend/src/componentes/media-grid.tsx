@@ -18,9 +18,9 @@ export function MediaGrid({ items, label = "Itens" }: MediaGridProps) {
             type={getMediaTypeLabel(item.type, item.subtype)}
             mediaType={item.type}
             title={item.title}
-            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
+            meta={item.releaseYear ? String(item.releaseYear) : ""}
             coverUrl={item.coverUrl}
-            progress={item.progress ?? item.reason ?? item.synopsis ?? undefined}
+            progress={item.progress ?? item.reason ?? undefined}
             accent={item.accent}
           />
         </Link>

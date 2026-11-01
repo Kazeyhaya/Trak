@@ -1,25 +1,14 @@
 .hero-card {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
-  gap: 28px;
-  align-items: stretch;
-  padding: 28px;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 28px 32px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--surface-border);
-  background: linear-gradient(180deg, rgba(18, 32, 51, 0.8), rgba(8, 16, 28, 0.9));
+  background: linear-gradient(180deg, rgba(22, 29, 42, 0.82), rgba(13, 18, 27, 0.92));
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
-}
-
-.hero-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top right, rgba(124, 225, 199, 0.14), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(122, 167, 255, 0.16), transparent 24%);
-  pointer-events: none;
 }
 
 .hero-copy,
@@ -30,27 +19,91 @@
 }
 
 .hero-copy h1 {
-  margin: 18px 0 16px;
-  max-width: 12ch;
+  margin: 0 0 12px;
+  max-width: 18ch;
   font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: clamp(3rem, 7vw, 5.75rem);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
+  font-size: clamp(2.1rem, 4.5vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
 }
 
 .hero-copy p {
-  max-width: 60ch;
+  max-width: 58ch;
   margin: 0;
   color: var(--muted);
-  font-size: 1.04rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 
 .cta-row {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin: 28px 0;
+  margin: 22px 0 0;
+}
+
+.home-app-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: rgba(20, 27, 39, 0.72);
+}
+
+.home-app-bar h1 {
+  margin: 0 0 4px;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.home-app-bar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.home-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.landing-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.landing-pillar {
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.landing-pillar h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.landing-pillar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 820px) {
+  .landing-pillars {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stats-grid {
@@ -83,42 +136,41 @@
   gap: 18px;
   padding: 22px;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(160, 184, 214, 0.16);
-  background: rgba(8, 16, 28, 0.72);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--surface-border);
+  background: rgba(13, 18, 27, 0.82);
 }
 
 .roadmap-block {
-  margin-top: 28px;
+  margin-top: 32px;
 }
 
 .roadmap-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 22px;
+  gap: 16px;
+  margin-top: 18px;
 }
 
 .roadmap-grid article {
-  padding: 20px;
+  padding: 18px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .roadmap-grid span {
   display: inline-flex;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .roadmap-grid h2 {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
 }
 
 .roadmap-grid p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.65;
+  line-height: 1.6;
 }

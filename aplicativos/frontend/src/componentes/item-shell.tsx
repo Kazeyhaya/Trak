@@ -771,13 +771,13 @@ function MediaProgressTracker({
       <div className="trak-progress-panel">
         <div className="trak-progress-header">
           <div>
-            <span className="eyebrow">Checkpoint Gamer</span>
+            <span className="eyebrow">Progresso no jogo</span>
             <strong>
               {meta.platinum
                 ? "💎 Platina / 100% Completo"
                 : isCompleted
                   ? "🏆 Campanha Zerada"
-                  : `Progresso da jornada: ${progress}%`}
+                  : `Progresso: ${progress}%`}
             </strong>
           </div>
           <div className="trak-progress-step-btns">

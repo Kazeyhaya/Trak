@@ -20,6 +20,7 @@ export interface GoogleBooksVolume {
     };
     industryIdentifiers?: Array<{ type: string; identifier: string }>;
     categories?: string[];
+    language?: string;
     averageRating?: number;
     ratingsCount?: number;
     infoLink?: string;
@@ -66,7 +67,7 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
       info.industryIdentifiers.find((id) => id.type === "ISBN_13" || id.type === "ISBN_10") ??
       info.industryIdentifiers[0];
     if (isbnObj?.identifier) {
-      coverUrl = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbnObj.identifier)}-L.jpg`;
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbnObj.identifier)}-L.jpg?default=false`;
     }
   }
 
@@ -140,7 +141,16 @@ export class GoogleBooksService {
         return [];
       }
 
-      return data.items.map(mapGoogleBooksVolume);
+      return data.items
+        .filter((vol) => {
+          const lang = vol.volumeInfo?.language?.toLowerCase();
+          // Descarta volumes explicitamente em espanhol que vazam no filtro langRestrict=pt
+          if (lang && lang.startsWith("es")) {
+            return false;
+          }
+          return Boolean(vol.volumeInfo?.title?.trim());
+        })
+        .map(mapGoogleBooksVolume);
     } catch (err) {
       this.logger.error(`Erro ao buscar livros na Google Books API para termo "${query}":`, err);
       return [];

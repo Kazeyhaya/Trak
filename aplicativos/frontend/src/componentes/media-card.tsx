@@ -4,8 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { BookOpen, Clapperboard, Gamepad2, Tv } from "lucide-react";
 
-import { UiBadge } from "./ui-badge";
-
 type MediaCardProps = {
   type: string;
   mediaType?: string;
@@ -20,7 +18,7 @@ function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
   const norm = `${mediaType ?? ""} ${type}`.toUpperCase();
 
   if (norm.includes("GAME") || norm.includes("JOGO")) {
-    return <Gamepad2 size={14} className="media-card-type-icon" aria-hidden="true" />;
+    return <Gamepad2 size={13} className="media-card-type-icon" aria-hidden="true" />;
   }
   if (
     norm.includes("BOOK") ||
@@ -30,7 +28,7 @@ function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
     norm.includes("HQ") ||
     norm.includes("COMIC")
   ) {
-    return <BookOpen size={14} className="media-card-type-icon" aria-hidden="true" />;
+    return <BookOpen size={13} className="media-card-type-icon" aria-hidden="true" />;
   }
   if (
     norm.includes("SERIES") ||
@@ -39,9 +37,9 @@ function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
     norm.includes("NOVELA") ||
     norm.includes("TV")
   ) {
-    return <Tv size={14} className="media-card-type-icon" aria-hidden="true" />;
+    return <Tv size={13} className="media-card-type-icon" aria-hidden="true" />;
   }
-  return <Clapperboard size={14} className="media-card-type-icon" aria-hidden="true" />;
+  return <Clapperboard size={13} className="media-card-type-icon" aria-hidden="true" />;
 }
 
 function otimizarUrlCapa(url: string | null | undefined): string | null {
@@ -72,23 +70,28 @@ export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, ac
             src={cover!}
             alt=""
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
             quality={75}
             loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : (
-          <span className="media-card-orb" />
+          <div className="media-card-fallback">
+            <MediaIcon type={type} mediaType={mediaType} />
+            <span>{title}</span>
+          </div>
         )}
       </div>
 
       <div className="media-card-copy">
-        <UiBadge tone="secondary" className="media-card-type">
-          <MediaIcon type={type} mediaType={mediaType} />
-          <span>{type}</span>
-        </UiBadge>
-        <h3>{title}</h3>
-        <p>{meta}</p>
+        <div className="media-card-meta-row">
+          <span className="media-card-type-label">
+            <MediaIcon type={type} mediaType={mediaType} />
+            <span>{type}</span>
+          </span>
+          {meta && <span className="media-card-year">{meta}</span>}
+        </div>
+        <h3 title={title}>{title}</h3>
       </div>
 
       {(progress || accent) && (

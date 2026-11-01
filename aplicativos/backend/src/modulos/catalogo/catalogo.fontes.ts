@@ -349,6 +349,17 @@ export function normalizarTitulo(titulo: string) {
     .trim();
 }
 
+// Normaliza titulos de livros removendo marcadores de edicao e sufixos de volume
+// para evitar obras duplicadas lado a lado na vitrine do catalogo.
+export function chaveDeduplicacaoLivro(titulo: string) {
+  const limpo = titulo
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/[,:\s-]*\b(?:vol\.?|volume|edicao|edição)\s*0*\d*\b/gi, " ")
+    .trim();
+  return normalizarTitulo(limpo || titulo);
+}
+
 export function urlProvedorStreaming(providerName: string, titulo: string, fallbackUrl?: string | null): string {
   const n = providerName.toLowerCase();
   const q = encodeURIComponent(titulo.trim());

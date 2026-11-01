@@ -47,11 +47,11 @@
 }
 
 .content-hero h1 {
-  margin: 14px 0 12px;
+  margin: 8px 0 10px;
   font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: clamp(2.6rem, 6vw, 4.8rem);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
+  font-size: clamp(1.75rem, 3.8vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
 }
 
 .content-hero p {
@@ -303,8 +303,8 @@
 .catalog-grid {
   display: grid;
   /* Capas em retrato: varias colunas estreitas em vez de duas largas. */
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 16px;
 }
 
 .loading-stack {
@@ -355,38 +355,63 @@
 .media-card {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   height: 100%;
-  padding: 18px;
-  border-radius: var(--radius-xl);
+  padding: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--surface-border);
-  background: linear-gradient(180deg, rgba(18, 32, 51, 0.84), rgba(8, 16, 28, 0.92));
-  box-shadow: var(--shadow);
+  background: rgba(18, 24, 36, 0.72);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.media-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(24, 32, 48, 0.88);
 }
 
 .media-card-art {
   /* Proporcao de poster/capa (2:3); jogos do RAWG sao recortados ao centro. */
   width: 100%;
   aspect-ratio: 2 / 3;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(124, 225, 199, 0.28), transparent 28%),
-    radial-gradient(circle at 80% 30%, rgba(122, 167, 255, 0.28), transparent 25%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+  border-radius: 10px;
+  background: linear-gradient(145deg, #161e2e 0%, #0f1520 100%);
   position: relative;
+  overflow: hidden;
+}
+
+.media-card-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.media-card-fallback span {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .media-card-orb {
   position: absolute;
   inset: 50% auto auto 50%;
-  width: 92px;
-  height: 92px;
+  width: 72px;
+  height: 72px;
   transform: translate(-50%, -50%);
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .media-card-image {
@@ -398,29 +423,60 @@
 
 .media-card-copy {
   display: grid;
+  gap: 4px;
+  padding: 2px 2px 0;
+}
+
+.media-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.media-card-type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.media-card-year {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
 .media-card h3 {
   margin: 0;
-  font-size: 1.35rem;
-  letter-spacing: -0.03em;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.32;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .media-card p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.65;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .media-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(160, 184, 214, 0.12);
+  gap: 8px;
+  padding: 6px 2px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .media-card-footer strong {

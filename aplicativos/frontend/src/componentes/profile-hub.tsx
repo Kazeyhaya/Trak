@@ -341,8 +341,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                   <section className="content-panel annual-goal-panel">
                     <div className="annual-goal-header">
                       <div>
-                        <span className="eyebrow">Desafio {currentYear}</span>
-                        <h2>Meta anual de cultura</h2>
+                        <h2>Meta de {currentYear}</h2>
                         <p className="panel-note">
                           Você já concluiu <strong>{completedThisYear.length}</strong> de{" "}
                           <strong>{annualGoal}</strong> obras em {currentYear} ({goalPct}%).
@@ -385,19 +384,15 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
               {topFavorites.length > 0 && (
                 <section className="content-panel">
                   <div className="panel-header">
-                    <SectionHeading
-                      eyebrow="Vitrine"
-                      title="Favoritos em destaque"
-                      description="As principais obras marcadas como favoritas."
-                    />
+                    <SectionHeading title="Favoritos em destaque" />
                     <button
                       type="button"
                       className="filter-chip"
                       onClick={() => setActiveTab("favorites")}
                     >
                       {isOwner
-                        ? `Organizar favoritos (${favorites.length}) →`
-                        : `Ver todos (${favorites.length}) →`}
+                        ? `Organizar favoritos (${favorites.length})`
+                        : `Ver todos (${favorites.length})`}
                     </button>
                   </div>
                   <div className="featured-showcase-grid">
@@ -429,16 +424,14 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                 <section className="content-panel">
                   <div className="panel-header">
                     <SectionHeading
-                      eyebrow="Conquistas"
-                      title={`Insígnias culturais (${unlockedBadges.length}/${achievements.length})`}
-                      description="Marcos desbloqueados automaticamente conforme obras são concluídas e avaliadas."
+                      title={`Conquistas (${unlockedBadges.length}/${achievements.length})`}
                     />
                     <button
                       type="button"
                       className="filter-chip"
                       onClick={() => setActiveTab("achievements")}
                     >
-                      Ver todas →
+                      Ver todas
                     </button>
                   </div>
                   <div className="achievements-grid">
@@ -474,18 +467,14 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
               {!isOwner && (
                 <section className="content-panel">
                   <div className="panel-header">
-                    <SectionHeading
-                      eyebrow="Atividade"
-                      title="Atividade recente"
-                      description="O que mudou na estante."
-                    />
+                    <SectionHeading title="Atividade recente" />
                     {data.activity.length > 5 && (
                       <button
                         type="button"
                         className="filter-chip"
                         onClick={() => setActiveTab("activity")}
                       >
-                        Ver tudo ({data.activity.length}) →
+                        Ver tudo ({data.activity.length})
                       </button>
                     )}
                   </div>
@@ -502,9 +491,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
           {activeTab === "library" && (
             <section className="content-panel">
               <SectionHeading
-                eyebrow="Estante"
-                title={isOwner ? "Sua biblioteca" : `Estante de ${profile.displayName || `@${profile.username}`}`}
-                description="Filtre por status ou categoria e clique em qualquer obra para ver os detalhes."
+                title={isOwner ? "Sua estante" : `Estante de ${profile.displayName || `@${profile.username}`}`}
               />
 
               <div className="library-filters">
@@ -588,7 +575,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             type={getMediaTypeLabel(item.type, item.subtype)}
                             mediaType={item.type}
                             title={item.title}
-                            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
+                            meta={item.releaseYear ? String(item.releaseYear) : ""}
                             coverUrl={item.coverUrl}
                             progress={`${progressText}${ratingText}`}
                           />
@@ -614,12 +601,11 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
           {activeTab === "favorites" && (
             <section className="content-panel">
               <SectionHeading
-                eyebrow="Favoritos"
-                title={isOwner ? "Monte e ordene sua pasta de favoritos" : "Favoritos"}
+                title={isOwner ? "Seus favoritos" : "Favoritos"}
                 description={
                   isOwner
-                    ? "Ordene seus favoritos como preferir — os 4 primeiros ficam em destaque na sua vitrine e o #1 ilustra sua capa automática."
-                    : "Obras escolhidas como favoritas por este perfil."
+                    ? "Ordene como preferir — os 4 primeiros ficam em destaque na visão geral."
+                    : undefined
                 }
               />
 
@@ -660,7 +646,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             type={`#${globalIndex + 1} · ${getMediaTypeLabel(item.type, item.subtype)}`}
                             mediaType={item.type}
                             title={item.title}
-                            meta={item.releaseYear ? String(item.releaseYear) : "Sem ano"}
+                            meta={item.releaseYear ? String(item.releaseYear) : ""}
                             coverUrl={item.coverUrl}
                           />
                         </Link>
@@ -742,9 +728,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
           {activeTab === "achievements" && (
             <section className="content-panel">
               <SectionHeading
-                eyebrow="Conquistas"
-                title={`Insígnias culturais (${unlockedBadges.length}/${achievements.length})`}
-                description="Marcos desbloqueados automaticamente conforme obras são concluídas e avaliadas."
+                title={`Conquistas (${unlockedBadges.length}/${achievements.length})`}
               />
               <div className="achievements-grid">
                 {achievements.map((badge) => {
@@ -778,11 +762,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
 
           {!isOwner && activeTab === "activity" && (
             <section className="content-panel">
-              <SectionHeading
-                eyebrow="Atividade"
-                title="Histórico de atividades"
-                description="O que mudou recentemente na estante."
-              />
+              <SectionHeading title="Histórico de atividades" />
               {data.activity.length > 0 ? (
                 <ActivityList items={data.activity} showAuthor={false} />
               ) : (

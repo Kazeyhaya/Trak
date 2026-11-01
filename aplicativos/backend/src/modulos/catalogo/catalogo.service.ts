@@ -9,6 +9,7 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
 import {
+  chaveDeduplicacaoLivro,
   GeneroCatalogo,
   GENEROS_CATALOGO,
   IDIOMAS_DORAMA,
@@ -503,7 +504,10 @@ export class CatalogoService implements OnModuleInit {
     const ordem: ItemCatalogo[] = [];
 
     const registrarOuFundir = (item: ItemCatalogo) => {
-      const chave = normalizarTitulo(item.title);
+      const chave = chaveDeduplicacaoLivro(item.title);
+      if (!chave) {
+        return;
+      }
       const existente = mapaTitulos.get(chave);
       if (!existente) {
         const clone = { ...item };
@@ -512,8 +516,10 @@ export class CatalogoService implements OnModuleInit {
         return;
       }
 
-      // Funde dados: enriquece com sinopse se o existente nao tiver ou for mais completo
+      // Funde dados: prioriza sinopse em PT-BR do Google Books ou a mais completa disponivel
       if (!existente.synopsis && item.synopsis) {
+        existente.synopsis = item.synopsis;
+      } else if (item.source === "gbooks" && item.synopsis && item.synopsis.length >= 40 && existente.source !== "gbooks") {
         existente.synopsis = item.synopsis;
       } else if (existente.synopsis && item.synopsis && existente.synopsis.length < 50 && item.synopsis.length > 50) {
         existente.synopsis = item.synopsis;
@@ -539,6 +545,9 @@ export class CatalogoService implements OnModuleInit {
 
       if (!existente.releaseYear && item.releaseYear) {
         existente.releaseYear = item.releaseYear;
+      }
+      if (!existente.pageCount && item.pageCount) {
+        existente.pageCount = item.pageCount;
       }
     };
 
@@ -626,7 +635,7 @@ export class CatalogoService implements OnModuleInit {
       this.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
         limit: String(LIMITE_POR_FONTE)
       }),
-      this.googleBooksService.searchBooks("subject:fiction", LIMITE_POR_FONTE)
+      this.googleBooksService.searchBooks("ficcao fantasia romance bestseller", LIMITE_POR_FONTE)
     ]);
 
     const hardcoverItens = hardcoverPopular.status === "fulfilled" ? hardcoverPopular.value : [];
