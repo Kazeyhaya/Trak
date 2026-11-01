@@ -46,10 +46,15 @@ export class TrackingService {
     const registros = await this.listarDoUsuario(userId);
     const itens = await this.catalogoService.buscarSalvos(registros.map((t) => t.mediaItemId));
 
-    return registros.map((tracking) => ({
-      ...tracking,
-      item: itens.get(tracking.mediaItemId) ?? null
-    }));
+    return registros.map((tracking) => {
+      const itemBase = itens.get(tracking.mediaItemId) ?? null;
+      const item =
+        itemBase && tracking.customCoverUrl ? { ...itemBase, coverUrl: tracking.customCoverUrl } : itemBase;
+      return {
+        ...tracking,
+        item
+      };
+    });
   }
 
   async listarDoUsuario(userId: string) {

@@ -61,6 +61,17 @@ export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, ac
     !cover.includes("/id/0-")
   );
 
+  const isKnownDomain = Boolean(
+    cover &&
+    (cover.includes("tmdb.org") ||
+      cover.includes("rawg.io") ||
+      cover.includes("openlibrary.org") ||
+      cover.includes("steamgriddb.com") ||
+      cover.includes("books.google.com") ||
+      cover.includes("hardcover.app") ||
+      cover.includes("images.igdb.com"))
+  );
+
   return (
     <article className="media-card">
       <div className="media-card-art" aria-hidden="true">
@@ -73,6 +84,7 @@ export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, ac
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
             quality={75}
             loading="lazy"
+            unoptimized={!isKnownDomain}
             onError={() => setImgError(true)}
           />
         ) : (

@@ -210,4 +210,47 @@ export class IgdbService {
 
     return resultado?.[0] ?? null;
   }
+
+  /**
+   * Busca opções de capas e artworks de alta qualidade para um jogo na IGDB.
+   */
+  async buscarCapasAlternativas(nomeJogo: string): Promise<string[]> {
+    if (!nomeJogo || !nomeJogo.trim()) {
+      return [];
+    }
+
+    const nomeLimpo = nomeJogo.replace(/[^\w\s-]/gi, "").trim();
+    if (!nomeLimpo) {
+      return [];
+    }
+
+    const query = `search "${nomeLimpo}"; fields name,cover.image_id,artworks.image_id; limit 3;`;
+    const resultado = await this.consulta<
+      Array<{
+        id: number;
+        cover?: { image_id: string };
+        artworks?: Array<{ image_id: string }>;
+      }>
+    >("games", query);
+
+    if (!resultado || resultado.length === 0) {
+      return [];
+    }
+
+    const capas: string[] = [];
+    for (const item of resultado) {
+      if (item.cover?.image_id) {
+        capas.push(formatarUrlCapaIgdb(item.cover.image_id, "cover_big_2x"));
+      }
+      if (item.artworks?.length) {
+        for (const art of item.artworks) {
+          if (art.image_id) {
+            capas.push(formatarUrlCapaIgdb(art.image_id, "cover_big_2x"));
+          }
+        }
+      }
+    }
+
+    return [...new Set(capas)];
+  }
 }

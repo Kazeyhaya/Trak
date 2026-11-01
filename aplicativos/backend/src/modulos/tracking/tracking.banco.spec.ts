@@ -11,6 +11,7 @@ const linha: LinhaUserMedia = {
   notes: "bom",
   pagesRead: 120,
   totalPages: 300,
+  customCoverUrl: "https://example.com/custom-cover.jpg",
   timesConsumed: 0,
   startedAt: "2026-01-01T00:00:00.000Z",
   finishedAt: null,
@@ -42,6 +43,7 @@ describe("deBanco", () => {
       notes: "bom",
       pagesRead: 120,
       totalPages: 300,
+      customCoverUrl: "https://example.com/custom-cover.jpg",
       startedAt: "2026-01-01T00:00:00.000Z",
       finishedAt: null,
       updatedAt: "2026-01-02T00:00:00.000Z"
@@ -64,6 +66,13 @@ describe("paraBanco", () => {
   it("grava paginas lidas e total da edicao so na linha do usuario", () => {
     expect(paraBanco({ pagesRead: 150, totalPages: 412 }, linha, AGORA)).toEqual({ pagesRead: 150, totalPages: 412 });
     expect(paraBanco({ pagesRead: 0 }, linha, AGORA)).toEqual({ pagesRead: 0 });
+  });
+
+  it("grava capa personalizada ou null para restaurar original", () => {
+    expect(paraBanco({ customCoverUrl: "https://example.com/poster.jpg" }, linha, AGORA)).toEqual({
+      customCoverUrl: "https://example.com/poster.jpg"
+    });
+    expect(paraBanco({ customCoverUrl: null }, linha, AGORA)).toEqual({ customCoverUrl: null });
   });
   it("envia so os campos informados, com os nomes do banco", () => {
     expect(paraBanco({ rating: 5 }, linha, AGORA)).toEqual({ personalRating: 5 });

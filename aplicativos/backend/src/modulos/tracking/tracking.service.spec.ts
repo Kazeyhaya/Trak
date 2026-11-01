@@ -15,6 +15,7 @@ const existente: LinhaUserMedia = {
   notes: "anotacao",
   pagesRead: null,
   totalPages: null,
+  customCoverUrl: null,
   timesConsumed: 0,
   startedAt: "2026-01-01",
   finishedAt: null,
@@ -87,6 +88,24 @@ describe("TrackingService.salvar", () => {
     expect(Object.keys(update.payload as object).sort()).toEqual(["pagesRead", "totalPages", "updatedAt"]);
     expect(chamadas.some((c) => c.table === "MediaItem")).toBe(false);
     expect(resultado).toMatchObject({ pagesRead: 150, totalPages: 412 });
+  });
+
+  it("salvar capa personalizada grava customCoverUrl na linha do usuario e nao altera MediaItem", async () => {
+    const { service, chamadas } = montar((op) =>
+      op.action === "update"
+        ? { data: { ...existente, customCoverUrl: "https://example.com/alt.jpg" } }
+        : { data: existente }
+    );
+
+    const resultado = await service.salvar("u1", "tmdb_movie_1", {
+      customCoverUrl: "https://example.com/alt.jpg"
+    });
+
+    const update = chamadas.find((c) => c.action === "update")!;
+    expect(update.table).toBe("UserMedia");
+    expect(update.payload).toMatchObject({ customCoverUrl: "https://example.com/alt.jpg" });
+    expect(chamadas.some((c) => c.table === "MediaItem")).toBe(false);
+    expect(resultado.customCoverUrl).toBe("https://example.com/alt.jpg");
   });
 
   it("concluir leva a 100%, registra a data de fim e gera atividade", async () => {

@@ -42,4 +42,11 @@ export class SalvarTrackingDto {
   @Min(0)
   @Max(50000)
   totalPages?: number;
+
+  // Capa personalizada opcional do usuario para a obra (estilo Letterboxd Patron)
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
+  @IsString()
+  @MaxLength(2000)
+  customCoverUrl?: string | null;
 }

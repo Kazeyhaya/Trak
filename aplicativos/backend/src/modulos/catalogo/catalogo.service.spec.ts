@@ -12,7 +12,9 @@ type Rotas = Record<string, unknown>;
 function mockFetch(rotas: Rotas) {
   return jest.spyOn(global, "fetch").mockImplementation(async (entrada) => {
     const url = String(entrada);
-    const chave = Object.keys(rotas).find((trecho) => url.includes(trecho));
+    const chave = Object.keys(rotas)
+      .sort((a, b) => b.length - a.length)
+      .find((trecho) => url.includes(trecho));
     if (!chave) {
       return new Response("nao encontrado", { status: 404 });
     }
@@ -581,6 +583,60 @@ describe("CatalogoService.extras", () => {
 
       expect(jogo?.coverUrl).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co670h.jpg");
       expect(mockIgdb.buscarCapaPorNome).toHaveBeenCalledWith("Grand Theft Auto V");
+    });
+  });
+
+  describe("CatalogoService.capas (opções de capas alternativas)", () => {
+    it("busca opções de posters alternativos para filmes/séries no TMDB", async () => {
+      process.env.TMDB_API_KEY = "mock_key";
+      mockFetch({
+        "/movie/1283515": {
+          id: 1283515,
+          title: "Verity",
+          poster_path: "/verity_default.jpg"
+        },
+        "/movie/1283515/images": {
+          posters: [
+            { file_path: "/poster1.jpg" },
+            { file_path: "/poster2.jpg" }
+          ]
+        }
+      });
+
+      const servico = criarServico();
+      const resultado = await servico.capas("tmdb_movie_1283515");
+
+      expect(resultado.capas).toContain("https://image.tmdb.org/t/p/w500/verity_default.jpg");
+      expect(resultado.capas).toContain("https://image.tmdb.org/t/p/w780/poster1.jpg");
+      expect(resultado.capas).toContain("https://image.tmdb.org/t/p/w780/poster2.jpg");
+    });
+
+    it("busca opções de capas alternativas na IGDB para jogos", async () => {
+      process.env.RAWG_API_KEY = "mock_rawg_key";
+      const mockIgdb = new IgdbService();
+      jest.spyOn(mockIgdb, "isConfigurado").mockReturnValue(true);
+      jest.spyOn(mockIgdb, "buscarCapasAlternativas").mockResolvedValueOnce([
+        "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt1.jpg",
+        "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt2.jpg"
+      ]);
+
+      mockFetch({
+        "/games/3498": {
+          id: 3498,
+          name: "Grand Theft Auto V",
+          background_image: "https://media.rawg.io/media/games/gta5.jpg"
+        },
+        "/games/3498/screenshots": {
+          results: [{ image: "https://media.rawg.io/screenshot1.jpg" }]
+        }
+      });
+
+      const servico = criarServico(new GoogleBooksService(), new HardcoverService(), mockIgdb);
+      const resultado = await servico.capas("rawg_game_3498");
+
+      expect(resultado.capas).toContain("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt1.jpg");
+      expect(resultado.capas).toContain("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cover_alt2.jpg");
+      expect(resultado.capas).toContain("https://media.rawg.io/screenshot1.jpg");
     });
   });
 });

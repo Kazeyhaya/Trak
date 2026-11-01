@@ -6,7 +6,7 @@ import { StatusTracking } from "./dto/salvar-tracking.dto";
 export const TABELA_TRACKING = "UserMedia";
 
 export const CAMPOS_TRACKING =
-  "id,mediaItemId,status,progressCurrent,personalRating,notes,pagesRead,totalPages,timesConsumed,startedAt,finishedAt,updatedAt";
+  "id,mediaItemId,status,progressCurrent,personalRating,notes,pagesRead,totalPages,customCoverUrl,timesConsumed,startedAt,finishedAt,updatedAt";
 
 export type LinhaUserMedia = {
   id: string;
@@ -17,6 +17,7 @@ export type LinhaUserMedia = {
   notes: string | null;
   pagesRead: number | null;
   totalPages: number | null;
+  customCoverUrl: string | null;
   timesConsumed: number | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -34,6 +35,7 @@ export type RegistroTracking = {
   // Livros: paginas da edicao que este usuario le (nao altera a obra para os demais).
   pagesRead: number | null;
   totalPages: number | null;
+  customCoverUrl: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   updatedAt: string;
@@ -46,6 +48,7 @@ export type AlteracaoTracking = {
   notes?: string | null;
   pagesRead?: number;
   totalPages?: number;
+  customCoverUrl?: string | null;
 };
 
 export function statusParaBanco(status: StatusTracking) {
@@ -66,6 +69,7 @@ export function deBanco(linha: LinhaUserMedia): RegistroTracking {
     notes: linha.notes,
     pagesRead: linha.pagesRead ?? null,
     totalPages: linha.totalPages ?? null,
+    customCoverUrl: linha.customCoverUrl ?? null,
     startedAt: linha.startedAt,
     finishedAt: linha.finishedAt,
     updatedAt: linha.updatedAt
@@ -98,6 +102,9 @@ export function paraBanco(
   }
   if (alteracao.totalPages !== undefined) {
     linha.totalPages = alteracao.totalPages;
+  }
+  if (alteracao.customCoverUrl !== undefined) {
+    linha.customCoverUrl = alteracao.customCoverUrl;
   }
 
   const mudouStatus = alteracao.status !== undefined && statusParaBanco(alteracao.status) !== existente?.status;

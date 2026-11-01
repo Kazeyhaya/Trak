@@ -1265,6 +1265,85 @@ export class CatalogoService implements OnModuleInit {
     return [];
   }
 
+  /**
+   * Retorna opções de capas/posters alternativos para uma obra
+   * (TMDB para filmes/séries, IGDB/RAWG para jogos, Google Books/Open Library para livros).
+   */
+  async capas(id: string): Promise<{ capas: string[] }> {
+    const parsed = parsearId(id);
+    const item = await this.buscarPorId(id);
+    const capasSet = new Set<string>();
+
+    if (item?.coverUrl) {
+      capasSet.add(item.coverUrl);
+    }
+
+    if (parsed?.source === "tmdb") {
+      const mediaType = parsed.type === "MOVIE" ? "movie" : "tv";
+      const data = await this.tmdb<{
+        posters?: Array<{ file_path: string }>;
+        backdrops?: Array<{ file_path: string }>;
+      }>(`/${mediaType}/${parsed.externalId}/images`, { include_image_language: "pt,en,null" });
+
+      if (data?.posters?.length) {
+        for (const p of data.posters.slice(0, 30)) {
+          if (p.file_path) {
+            capasSet.add(`https://image.tmdb.org/t/p/w780${p.file_path}`);
+          }
+        }
+      }
+    } else if (parsed?.source === "rawg") {
+      if (item?.title && this.igdbService.isConfigurado()) {
+        const igdbCapas = await this.igdbService.buscarCapasAlternativas(item.title);
+        for (const c of igdbCapas) {
+          capasSet.add(c);
+        }
+      }
+      const rawgScreens = await this.rawg<{ results?: Array<{ image: string }> }>(
+        `/games/${parsed.externalId}/screenshots`
+      );
+      if (rawgScreens?.results?.length) {
+        for (const s of rawgScreens.results.slice(0, 8)) {
+          if (s.image) {
+            capasSet.add(s.image);
+          }
+        }
+      }
+    } else if (parsed?.source === "openlibrary") {
+      const editions = await this.openLibrary<{ entries?: Array<{ covers?: number[] }> }>(
+        `/works/${parsed.externalId}/editions.json`,
+        { limit: "15" }
+      );
+      if (editions?.entries?.length) {
+        for (const ed of editions.entries) {
+          if (ed.covers?.length) {
+            for (const c of ed.covers) {
+              if (c > 0) {
+                capasSet.add(`https://covers.openlibrary.org/b/id/${c}-L.jpg`);
+              }
+            }
+          }
+        }
+      }
+    } else if (parsed?.source === "gbooks" && item?.title) {
+      const outros = await this.googleBooksService.searchBooks(item.title, 8);
+      for (const b of outros) {
+        if (b.coverUrl) {
+          capasSet.add(b.coverUrl);
+        }
+      }
+    } else if (parsed?.source === "hardcover" && item?.title) {
+      const outros = await this.hardcoverService.searchBooks(item.title, 8);
+      for (const b of outros) {
+        if (b.coverUrl) {
+          capasSet.add(b.coverUrl);
+        }
+      }
+    }
+
+    return { capas: Array.from(capasSet) };
+  }
+
   async novidades(id: string, agora = new Date()): Promise<Novidade | null> {
     const parsed = parsearId(id);
     const hoje = agora.getTime();

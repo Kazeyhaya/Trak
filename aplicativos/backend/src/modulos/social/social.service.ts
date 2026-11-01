@@ -459,7 +459,7 @@ export class SocialService {
     const [tracking, favoritos, atividades] = await Promise.all([
       this.db
         .from(TABELA_TRACKING)
-        .select("mediaItemId,status,personalRating,progressCurrent,updatedAt")
+        .select("mediaItemId,status,personalRating,progressCurrent,customCoverUrl,updatedAt")
         .eq("userId", perfil.userId)
         .order("updatedAt", { ascending: false })
         .limit(200),
@@ -483,6 +483,7 @@ export class SocialService {
       status: string;
       personalRating: number | null;
       progressCurrent?: number | null;
+      customCoverUrl?: string | null;
       updatedAt?: string | null;
     }>;
     const notas = registros.flatMap((r) => (r.personalRating ? [r.personalRating] : []));
@@ -520,23 +521,31 @@ export class SocialService {
     const inProgress = registros
       .filter((r) => statusDoBanco(r.status) === "WATCHING" && r.mediaItemId && itensMapa.has(r.mediaItemId))
       .slice(0, 4)
-      .map((r) => ({
-        item: itensMapa.get(r.mediaItemId!)!,
-        status: statusDoBanco(r.status),
-        progress: r.progressCurrent ?? 0,
-        rating: r.personalRating ?? null
-      }));
+      .map((r) => {
+        const itemBase = itensMapa.get(r.mediaItemId!)!;
+        const item = r.customCoverUrl ? { ...itemBase, coverUrl: r.customCoverUrl } : itemBase;
+        return {
+          item,
+          status: statusDoBanco(r.status),
+          progress: r.progressCurrent ?? 0,
+          rating: r.personalRating ?? null
+        };
+      });
 
     const library = registros
       .filter((r) => r.mediaItemId && itensMapa.has(r.mediaItemId))
-      .map((r) => ({
-        mediaItemId: r.mediaItemId!,
-        status: statusDoBanco(r.status),
-        rating: r.personalRating ?? null,
-        progress: r.progressCurrent ?? 0,
-        updatedAt: r.updatedAt ?? null,
-        item: itensMapa.get(r.mediaItemId!)!
-      }));
+      .map((r) => {
+        const itemBase = itensMapa.get(r.mediaItemId!)!;
+        const item = r.customCoverUrl ? { ...itemBase, coverUrl: r.customCoverUrl } : itemBase;
+        return {
+          mediaItemId: r.mediaItemId!,
+          status: statusDoBanco(r.status),
+          rating: r.personalRating ?? null,
+          progress: r.progressCurrent ?? 0,
+          updatedAt: r.updatedAt ?? null,
+          item
+        };
+      });
 
     return {
       ...base,

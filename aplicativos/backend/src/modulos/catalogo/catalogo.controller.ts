@@ -39,4 +39,9 @@ export class CatalogoController {
   relacionados(@Param("id") id: string) {
     return this.catalogoService.relacionados(id);
   }
+
+  @Get(":id/capas")
+  capas(@Param("id") id: string) {
+    return this.catalogoService.capas(id);
+  }
 }

@@ -20,17 +20,28 @@
   width: fit-content;
   justify-self: start;
   user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.brand-mark:focus,
+.brand-mark:focus-visible {
+  outline: none;
 }
 
 .brand-copy {
   display: grid;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .brand-copy strong {
   font-size: 1.35rem;
   letter-spacing: -0.03em;
   line-height: 1.1;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .site-nav {

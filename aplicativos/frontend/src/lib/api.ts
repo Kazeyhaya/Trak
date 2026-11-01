@@ -76,6 +76,7 @@ export type TrackingEntry = {
   // Livros: paginas da edicao lida por este usuario (salvas no tracking dele, nao na obra).
   pagesRead?: number | null;
   totalPages?: number | null;
+  customCoverUrl?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
   updatedAt: string;
@@ -85,6 +86,7 @@ export type TrackingEntry = {
 export type TrackingPayload = Partial<Pick<TrackingEntry, "status" | "progress" | "rating" | "notes">> & {
   pagesRead?: number;
   totalPages?: number;
+  customCoverUrl?: string | null;
 };
 
 // Limites compartilhados com a validacao da API (SalvarTrackingDto).
@@ -144,6 +146,9 @@ export type CatalogExtras = {
 
 export const getCatalogExtras = (mediaItemId: string) =>
   request<CatalogExtras>(`/catalogo/${encodeURIComponent(mediaItemId)}/extras`);
+
+export const getCatalogCovers = (mediaItemId: string) =>
+  request<{ capas: string[] }>(`/catalogo/${encodeURIComponent(mediaItemId)}/capas`);
 
 // Episodios
 
