@@ -1,13 +1,15 @@
-﻿.item-hero {
+.item-hero {
   display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 36px;
   align-items: start;
   margin-bottom: 24px;
 }
 
 .item-poster {
   aspect-ratio: 2 / 3;
+  width: 100%;
+  max-width: 300px;
   position: sticky;
   top: 24px;
   overflow: hidden;
@@ -15,6 +17,11 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
+}
+
+.item-poster--landscape {
+  aspect-ratio: 16 / 9;
+  max-width: 460px;
 }
 
 .item-poster span {
