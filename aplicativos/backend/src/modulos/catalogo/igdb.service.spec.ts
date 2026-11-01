@@ -1,0 +1,134 @@
+import { formatarUrlCapaIgdb, IgdbService } from "./igdb.service";
+
+describe("IgdbService", () => {
+  let service: IgdbService;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = {
+      ...originalEnv,
+      IGDB_CLIENT_ID: "mock_client_id",
+      IGDB_CLIENT_SECRET: "mock_client_secret"
+    };
+    service = new IgdbService();
+    global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+  });
+
+  describe("formatarUrlCapaIgdb", () => {
+    it("deve montar URL no formato cover_big_2x por padrão", () => {
+      const url = formatarUrlCapaIgdb("co1r7f");
+      expect(url).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1r7f.jpg");
+    });
+
+    it("deve aceitar tamanhos customizados como 720p ou 1080p", () => {
+      const url720 = formatarUrlCapaIgdb("co1r7f", "720p");
+      expect(url720).toBe("https://images.igdb.com/igdb/image/upload/t_720p/co1r7f.jpg");
+    });
+
+    it("deve retornar string vazia se imageId for vazio", () => {
+      expect(formatarUrlCapaIgdb("")).toBe("");
+    });
+  });
+
+  describe("obterToken", () => {
+    it("deve autenticar no Twitch OAuth2 e retornar access_token", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "mock_token_123",
+          expires_in: 3600,
+          token_type: "bearer"
+        })
+      });
+
+      const token = await service.obterToken();
+      expect(token).toBe("mock_token_123");
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("https://id.twitch.tv/oauth2/token"),
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    it("deve reutilizar o token em cache se ainda estiver válido", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "cached_token_456",
+          expires_in: 3600,
+          token_type: "bearer"
+        })
+      });
+
+      const token1 = await service.obterToken();
+      const token2 = await service.obterToken();
+
+      expect(token1).toBe("cached_token_456");
+      expect(token2).toBe("cached_token_456");
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("deve retornar null se as credenciais não estiverem configuradas", async () => {
+      delete process.env.IGDB_CLIENT_ID;
+      delete process.env.IGDB_CLIENT_SECRET;
+      const novoServico = new IgdbService();
+
+      const token = await novoServico.obterToken();
+      expect(token).toBeNull();
+    });
+  });
+
+  describe("buscarCapaPorNome", () => {
+    it("deve retornar a URL de alta resolução da capa encontrada na IGDB", async () => {
+      // 1. Mock do token
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "token_abc",
+          expires_in: 3600
+        })
+      });
+
+      // 2. Mock da busca de jogo na IGDB
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 119171,
+            name: "Baldur's Gate 3",
+            cover: {
+              id: 34567,
+              image_id: "co670h"
+            }
+          }
+        ]
+      });
+
+      const capaUrl = await service.buscarCapaPorNome("Baldur's Gate 3");
+      expect(capaUrl).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co670h.jpg");
+    });
+
+    it("deve retornar null se o jogo não for encontrado ou não tiver capa", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "token_abc",
+          expires_in: 3600
+        })
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+
+      const capaUrl = await service.buscarCapaPorNome("Jogo Desconhecido 12345");
+      expect(capaUrl).toBeNull();
+    });
+  });
+});

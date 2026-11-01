@@ -8,6 +8,7 @@ import {
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
+import { IgdbService } from "./igdb.service";
 import {
   chaveDeduplicacaoLivro,
   detectarSubtipoTmdb,
@@ -79,7 +80,8 @@ export class CatalogoService implements OnModuleInit {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly googleBooksService: GoogleBooksService,
-    private readonly hardcoverService: HardcoverService
+    private readonly hardcoverService: HardcoverService,
+    private readonly igdbService: IgdbService
   ) {}
 
   private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
@@ -124,6 +126,7 @@ export class CatalogoService implements OnModuleInit {
     for (const [variavel, fonte] of [
       ["TMDB_API_KEY", "filmes e series (TMDB)"],
       ["RAWG_API_KEY", "jogos (RAWG)"],
+      ["IGDB_CLIENT_ID", "capas de alta qualidade para jogos (IGDB)"],
       ["HARDCOVER_API_KEY", "dados enriquecidos de livros (Hardcover)"]
     ] as const) {
       if (!process.env[variavel]?.trim()) {
@@ -167,6 +170,23 @@ export class CatalogoService implements OnModuleInit {
     }
     const query = new URLSearchParams({ apikey: apiKey, ...params });
     return this.comCache(`omdb:${new URLSearchParams(params)}`, () => this.fetchJson<T>(`${OMDB}/?${query}`));
+  }
+
+  private async capaJogoVertical(nomeJogo: string): Promise<string | null> {
+    if (!nomeJogo?.trim()) {
+      return null;
+    }
+
+    // 1. Prioriza a IGDB para capas oficiais nítidas em alta resolução
+    if (this.igdbService.isConfigurado()) {
+      const capaIgdb = await this.igdbService.buscarCapaPorNome(nomeJogo);
+      if (capaIgdb) {
+        return capaIgdb;
+      }
+    }
+
+    // 2. Fallback para SteamGridDB caso configurado
+    return this.capaSteamGridDb(nomeJogo);
   }
 
   private async capaSteamGridDb(nomeJogo: string): Promise<string | null> {
@@ -482,15 +502,15 @@ export class CatalogoService implements OnModuleInit {
 
     const data = await this.rawg<{ results: RawgItem[] }>("/games", params);
 
-    // A listagem do RAWG nao traz descricao. Se STEAMGRIDDB_API_KEY estiver ativa, busca capas verticais 2:3.
+    // A listagem do RAWG nao traz descricao. Se IGDB ou SteamGridDB estiverem ativas, busca capas verticais 2:3 nítidas.
     const brutos = (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
-    if (!process.env.STEAMGRIDDB_API_KEY?.trim()) {
+    if (!this.igdbService.isConfigurado() && !process.env.STEAMGRIDDB_API_KEY?.trim()) {
       return brutos;
     }
     return Promise.all(
       brutos.map(async (jogo) => ({
         ...jogo,
-        coverUrl: (await this.capaSteamGridDb(jogo.title)) ?? jogo.coverUrl
+        coverUrl: (await this.capaJogoVertical(jogo.title)) ?? jogo.coverUrl
       }))
     );
   }
@@ -1020,7 +1040,7 @@ export class CatalogoService implements OnModuleInit {
       const mapeado = mapearRawg(item);
       const [synopsis, capaVertical] = await Promise.all([
         idioma === "pt-BR" ? this.traduzirParaPtBr(mapeado.synopsis) : mapeado.synopsis,
-        this.capaSteamGridDb(mapeado.title)
+        this.capaJogoVertical(mapeado.title)
       ]);
       return {
         ...mapeado,

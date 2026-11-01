@@ -4,6 +4,7 @@ import { criarSupabaseServiceMock } from "../../testes/supabase.mock";
 import { CatalogoService } from "./catalogo.service";
 import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
+import { IgdbService } from "./igdb.service";
 
 type Rotas = Record<string, unknown>;
 
@@ -21,13 +22,15 @@ function mockFetch(rotas: Rotas) {
 
 function criarServico(
   googleBooksService = new GoogleBooksService(),
-  hardcoverService = new HardcoverService()
+  hardcoverService = new HardcoverService(),
+  igdbService = new IgdbService()
 ) {
   const supabase = criarSupabaseServiceMock();
   return new CatalogoService(
     supabase.service as unknown as SupabaseService,
     googleBooksService,
-    hardcoverService
+    hardcoverService,
+    igdbService
   );
 }
 
@@ -390,7 +393,8 @@ describe("CatalogoService.extras", () => {
     const servico = new CatalogoService(
       supabase.service as unknown as SupabaseService,
       new GoogleBooksService(),
-      new HardcoverService()
+      new HardcoverService(),
+      new IgdbService()
     );
 
     const extras = await servico.extras("tmdb_movie_550");
@@ -492,7 +496,8 @@ describe("CatalogoService.extras", () => {
       const servico = new CatalogoService(
         supabase.service as unknown as SupabaseService,
         new GoogleBooksService(),
-        new HardcoverService()
+        new HardcoverService(),
+        new IgdbService()
       );
 
       await servico.garantirNoBanco("tmdb_series_30984");
@@ -541,7 +546,8 @@ describe("CatalogoService.extras", () => {
       const servico = new CatalogoService(
         supabase.service as unknown as SupabaseService,
         new GoogleBooksService(),
-        new HardcoverService()
+        new HardcoverService(),
+        new IgdbService()
       );
 
       const mapa = await servico.buscarSalvos(["tmdb_series_30981"]);
@@ -549,6 +555,32 @@ describe("CatalogoService.extras", () => {
 
       const update = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
       expect(update?.payload).toEqual({ subtype: "ANIME" });
+    });
+  });
+
+  describe("IGDB integration para capas verticais de jogos", () => {
+    it("prioriza a capa em alta resolução da IGDB ao buscar jogo por id", async () => {
+      process.env.RAWG_API_KEY = "mock_rawg_key";
+      const mockIgdb = new IgdbService();
+      jest.spyOn(mockIgdb, "isConfigurado").mockReturnValue(true);
+      jest.spyOn(mockIgdb, "buscarCapaPorNome").mockResolvedValueOnce(
+        "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co670h.jpg"
+      );
+
+      mockFetch({
+        "/games/3498": {
+          id: 3498,
+          name: "Grand Theft Auto V",
+          background_image: "https://media.rawg.io/media/games/456/gta5.jpg",
+          description_raw: "Jogo de mundo aberto."
+        }
+      });
+
+      const servico = criarServico(new GoogleBooksService(), new HardcoverService(), mockIgdb);
+      const jogo = await servico.buscarPorId("rawg_game_3498");
+
+      expect(jogo?.coverUrl).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co670h.jpg");
+      expect(mockIgdb.buscarCapaPorNome).toHaveBeenCalledWith("Grand Theft Auto V");
     });
   });
 });
