@@ -1,4 +1,4 @@
-.panel-header {
+﻿.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,7 +44,7 @@
 }
 
 .field-stack input:focus {
-  outline: 2px solid rgba(124, 225, 199, 0.32);
+  outline: 2px solid rgba(110, 231, 200, 0.32);
   outline-offset: 1px;
 }
 

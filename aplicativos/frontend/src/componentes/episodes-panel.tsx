@@ -195,9 +195,7 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
   return (
     <section className="content-panel">
       <SectionHeading
-        eyebrow="Episódios"
         title="Progresso por episódio"
-        description="Marque o que você já assistiu. O progresso e o status são atualizados automaticamente."
       />
 
       {error && (

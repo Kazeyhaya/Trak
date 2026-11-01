@@ -27,7 +27,7 @@ export function RelatedItems({ mediaItemId }: { mediaItemId: string }) {
 
   return (
     <section className="content-panel">
-      <SectionHeading eyebrow="Descubra" title="Parecidos com este" description="Sugestões com base neste item." />
+      <SectionHeading title="Obras parecidas" />
       <MediaGrid items={items} />
     </section>
   );

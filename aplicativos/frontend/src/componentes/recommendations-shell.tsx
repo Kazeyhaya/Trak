@@ -45,7 +45,6 @@ export function RecommendationsShell() {
 
       {data && data.items.length === 0 && (
         <UiCard className="empty-state">
-          <UiBadge tone="secondary">Ainda sem base</UiBadge>
           <h3>Avalie alguns itens para receber recomendações.</h3>
           <p>Dê 4 ou 5 estrelas, favorite ou conclua o que você curtiu. Também dá para importar seu histórico.</p>
           <div className="item-next-actions">

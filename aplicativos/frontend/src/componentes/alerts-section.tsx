@@ -37,7 +37,6 @@ export function AlertsSection() {
   return (
     <section className="content-panel">
       <SectionHeading
-        eyebrow="Alertas"
         title="Novidades do que você acompanha"
         description="Episódios novos e estreias dos próximos dias."
       />

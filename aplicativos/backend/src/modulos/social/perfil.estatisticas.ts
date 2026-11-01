@@ -96,73 +96,73 @@ export function calcularConquistas(
   const definicoes: Array<Omit<ConquistaCultural, "unlocked">> = [
     {
       id: "primeira_obra",
-      title: "Primeira Obra",
+      title: "Primeira Conclusão",
       description: "Conclua sua primeira obra no Trak",
-      icon: "✨",
+      icon: "check-circle",
       current: Math.min(totalConcluidos, 1),
       target: 1
     },
     {
       id: "cinefilo",
-      title: "Cinéfilo",
+      title: "10 Filmes",
       description: "Assista a 10 filmes completos",
-      icon: "🎬",
+      icon: "film",
       current: Math.min(resumo.moviesWatched, 10),
       target: 10
     },
     {
       id: "maratonista",
-      title: "Maratonista",
+      title: "5 Séries",
       description: "Conclua 5 séries ou animes",
-      icon: "📺",
+      icon: "tv",
       current: Math.min(resumo.seriesCompleted, 5),
       target: 5
     },
     {
       id: "gamer_dedicado",
-      title: "Gamer Dedicado",
+      title: "5 Jogos",
       description: "Zere 5 jogos no seu catálogo",
-      icon: "🎮",
+      icon: "gamepad-2",
       current: Math.min(resumo.gamesCompleted, 5),
       target: 5
     },
     {
       id: "leitor_voraz",
-      title: "Leitor Voraz",
+      title: "5 Livros",
       description: "Conclua a leitura de 5 livros",
-      icon: "📚",
+      icon: "book-open",
       current: Math.min(resumo.booksRead, 5),
       target: 5
     },
     {
       id: "explorador_cultural",
-      title: "Explorador Cultural",
+      title: "Multimídia",
       description: "Conclua ao menos 1 filme, 1 série, 1 jogo e 1 livro",
-      icon: "🧭",
+      icon: "layers",
       current: tiposConcluidos,
       target: 4
     },
     {
       id: "cem_horas",
-      title: "100 Horas de Cultura",
-      description: "Acumule 100 horas consumidas em obras",
-      icon: "⏳",
+      title: "100 Horas",
+      description: "Acumule 100 horas estimadas em obras concluídas",
+      icon: "clock",
       current: Math.min(resumo.estimatedHours, 100),
       target: 100
     },
     {
       id: "curador",
-      title: "Curador",
-      description: "Monte sua vitrine com pelo menos 4 favoritos",
-      icon: "⭐",
+      title: "4 Favoritos",
+      description: "Selecione 4 obras para destaque no seu perfil",
+      icon: "star",
       current: Math.min(favoritesCount, 4),
       target: 4
     },
     {
       id: "critico",
-      title: "Crítico Cultural",
+      title: "10 Avaliações",
       description: "Avalie 10 obras com nota",
-      icon: "🖋️",
+      icon: "edit-3",
       current: Math.min(ratingsCount, 10),
       target: 10
     }

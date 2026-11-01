@@ -40,7 +40,7 @@ export function ProfileForm() {
       <section className="content-hero">
         <div>
           <h1>{profile ? "Editar perfil" : "Crie seu perfil"}</h1>
-          <p>Personalize sua identidade visual, capa de fundo, bio e visibilidade pública no Trak.</p>
+          <p>Altere foto, capa, bio e preferências da sua conta.</p>
         </div>
         <div className="item-next-actions">
           {isEndOfYear && (

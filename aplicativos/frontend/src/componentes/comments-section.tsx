@@ -103,9 +103,7 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
   return (
     <section className="content-panel">
       <SectionHeading
-        eyebrow="Comunidade"
         title="Comentários"
-        description="O que as pessoas estão achando deste item."
       />
 
       {user ? (

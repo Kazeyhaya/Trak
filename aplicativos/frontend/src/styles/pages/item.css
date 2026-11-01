@@ -1,4 +1,4 @@
-.item-hero {
+﻿.item-hero {
   display: grid;
   grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
   gap: 32px;
@@ -161,8 +161,8 @@
   color: var(--primary);
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(124, 225, 199, 0.1);
-  border: 1px solid rgba(124, 225, 199, 0.22);
+  background: rgba(110, 231, 200, 0.1);
+  border: 1px solid rgba(110, 231, 200, 0.22);
 }
 
 .trak-progress-bar-wrap {
@@ -177,8 +177,7 @@
 .trak-progress-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), #7aa7ff);
-  box-shadow: 0 0 16px rgba(124, 225, 199, 0.45);
+  background: var(--primary);
   transition: width 180ms ease;
 }
 
@@ -318,7 +317,7 @@
 }
 
 .comment-form textarea:focus {
-  outline: 2px solid rgba(124, 225, 199, 0.32);
+  outline: 2px solid rgba(110, 231, 200, 0.32);
   outline-offset: 1px;
 }
 

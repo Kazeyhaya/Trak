@@ -105,7 +105,7 @@ export function ModerationShell() {
 
       <section className="content-panel">
         {!reports && <p className="panel-note">Carregando…</p>}
-        {reports && reports.length === 0 && !error && <p className="panel-note">Nenhuma denúncia aqui. 🎉</p>}
+        {reports && reports.length === 0 && !error && <p className="panel-note">Nenhuma denúncia pendente.</p>}
 
         <div className="comment-list">
           {reports?.map((report) => (

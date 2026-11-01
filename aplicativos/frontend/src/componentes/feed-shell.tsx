@@ -115,7 +115,7 @@ export function FeedShell() {
       <section className="content-hero">
         <div>
           <h1>Feed</h1>
-          <p>Acompanhe em tempo real o que as pessoas que você segue estão assistindo, jogando e lendo.</p>
+          <p>Atividades recentes das pessoas que você segue.</p>
         </div>
       </section>
 

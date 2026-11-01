@@ -112,14 +112,14 @@ export function RecapShell() {
   async function handleShareRecap() {
     const periodLabel = selectedYear === "all" ? "Geral" : String(selectedYear);
     const lines = [
-      `🎬 Meu Trak Recap (${periodLabel})`,
+      `Meu Trak Recap (${periodLabel})`,
       `Concluídos: ${stats.totalCompleted} (${stats.movies} filmes, ${stats.series} séries, ${stats.games} jogos, ${stats.books} livros)`,
       `Nota média: ${stats.avgRating} ★`
     ];
     for (const cat of CATEGORIES) {
       const w = winnersByCategory[cat.type];
       if (w?.item) {
-        lines.push(`🏆 ${cat.award}: ${w.item.title}`);
+        lines.push(`${cat.award}: ${w.item.title}`);
       }
     }
     try {
@@ -137,11 +137,9 @@ export function RecapShell() {
 
       <section className="content-hero">
         <div>
-          <UiBadge tone="primary">Wrapped & GOTY</UiBadge>
-          <h1>Sua Retrospectiva no Trak.</h1>
+          <h1>Retrospectiva</h1>
           <p>
-            Relembre tudo o que você assistiu, jogou e leu, descubra seu ritmo e eleja os seus favoritos do ano em cada
-            categoria (estilo Spotify Wrapped e Backloggd GOTY).
+            Relembre o que você assistiu, jogou e leu ao longo do ano, veja suas médias e selecione seus destaques por categoria.
           </p>
         </div>
 
@@ -204,18 +202,16 @@ export function RecapShell() {
 
       <section className="content-panel">
         <SectionHeading
-          eyebrow="Melhores do Ano"
-          title="Seus Eleitos (GOTY & Favoritos)"
-          description="Escolha sua obra número 1 em cada categoria a partir do que você acompanhou."
+          title="Seus destaques por categoria"
+          description="Escolha a obra principal em cada formato a partir do que você acompanhou."
         />
 
         {!loaded && <p className="panel-note">Calculando seus destaques…</p>}
 
         {loaded && yearItems.length === 0 && (
           <UiCard className="empty-state">
-            <UiBadge tone="secondary">Sem registros neste período</UiBadge>
-            <h3>Você ainda não tem itens registrados neste período.</h3>
-            <p>Marque filmes, séries, jogos ou livros como concluídos ou avalie com estrelas para montar seu Recap.</p>
+            <h3>Nenhum registro encontrado neste período.</h3>
+            <p>Marque filmes, séries, jogos ou livros como concluídos ou avalie para montar sua retrospectiva.</p>
             <div className="item-next-actions">
               <UiButton href="/catalogo">Explorar catálogo</UiButton>
             </div>
@@ -246,12 +242,12 @@ export function RecapShell() {
                 <div key={cat.type} className="recap-award-slot">
                   <Link href={`/itens/${winner.mediaItemId}`} className="recap-award-card-link">
                     <MediaCard
-                      type={`🏆 ${cat.award}`}
+                      type={cat.award}
                       mediaType={winner.item.type}
                       title={winner.item.title}
-                      meta={winner.item.releaseYear ? String(winner.item.releaseYear) : "Sem ano"}
+                      meta={winner.item.releaseYear ? String(winner.item.releaseYear) : ""}
                       coverUrl={winner.item.coverUrl}
-                      progress={winner.rating ? `Sua nota: ${winner.rating} ★` : "Destaque da categoria"}
+                      progress={winner.rating ? `Sua nota: ${winner.rating} ★` : undefined}
                     />
                   </Link>
                   {options.length > 1 && (
@@ -279,9 +275,8 @@ export function RecapShell() {
       {topRated.length > 0 && (
         <section className="content-panel">
           <SectionHeading
-            eyebrow="Hall da Fama"
             title="Mais bem avaliados por você"
-            description="As obras que receberam suas maiores notas ou entraram nos favoritos."
+            description="Obras com as maiores notas atribuídas no período."
           />
           <div className="catalog-grid" style={{ marginTop: "18px" }}>
             {topRated.map((entry) => (
@@ -290,9 +285,9 @@ export function RecapShell() {
                   type={entry.item ? getMediaTypeLabel(entry.item.type, entry.item.subtype) : "Item"}
                   mediaType={entry.item?.type}
                   title={entry.item?.title ?? entry.mediaItemId}
-                  meta={entry.item?.releaseYear ? String(entry.item.releaseYear) : "Sem ano"}
+                  meta={entry.item?.releaseYear ? String(entry.item.releaseYear) : ""}
                   coverUrl={entry.item?.coverUrl}
-                  accent={entry.rating ? `${entry.rating} ★` : "Favorito"}
+                  accent={entry.rating ? `${entry.rating} ★` : undefined}
                 />
               </Link>
             ))}

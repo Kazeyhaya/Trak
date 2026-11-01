@@ -131,7 +131,7 @@ export function ImportShell() {
           <UiCard className="import-card">
             <div className="label-row">
               <h2>Letterboxd</h2>
-              {letterboxdImported && <UiBadge tone="primary">Importado ✓</UiBadge>}
+              {letterboxdImported && <UiBadge tone="primary">Importado</UiBadge>}
             </div>
             <p>
               Em letterboxd.com, vá em Settings → Data → Export your data. Descompacte o .zip e envie o watched.csv,
@@ -178,7 +178,7 @@ export function ImportShell() {
           <UiCard className="import-card">
             <div className="label-row">
               <h2>Trakt</h2>
-              {traktImported && <UiBadge tone="primary">Importado ✓</UiBadge>}
+              {traktImported && <UiBadge tone="primary">Importado</UiBadge>}
             </div>
             <p>
               Em trakt.tv, vá em Settings → Data → Export. Envie um dos arquivos JSON: watched-movies, watched-shows,
@@ -207,7 +207,7 @@ export function ImportShell() {
           <UiCard className="import-card">
             <div className="label-row">
               <h2>Steam</h2>
-              {steamImported && <UiBadge tone="primary">Importado ✓</UiBadge>}
+              {steamImported && <UiBadge tone="primary">Importado</UiBadge>}
             </div>
             <p>
               Informe a URL do seu perfil ou o SteamID64. Em Privacidade, os “Detalhes do jogo” precisam estar públicos.

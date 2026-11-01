@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Trak | Catálogo",
-  description: "Descubra filmes, séries, jogos e livros para acompanhar no Trak"
+  description: "Catálogo completo de filmes, séries, jogos e livros para acompanhar no Trak."
 };
 
 export default async function CatalogoPage({

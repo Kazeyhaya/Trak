@@ -5,7 +5,6 @@ import Link from "next/link";
 import { FilterBar } from "./filter-bar";
 import { MediaGrid } from "./media-grid";
 import { SiteHeader } from "./site-header";
-import { UiBadge } from "./ui-badge";
 import { UiCard } from "./ui-card";
 import { CatalogItem } from "../lib/catalogo-api";
 import { useI18n } from "../contextos/i18n-context";
@@ -26,7 +25,6 @@ function CatalogEmptyState({ query }: { query: string }) {
   const displayQuery = trimmed.length > 50 ? `${trimmed.slice(0, 50)}…` : trimmed;
   return (
     <UiCard className="empty-state">
-      <UiBadge tone="secondary">{t("catalog.noResults", "Sem resultados")}</UiBadge>
       <h3 className="empty-state-title">
         {displayQuery ? `${t("catalog.noResultsFor", "Nada encontrado para")} "${displayQuery}".` : "Nenhum item disponível."}
       </h3>
@@ -101,7 +99,7 @@ export function CatalogShell({
       {showHero && (
         <section className="content-hero catalog-hero">
           <div>
-            <h1>Descubra filmes, séries, jogos e livros para acompanhar.</h1>
+            <h1>Catálogo de filmes, séries, jogos e livros.</h1>
           </div>
           <button
             type="button"

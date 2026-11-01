@@ -3,6 +3,18 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Film,
+  Gamepad2,
+  Layers,
+  LucideIcon,
+  Pencil,
+  Star,
+  Tv
+} from "lucide-react";
 import { ActivityList } from "./activity-list";
 import { AlertsSection } from "./alerts-section";
 import { FollowListModal } from "./follow-list-modal";
@@ -38,6 +50,23 @@ const MEDIA_FILTERS: Array<{ label: string; value: MediaType | "" }> = [
   { label: "Jogos", value: "GAME" },
   { label: "Livros", value: "BOOK" }
 ];
+
+const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
+  "check-circle": CheckCircle2,
+  film: Film,
+  tv: Tv,
+  "gamepad-2": Gamepad2,
+  "book-open": BookOpen,
+  layers: Layers,
+  clock: Clock,
+  star: Star,
+  "edit-3": Pencil
+};
+
+function AchievementIcon({ icon }: { icon: string }) {
+  const IconComponent = ACHIEVEMENT_ICONS[icon] || Star;
+  return <IconComponent size={20} className="achievement-svg-icon" aria-hidden="true" />;
+}
 
 export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
   const { user, profile: authProfile } = useAuth();
@@ -443,7 +472,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                           className={`achievement-card${badge.unlocked ? " is-unlocked" : " is-locked"}`}
                         >
                           <div className="achievement-icon" aria-hidden="true">
-                            {badge.icon}
+                            <AchievementIcon icon={badge.icon} />
                           </div>
                           <div className="achievement-body">
                             <div className="achievement-header">
@@ -543,7 +572,6 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
 
               {filteredLibrary.length === 0 ? (
                 <UiCard className="empty-state">
-                  <UiBadge tone="secondary">Vazio</UiBadge>
                   <h3>Nenhuma obra encontrada neste filtro</h3>
                   <p>
                     {isOwner
@@ -627,7 +655,6 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
 
               {favorites.length === 0 ? (
                 <UiCard className="empty-state">
-                  <UiBadge tone="secondary">Sem favoritos</UiBadge>
                   <h3>Nenhuma obra favoritada ainda</h3>
                   <p>
                     {isOwner
@@ -739,7 +766,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                       className={`achievement-card${badge.unlocked ? " is-unlocked" : " is-locked"}`}
                     >
                       <div className="achievement-icon" aria-hidden="true">
-                        {badge.icon}
+                        <AchievementIcon icon={badge.icon} />
                       </div>
                       <div className="achievement-body">
                         <div className="achievement-header">
