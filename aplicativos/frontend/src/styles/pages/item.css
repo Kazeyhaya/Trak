@@ -19,11 +19,6 @@
   box-shadow: var(--shadow);
 }
 
-.item-poster--landscape {
-  aspect-ratio: 16 / 9;
-  max-width: 460px;
-}
-
 .item-poster span {
   display: block;
   width: 100%;

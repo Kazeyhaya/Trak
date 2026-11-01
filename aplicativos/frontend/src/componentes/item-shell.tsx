@@ -125,7 +125,6 @@ function resolveProviderUrl(providerName: string, title: string, rawUrl?: string
 export function ItemShell({ item }: ItemShellProps) {
   const { user, loading: authLoading } = useAuth();
   const isSeries = item.type === "SERIES";
-  const isGame = item.type === "GAME";
   const [extras, setExtras] = useState<CatalogExtras | null>(null);
   const [expandSynopsis, setExpandSynopsis] = useState(false);
   const [customCoverUrl, setCustomCoverUrl] = useState<string | null>(null);
@@ -165,14 +164,14 @@ export function ItemShell({ item }: ItemShellProps) {
       <SiteHeader />
 
       <section className="item-hero">
-        <div className={`item-poster${isGame ? " item-poster--landscape" : ""}`}>
+        <div className="item-poster">
           {customCoverUrl && <span className="item-poster-badge">Personalizada</span>}
           {activeCoverUrl ? (
             <Image
               src={activeCoverUrl.replace("/media/resize/640/-/games/", "/media/games/")}
               alt={item.title}
-              width={isGame ? 1280 : 640}
-              height={isGame ? 720 : 960}
+              width={640}
+              height={960}
               quality={90}
               priority
               unoptimized={Boolean(customCoverUrl)}

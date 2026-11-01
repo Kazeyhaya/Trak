@@ -33,11 +33,6 @@
     margin: 0 auto;
     padding: 0;
   }
-
-  .item-poster--landscape {
-    aspect-ratio: 16 / 9;
-    width: min(100%, 460px);
-  }
 }
 
 @media (max-width: 860px) {
