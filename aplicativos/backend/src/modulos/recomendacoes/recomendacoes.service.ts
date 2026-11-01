@@ -58,9 +58,13 @@ export class RecomendacoesService {
     return registros
       .flatMap((registro, indice) => {
         const novidade = novidades[indice];
-        return novidade
-          ? [{ ...novidade, mediaItemId: registro.mediaItemId, item: itens.get(registro.mediaItemId) ?? null }]
-          : [];
+        if (!novidade) return [];
+        const itemBase = itens.get(registro.mediaItemId) ?? null;
+        const item =
+          itemBase && registro.customCoverUrl
+            ? { ...itemBase, coverUrl: registro.customCoverUrl }
+            : itemBase;
+        return [{ ...novidade, mediaItemId: registro.mediaItemId, item }];
       })
       .sort((a, b) => a.date.localeCompare(b.date));
   }

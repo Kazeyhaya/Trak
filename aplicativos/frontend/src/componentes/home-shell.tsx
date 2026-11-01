@@ -49,6 +49,17 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
   const inProgress = myPublicProfile?.inProgress ?? [];
   const greetingName = profile?.displayName || (profile?.username && !ehUsernameProvisorio(profile.username) ? `@${profile.username}` : null);
 
+  const customCoverById = new Map<string, string>();
+  for (const entry of myPublicProfile?.library ?? []) {
+    if (entry.mediaItemId && entry.item?.coverUrl) {
+      customCoverById.set(entry.mediaItemId, entry.item.coverUrl);
+    }
+  }
+  const destaquesPersonalizados = destaques.map((item) => {
+    const customCover = customCoverById.get(item.id);
+    return customCover ? { ...item, coverUrl: customCover } : item;
+  });
+
   if (isLoggedIn) {
     return (
       <main className="home-shell">
@@ -111,13 +122,13 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
           </section>
         )}
 
-        {destaques.length > 0 && (
+        {destaquesPersonalizados.length > 0 && (
           <section className="roadmap-block">
             <SectionHeading
               title="Em alta na semana"
               description="Obras populares no catálogo para adicionar à sua fila."
             />
-            <MediaGrid items={destaques} label="Em alta na semana" />
+            <MediaGrid items={destaquesPersonalizados} label="Em alta na semana" />
           </section>
         )}
       </main>

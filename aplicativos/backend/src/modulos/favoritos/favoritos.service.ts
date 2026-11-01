@@ -26,15 +26,35 @@ export class FavoritosService {
       throw new InternalServerErrorException(error.message);
     }
 
-    const itens = await this.catalogoService.buscarSalvos(
-      (favoritos ?? []).map((f) => f.mediaItemId as string)
-    );
+    const ids = (favoritos ?? []).map((f) => f.mediaItemId as string);
+    const [itens, trackingRes] = await Promise.all([
+      this.catalogoService.buscarSalvos(ids),
+      ids.length > 0
+        ? supabase
+            .from("UserMedia")
+            .select("mediaItemId,customCoverUrl")
+            .eq("userId", userId)
+            .in("mediaItemId", ids)
+        : Promise.resolve({ data: [], error: null })
+    ]);
 
-    return (favoritos ?? []).map((fav) => ({
-      mediaItemId: fav.mediaItemId,
-      createdAt: fav.createdAt,
-      item: itens.get(fav.mediaItemId as string) ?? null
-    }));
+    const capasPersonalizadas = new Map<string, string>();
+    for (const row of (trackingRes.data ?? []) as Array<{ mediaItemId?: string; customCoverUrl?: string | null }>) {
+      if (row.mediaItemId && row.customCoverUrl) {
+        capasPersonalizadas.set(row.mediaItemId, row.customCoverUrl);
+      }
+    }
+
+    return (favoritos ?? []).map((fav) => {
+      const id = fav.mediaItemId as string;
+      const itemBase = itens.get(id) ?? null;
+      const customCover = capasPersonalizadas.get(id);
+      return {
+        mediaItemId: fav.mediaItemId,
+        createdAt: fav.createdAt,
+        item: itemBase && customCover ? { ...itemBase, coverUrl: customCover } : itemBase
+      };
+    });
   }
 
   async verificar(authUserId: string, mediaItemId: string) {

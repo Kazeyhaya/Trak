@@ -264,13 +264,39 @@ export class SocialService {
 
   // Junta autor e item em cada atividade.
   private async enriquecer(atividades: Atividade[]) {
-    const [perfis, itens] = await Promise.all([
-      this.perfisPorIds(atividades.map((a) => a.userId)),
-      this.catalogoService.buscarSalvos(atividades.flatMap((a) => (a.mediaItemId ? [a.mediaItemId] : [])))
+    const userIds = [...new Set(atividades.map((a) => a.userId))];
+    const mediaIds = [...new Set(atividades.flatMap((a) => (a.mediaItemId ? [a.mediaItemId] : [])))];
+
+    const [perfis, itens, capasRes] = await Promise.all([
+      this.perfisPorIds(userIds),
+      this.catalogoService.buscarSalvos(mediaIds),
+      userIds.length > 0 && mediaIds.length > 0
+        ? this.db
+            .from(TABELA_TRACKING)
+            .select("userId,mediaItemId,customCoverUrl")
+            .in("userId", userIds)
+            .in("mediaItemId", mediaIds)
+        : Promise.resolve({ data: [], error: null })
     ]);
+
+    const capasMapa = new Map<string, string>();
+    for (const row of (capasRes.data ?? []) as Array<{
+      userId?: string;
+      mediaItemId?: string;
+      customCoverUrl?: string | null;
+    }>) {
+      if (row.userId && row.mediaItemId && row.customCoverUrl) {
+        capasMapa.set(`${row.userId}:${row.mediaItemId}`, row.customCoverUrl);
+      }
+    }
 
     return atividades.map((atividade) => {
       const perfil = perfis.get(atividade.userId);
+      const itemBase = atividade.mediaItemId ? (itens.get(atividade.mediaItemId) ?? null) : null;
+      const customCover =
+        atividade.mediaItemId ? capasMapa.get(`${atividade.userId}:${atividade.mediaItemId}`) : undefined;
+      const item = itemBase && customCover ? { ...itemBase, coverUrl: customCover } : itemBase;
+
       return {
         ...atividade,
         user: perfil
@@ -280,7 +306,7 @@ export class SocialService {
               avatarUrl: perfil.avatarUrl
             }
           : null,
-        item: atividade.mediaItemId ? (itens.get(atividade.mediaItemId) ?? null) : null
+        item
       };
     });
   }
@@ -547,6 +573,13 @@ export class SocialService {
         };
       });
 
+    const capasPersonalizadas = new Map<string, string>();
+    for (const r of registros) {
+      if (r.mediaItemId && r.customCoverUrl) {
+        capasPersonalizadas.set(r.mediaItemId, r.customCoverUrl);
+      }
+    }
+
     return {
       ...base,
       isPrivate: false,
@@ -560,8 +593,10 @@ export class SocialService {
       inProgress,
       library,
       favorites: idsFavoritos.flatMap((id) => {
-        const item = itensMapa.get(id);
-        return item ? [item] : [];
+        const itemBase = itensMapa.get(id);
+        if (!itemBase) return [];
+        const customCover = capasPersonalizadas.get(id);
+        return [customCover ? { ...itemBase, coverUrl: customCover } : itemBase];
       }),
       activity: await this.enriquecer(
         await this.filtrarAtividadesValidas((atividades.data ?? []) as Atividade[])

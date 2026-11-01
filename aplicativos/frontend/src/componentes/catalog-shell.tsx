@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FilterBar } from "./filter-bar";
 import { MediaGrid } from "./media-grid";
 import { SiteHeader } from "./site-header";
 import { UiCard } from "./ui-card";
 import { CatalogItem } from "../lib/catalogo-api";
+import { getTrackingItems } from "../lib/api";
+import { useAuth } from "../contextos/auth-context";
 import { useI18n } from "../contextos/i18n-context";
 
 type CatalogShellProps = {
@@ -44,9 +46,31 @@ export function CatalogShell({
   genreFilter = ""
 }: CatalogShellProps) {
   void genreFilter;
+  const { user } = useAuth();
+  const [customCovers, setCustomCovers] = useState<Record<string, string>>({});
   const filterKey = `${query}:${typeFilter}:${genreFilter}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   const [displayCount, setDisplayCount] = useState(ITENS_POR_PAGINA);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getTrackingItems()
+      .then((records) => {
+        if (!active) return;
+        const map: Record<string, string> = {};
+        for (const r of records) {
+          if (r.mediaItemId && r.customCoverUrl) {
+            map[r.mediaItemId] = r.customCoverUrl;
+          }
+        }
+        setCustomCovers(map);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user]);
   const [showHero, setShowHero] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -89,7 +113,10 @@ export function CatalogShell({
       })
     : items;
 
-  const paginatedItems = visibleItems.slice(0, displayCount);
+  const paginatedItems = visibleItems.slice(0, displayCount).map((item) => {
+    const customCover = customCovers[item.id];
+    return customCover ? { ...item, coverUrl: customCover } : item;
+  });
   const hasMore = visibleItems.length > displayCount;
 
   return (
