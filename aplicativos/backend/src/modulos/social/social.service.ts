@@ -240,20 +240,40 @@ export class SocialService {
     }
 
     const userIds = [...new Set(atividades.map((a) => a.userId))];
-    const [{ data: trackings }, { data: favoritos }] = await Promise.all([
+    const [{ data: trackings }, { data: favoritos }, { data: episodios }] = await Promise.all([
       this.db.from(TABELA_TRACKING).select("userId,mediaItemId").in("userId", userIds),
-      this.db.from("Favorite").select("userId,mediaItemId").in("userId", userIds)
+      this.db.from("Favorite").select("userId,mediaItemId").in("userId", userIds),
+      this.db.from("EpisodeProgress").select("userId,mediaItemId").in("userId", userIds)
     ]);
 
     const paresTracking = new Set((trackings ?? []).map((t) => `${t.userId}:${t.mediaItemId}`));
     const paresFavorito = new Set((favoritos ?? []).map((f) => `${f.userId}:${f.mediaItemId}`));
+    const paresEpisodios = new Set((episodios ?? []).map((e) => `${e.userId}:${e.mediaItemId}`));
+
+    const vistasEpisodios = new Set<string>();
 
     return atividades.filter((a) => {
       if (!a.mediaItemId || a.data?.kind === "PROFILE_META") {
         return false;
       }
-      if (a.type === "STATUS" || a.type === "RATING" || a.type === "EPISODES") {
+      if (a.type === "STATUS" || a.type === "RATING") {
         return paresTracking.has(`${a.userId}:${a.mediaItemId}`);
+      }
+      if (a.type === "EPISODES") {
+        // Precisa estar em tracking E ter de fato episódios assistidos registrados
+        if (
+          !paresTracking.has(`${a.userId}:${a.mediaItemId}`) ||
+          !paresEpisodios.has(`${a.userId}:${a.mediaItemId}`)
+        ) {
+          return false;
+        }
+        // Deduplica entradas repetidas de episódios no feed para a mesma mídia
+        const chave = `${a.userId}:${a.mediaItemId}`;
+        if (vistasEpisodios.has(chave)) {
+          return false;
+        }
+        vistasEpisodios.add(chave);
+        return true;
       }
       if (a.type === "FAVORITE") {
         return paresFavorito.has(`${a.userId}:${a.mediaItemId}`);

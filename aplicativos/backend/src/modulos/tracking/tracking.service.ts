@@ -291,6 +291,7 @@ export class TrackingService {
     }
 
     const assistidos = await this.episodiosDoUsuario(userId, mediaItemId);
+    const assistidosNaTemporada = assistidos.filter((e) => e.season === payload.season);
     const total =
       infoSerie?.totalEpisodes && infoSerie.totalEpisodes > 0
         ? infoSerie.totalEpisodes
@@ -303,13 +304,23 @@ export class TrackingService {
       userId,
       mediaItemId,
       { progress: progresso, status: statusAposEpisodios(atual ? deBanco(atual).status : undefined, progresso, isOngoing) },
-      { registrarAtividade: true }
+      { registrarAtividade: false }
     );
 
-    if (payload.watched) {
+    // Gerenciamento limpo da atividade de episódios no feed:
+    // Remove qualquer registro anterior de episódios dessa mídia para evitar duplicação ou spam no feed
+    await this.db
+      .from("Activity")
+      .delete()
+      .eq("userId", userId)
+      .eq("mediaItemId", mediaItemId)
+      .eq("type", "EPISODES");
+
+    // Registra atividade apenas se o usuário marcou como assistido e ainda possui episódios na temporada
+    if (payload.watched && assistidosNaTemporada.length > 0) {
       await this.atividadesService.registrar(userId, "EPISODES", mediaItemId, {
         season: payload.season,
-        count: episodios.length
+        count: assistidosNaTemporada.length
       });
     }
 
