@@ -155,9 +155,10 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
       // Sincroniza com a resposta oficial do backend
       setWatched(result.episodes);
       onTrackingChange(result.tracking);
-    } catch {
-      // Em caso de falha, desfaz a ação silenciosamente zerando o delay percebido
+    } catch (err) {
+      // Em caso de falha, desfaz a ação e avisa o usuário com mensagem de erro
       setWatched(previousWatched);
+      setError(errorMessage(err, "Falha ao salvar episódio. As alterações foram revertidas."));
     }
   }
 

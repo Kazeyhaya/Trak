@@ -503,6 +503,7 @@ function PersonalTracking({
 
     // Atualização otimista: acende o botão de status instantaneamente
     updateDraft({ status: option, progress: nextProgress });
+    setError(null);
 
     try {
       const entry = await saveTrackingItem(item.id, {
@@ -514,10 +515,11 @@ function PersonalTracking({
       setTracking(entry);
       setDraft(draftFromEntry(entry));
       setNotice(t("tracking.saved", "Status salvo!"));
-    } catch {
-      // Reverte silenciosamente se der erro
+    } catch (err) {
+      // Reverte para o estado anterior e avisa o usuário com mensagem de erro
       setDraft(previousDraft);
       setTracking(previousTracking);
+      setError(errorMessage(err, "Falha ao salvar status. Ação desfeita."));
     }
   }
 
@@ -527,6 +529,7 @@ function PersonalTracking({
 
     // Atualização otimista imediata
     updateDraft({ progress: nextProgress, status: nextStatus });
+    setError(null);
 
     try {
       const entry = await saveTrackingItem(item.id, {
@@ -538,10 +541,39 @@ function PersonalTracking({
       setTracking(entry);
       setDraft(draftFromEntry(entry));
       setNotice(t("tracking.saved", "Progresso salvo!"));
-    } catch {
-      // Reverte silenciosamente se der erro
+    } catch (err) {
+      // Reverte e exibe alerta de erro
       setDraft(previousDraft);
       setTracking(previousTracking);
+      setError(errorMessage(err, "Falha ao salvar progresso. Ação desfeita."));
+    }
+  }
+
+  async function handleRatingChange(nextRating: number | null) {
+    if (draft.rating === nextRating) return;
+
+    const previousDraft = draft;
+    const previousTracking = tracking;
+
+    // Atualização otimista imediata: pinta as estrelas instantaneamente
+    updateDraft({ rating: nextRating });
+    setError(null);
+
+    try {
+      const entry = await saveTrackingItem(item.id, {
+        rating: nextRating,
+        status: draft.status ?? (nextRating ? "COMPLETED" : undefined),
+        progress: draft.progress,
+        notes: draft.notes.trim() || null
+      });
+      setTracking(entry);
+      setDraft(draftFromEntry(entry));
+      setNotice(nextRating ? `Nota ${nextRating} salva!` : "Nota removida.");
+    } catch (err) {
+      // Reverte em caso de falha de rede
+      setDraft(previousDraft);
+      setTracking(previousTracking);
+      setError(errorMessage(err, "Falha ao salvar nota. Ação desfeita."));
     }
   }
 
@@ -660,8 +692,8 @@ function PersonalTracking({
           <span>{t("tracking.rating", "Sua nota")}</span>
           <RatingStars
             value={draft.rating}
-            disabled={loading || saving}
-            onChange={(rating) => updateDraft({ rating })}
+            disabled={loading}
+            onChange={(rating) => void handleRatingChange(rating)}
           />
         </div>
 
