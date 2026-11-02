@@ -64,6 +64,7 @@ import {
   removeFavorite,
   removeTrackingItem,
   saveTrackingItem,
+  SeriesInfo,
   TRACKING_PAGES_MAX,
   TRACKING_STATUSES,
   TrackingEntry,
@@ -233,6 +234,7 @@ export function ItemShell({ item }: ItemShellProps) {
               item={item}
               isSeries={isSeries}
               catalogPageCount={item.pageCount ?? extras?.pageCount ?? null}
+              seriesInfo={extras?.seriesInfo ?? null}
               onTrackingLoaded={(entry) => setCustomCoverUrl(entry?.customCoverUrl ?? null)}
             />
           ) : (
@@ -344,11 +346,13 @@ function PersonalTracking({
   item,
   isSeries,
   catalogPageCount,
+  seriesInfo,
   onTrackingLoaded
 }: {
   item: CatalogItem;
   isSeries: boolean;
   catalogPageCount?: number | null;
+  seriesInfo?: SeriesInfo | null;
   onTrackingLoaded?: (entry: TrackingEntry | null) => void;
 }) {
   const { t, language } = useI18n();
@@ -371,6 +375,13 @@ function PersonalTracking({
   });
 
   const progress = draft.progress;
+  const isEmDia = Boolean(
+    isSeries &&
+      seriesInfo?.isOngoing &&
+      seriesInfo.airedEpisodes > 0 &&
+      seriesInfo.totalEpisodes > 0 &&
+      Math.round((progress / 100) * seriesInfo.totalEpisodes) >= seriesInfo.airedEpisodes
+  );
   const savedDraft = draftFromEntry(tracking);
   const trackingDirty =
     draft.status !== savedDraft.status ||
@@ -503,6 +514,13 @@ function PersonalTracking({
     // Se clicar no mesmo status que já está ativo, remove do tracking (toggle)
     if (draft.status === option) {
       await handleRemoveTracking();
+      return;
+    }
+
+    if (option === "COMPLETED" && isSeries && seriesInfo?.isOngoing) {
+      setError(
+        "Esta série ainda está em lançamento (faltam episódios). Marque os episódios lançados para ficar Em dia."
+      );
       return;
     }
 
@@ -698,18 +716,22 @@ function PersonalTracking({
         <div className="status-chips" role="group" aria-label="Status de tracking">
           {TRACKING_STATUSES.map((option: TrackingStatus) => {
             const isActive = draft.status === option;
+            const isCompletedBlocked = option === "COMPLETED" && isSeries && seriesInfo?.isOngoing;
             return (
               <button
                 key={option}
                 type="button"
                 className={`filter-chip${isActive ? " is-active" : ""}`}
+                style={isCompletedBlocked ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 aria-pressed={isActive}
                 disabled={loading || saving}
                 onClick={() => void handleStatusSelect(option)}
                 title={
-                  isActive
-                    ? t("tracking.clickToRemove", "Clique novamente para remover do tracking")
-                    : getDynamicStatusLabel(option, item.type, language)
+                  isCompletedBlocked
+                    ? "Esta série ainda está em lançamento (faltam episódios a serem exibidos)"
+                    : isActive
+                      ? t("tracking.clickToRemove", "Clique novamente para remover do tracking")
+                      : getDynamicStatusLabel(option, item.type, language)
                 }
               >
                 {getDynamicStatusLabel(option, item.type, language)}
@@ -719,9 +741,36 @@ function PersonalTracking({
         </div>
 
         {isSeries && (
-          <p className="panel-note">
-            Progresso: {progress}% · marque os episódios na seção abaixo.
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "4px 0 8px" }}>
+            <p className="panel-note" style={{ margin: 0 }}>
+              Progresso: <strong>{progress}%</strong>
+              {seriesInfo?.totalEpisodes
+                ? ` (${Math.round((progress / 100) * seriesInfo.totalEpisodes)} de ${seriesInfo.totalEpisodes} eps)`
+                : ""}
+            </p>
+            {isEmDia ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  padding: "3px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(110, 231, 200, 0.12)",
+                  color: "var(--primary)",
+                  border: "1px solid rgba(110, 231, 200, 0.3)"
+                }}
+              >
+                ✓ Em dia com os lançamentos
+              </span>
+            ) : (
+              <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                · marque os episódios na seção abaixo
+              </span>
+            )}
+          </div>
         )}
 
         {(item.type === "GAME" || item.type === "BOOK") && (

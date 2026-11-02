@@ -9,9 +9,13 @@ export function calcularProgresso(assistidos: number, total: number) {
 }
 
 // Status resultante depois de marcar episodios. Pausado e abandonado so mudam
-// por escolha explicita do usuario, exceto quando a serie e concluida.
-export function statusAposEpisodios(atual: StatusTracking | undefined, progresso: number): StatusTracking {
-  if (progresso >= 100) {
+// por escolha explicita do usuario, exceto quando a serie e concluida (e nao esta mais em exibicao).
+export function statusAposEpisodios(
+  atual: StatusTracking | undefined,
+  progresso: number,
+  isOngoing = false
+): StatusTracking {
+  if (progresso >= 100 && !isOngoing) {
     return "COMPLETED";
   }
   if (atual === "PAUSED" || atual === "DROPPED") {

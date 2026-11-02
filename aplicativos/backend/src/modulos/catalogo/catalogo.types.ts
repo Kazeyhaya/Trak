@@ -61,6 +61,13 @@ export interface NotaExterna {
   value: string;
 }
 
+export interface SeriesInfo {
+  totalEpisodes: number;
+  airedEpisodes: number;
+  isOngoing: boolean;
+  nextEpisodeAirDate: string | null;
+}
+
 export interface ExtrasCatalogo {
   genres: string[];
   watchProviders: ProvedorOndeAssistir[];
@@ -71,4 +78,5 @@ export interface ExtrasCatalogo {
   };
   externalRatings: NotaExterna[];
   pageCount?: number | null;
+  seriesInfo?: SeriesInfo | null;
 }

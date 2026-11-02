@@ -136,6 +136,13 @@ export type ExternalRating = {
   value: string;
 };
 
+export type SeriesInfo = {
+  totalEpisodes: number;
+  airedEpisodes: number;
+  isOngoing: boolean;
+  nextEpisodeAirDate: string | null;
+};
+
 export type CatalogExtras = {
   genres: string[];
   watchProviders: WatchProvider[];
@@ -146,6 +153,7 @@ export type CatalogExtras = {
   };
   externalRatings: ExternalRating[];
   pageCount?: number | null;
+  seriesInfo?: SeriesInfo | null;
 };
 
 export const getCatalogExtras = (mediaItemId: string) =>

@@ -19,6 +19,12 @@ describe("statusAposEpisodios", () => {
     expect(statusAposEpisodios(undefined, 100)).toBe("COMPLETED");
   });
 
+  it("nao conclui se a serie ainda estiver em exibicao / lancamento", () => {
+    expect(statusAposEpisodios("WATCHING", 100, true)).toBe("WATCHING");
+    expect(statusAposEpisodios("PAUSED", 100, true)).toBe("PAUSED");
+    expect(statusAposEpisodios(undefined, 100, true)).toBe("WATCHING");
+  });
+
   it("mantem pausado e abandonado", () => {
     expect(statusAposEpisodios("PAUSED", 50)).toBe("PAUSED");
     expect(statusAposEpisodios("DROPPED", 50)).toBe("DROPPED");

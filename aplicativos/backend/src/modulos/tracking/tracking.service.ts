@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
@@ -87,6 +87,16 @@ export class TrackingService {
 
   async salvar(authUserId: string, mediaItemId: string, payload: SalvarTrackingDto) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    if (payload.status === "COMPLETED") {
+      const infoSerie = await this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null);
+      if (infoSerie?.isOngoing) {
+        throw new BadRequestException(
+          "Esta série ainda está em lançamento e não pode ser marcada como concluída."
+        );
+      }
+    }
+
     return this.salvarParaUsuario(userId, mediaItemId, payload);
   }
 
@@ -236,15 +246,20 @@ export class TrackingService {
     );
     falha(error);
 
-    const [assistidos, total] = await Promise.all([
+    const [assistidos, infoSerie] = await Promise.all([
       this.episodiosDoUsuario(userId, mediaItemId),
-      this.catalogoService.totalEpisodiosExibidos(mediaItemId).catch(() => 0)
+      this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null)
     ]);
+    const total =
+      infoSerie?.totalEpisodes && infoSerie.totalEpisodes > 0
+        ? infoSerie.totalEpisodes
+        : (infoSerie?.airedEpisodes ?? 0);
+    const isOngoing = infoSerie?.isOngoing ?? false;
     const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
     await this.salvarParaUsuario(
       userId,
       mediaItemId,
-      { progress: progresso, status: statusAposEpisodios("WATCHING", progresso) },
+      { progress: progresso, status: statusAposEpisodios("WATCHING", progresso, isOngoing) },
       { registrarAtividade: false }
     );
   }
@@ -252,8 +267,8 @@ export class TrackingService {
   async marcarEpisodios(authUserId: string, mediaItemId: string, payload: MarcarEpisodiosDto) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     // Valida que e uma serie e garante que o MediaItem exista no banco antes de gravar EpisodeProgress.
-    const [total] = await Promise.all([
-      this.catalogoService.totalEpisodiosExibidos(mediaItemId),
+    const [infoSerie] = await Promise.all([
+      this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null),
       this.catalogoService.garantirNoBanco(mediaItemId)
     ]);
     const episodios = [...new Set(payload.episodes)];
@@ -276,13 +291,18 @@ export class TrackingService {
     }
 
     const assistidos = await this.episodiosDoUsuario(userId, mediaItemId);
+    const total =
+      infoSerie?.totalEpisodes && infoSerie.totalEpisodes > 0
+        ? infoSerie.totalEpisodes
+        : (infoSerie?.airedEpisodes ?? 0);
+    const isOngoing = infoSerie?.isOngoing ?? false;
     // Especiais (temporada 0) nao contam para o progresso.
     const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
     const atual = await this.buscarLinha(userId, mediaItemId);
     const tracking = await this.salvarParaUsuario(
       userId,
       mediaItemId,
-      { progress: progresso, status: statusAposEpisodios(atual ? deBanco(atual).status : undefined, progresso) },
+      { progress: progresso, status: statusAposEpisodios(atual ? deBanco(atual).status : undefined, progresso, isOngoing) },
       { registrarAtividade: true }
     );
 

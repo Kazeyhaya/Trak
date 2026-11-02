@@ -22,12 +22,18 @@ const existente: LinhaUserMedia = {
   updatedAt: "2026-01-01"
 };
 
-function montar(responder: (op: Operacao) => Resposta, totalEpisodios = 10) {
+function montar(responder: (op: Operacao) => Resposta, totalEpisodios = 10, isOngoing = false) {
   const supabase = criarSupabaseServiceMock(responder);
   const catalogo = {
     garantirNoBanco: jest.fn(async () => undefined),
     buscarSalvos: jest.fn(async () => new Map()),
-    totalEpisodiosExibidos: jest.fn(async () => totalEpisodios)
+    totalEpisodiosExibidos: jest.fn(async () => totalEpisodios),
+    infoEpisodiosSerie: jest.fn(async () => ({
+      totalEpisodes: totalEpisodios,
+      airedEpisodes: totalEpisodios,
+      isOngoing,
+      nextEpisodeAirDate: null
+    }))
   };
   const atividades = { registrar: jest.fn(async () => undefined) };
   const service = new TrackingService(
@@ -124,6 +130,14 @@ describe("TrackingService.salvar", () => {
     });
     expect(chamadas.find((c) => c.action === "update")!.payload).toHaveProperty("finishedAt");
     expect(atividades.registrar).toHaveBeenCalledWith("u1", "STATUS", "tmdb_movie_1", { status: "COMPLETED" });
+  });
+
+  it("impede concluir serie que ainda esta em lancamento (ongoing)", async () => {
+    const { service } = montar(() => ({ data: existente }), 10, true);
+
+    await expect(
+      service.salvar("u1", "tmdb_tv_1", { status: "COMPLETED" })
+    ).rejects.toThrow("Esta série ainda está em lançamento e não pode ser marcada como concluída.");
   });
 
   it("WATCHING da API e gravado como IN_PROGRESS", async () => {

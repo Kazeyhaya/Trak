@@ -44,11 +44,13 @@ import {
   Novidade,
   PersonagemEpisodio,
   ProvedorOndeAssistir,
+  SeriesInfo,
   Temporada
 } from "./catalogo.types";
 import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 type TmdbTv = TmdbItem & {
+  status?: string;
   number_of_episodes?: number;
   seasons?: Array<{ season_number: number; name: string; episode_count: number; air_date: string | null }>;
   next_episode_to_air?: TmdbEpisodio | null;
@@ -847,12 +849,15 @@ export class CatalogoService implements OnModuleInit {
       adicionar(br?.rent, "RENT");
       adicionar(br?.buy, "BUY");
 
+      const seriesInfo = parsed.type === "SERIES" ? await this.infoEpisodiosSerie(id).catch(() => null) : null;
+
       return {
         genres: (item?.genres ?? []).map((g) => g.name),
         watchProviders,
         watchLink: watchProviders[0]?.url ?? br?.link ?? null,
         trakRating,
-        externalRatings
+        externalRatings,
+        seriesInfo
       };
     }
 
@@ -1505,6 +1510,37 @@ export class CatalogoService implements OnModuleInit {
       }
       return total;
     }, 0);
+  }
+
+  // Informações completas de episódios e status da série (para cálculo de progresso real e status "Em dia")
+  async infoEpisodiosSerie(id: string): Promise<SeriesInfo | null> {
+    const parsed = parsearId(id);
+    if (!parsed || parsed.source !== "tmdb" || parsed.type !== "SERIES") {
+      return null;
+    }
+
+    try {
+      const { tv } = await this.tvDetalhe(id);
+      const temporadas = (tv.seasons ?? []).filter((season) => season.season_number > 0);
+      const somaTemporadas = temporadas.reduce((total, season) => total + (season.episode_count || 0), 0);
+      const totalEpisodes = tv.number_of_episodes || somaTemporadas || 0;
+      const airedEpisodes = await this.totalEpisodiosExibidos(id).catch(() => 0);
+
+      const statusLower = (tv.status ?? "").toLowerCase();
+      const isEnded = statusLower === "ended" || statusLower === "canceled";
+      const hasNext = Boolean(tv.next_episode_to_air);
+      const hasUnreleased = totalEpisodes > 0 && airedEpisodes < totalEpisodes;
+      const isOngoing = !isEnded || hasNext || hasUnreleased;
+
+      return {
+        totalEpisodes,
+        airedEpisodes,
+        isOngoing,
+        nextEpisodeAirDate: tv.next_episode_to_air?.air_date ?? null
+      };
+    } catch {
+      return null;
+    }
   }
 
   // Recomendacoes e novidades
