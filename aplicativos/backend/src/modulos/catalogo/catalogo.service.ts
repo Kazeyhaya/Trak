@@ -42,6 +42,7 @@ import {
   ItemCatalogo,
   NotaExterna,
   Novidade,
+  PersonagemEpisodio,
   ProvedorOndeAssistir,
   Temporada
 } from "./catalogo.types";
@@ -1252,6 +1253,45 @@ export class CatalogoService implements OnModuleInit {
       overview: episode.overview || null,
       runtime: episode.runtime ?? null
     }));
+  }
+
+  /**
+   * Retorna os personagens/elenco que atuaram em um episódio específico (para "Roubou a Cena").
+   */
+  async creditosEpisodio(id: string, temporada: number, episodio: number): Promise<PersonagemEpisodio[]> {
+    const { externalId } = await this.tvDetalhe(id);
+    const rota = `/tv/${externalId}/season/${temporada}/episode/${episodio}/credits`;
+
+    type TmdbCreditMember = {
+      id: number;
+      name: string;
+      character?: string;
+      profile_path?: string | null;
+      order?: number;
+    };
+
+    const data = await this.tmdb<{ cast?: TmdbCreditMember[]; guest_stars?: TmdbCreditMember[] }>(rota);
+    if (!data) {
+      return [];
+    }
+
+    const membros = [...(data.cast ?? []), ...(data.guest_stars ?? [])];
+    const unicos = new Map<string, PersonagemEpisodio>();
+
+    for (const m of membros) {
+      const charName = m.character?.trim();
+      if (!charName || unicos.has(charName.toLowerCase())) {
+        continue;
+      }
+      unicos.set(charName.toLowerCase(), {
+        id: String(m.id),
+        name: m.name,
+        character: charName,
+        avatarUrl: m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null
+      });
+    }
+
+    return Array.from(unicos.values()).slice(0, 20);
   }
 
   // Total de episodios ja exibidos, sem contar especiais.

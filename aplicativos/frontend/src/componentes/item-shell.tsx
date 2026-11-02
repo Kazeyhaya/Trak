@@ -320,6 +320,8 @@ type TrackingDraft = {
   notes: string;
   pagesRead: number | null;
   totalPages: number | null;
+  favoriteCharacterName: string | null;
+  favoriteCharacterAvatar: string | null;
 };
 
 function draftFromEntry(entry: TrackingEntry | null): TrackingDraft {
@@ -329,7 +331,9 @@ function draftFromEntry(entry: TrackingEntry | null): TrackingDraft {
     rating: entry?.rating ?? null,
     notes: entry?.notes ?? "",
     pagesRead: entry?.pagesRead ?? null,
-    totalPages: entry?.totalPages ?? null
+    totalPages: entry?.totalPages ?? null,
+    favoriteCharacterName: entry?.favoriteCharacterName ?? null,
+    favoriteCharacterAvatar: entry?.favoriteCharacterAvatar ?? null
   };
 }
 
@@ -372,7 +376,8 @@ function PersonalTracking({
     draft.rating !== savedDraft.rating ||
     draft.notes.trim() !== savedDraft.notes.trim() ||
     draft.pagesRead !== savedDraft.pagesRead ||
-    draft.totalPages !== savedDraft.totalPages;
+    draft.totalPages !== savedDraft.totalPages ||
+    draft.favoriteCharacterName !== savedDraft.favoriteCharacterName;
   const hasUnsavedChanges = trackingDirty || metaDirty;
 
   function updateDraft(patch: Partial<TrackingDraft>) {
@@ -455,6 +460,10 @@ function PersonalTracking({
     if (draft.notes.trim() !== savedDraft.notes.trim()) payload.notes = draft.notes.trim() || null;
     if (draft.pagesRead !== savedDraft.pagesRead && draft.pagesRead !== null) payload.pagesRead = draft.pagesRead;
     if (draft.totalPages !== savedDraft.totalPages && draft.totalPages !== null) payload.totalPages = draft.totalPages;
+    if (draft.favoriteCharacterName !== savedDraft.favoriteCharacterName) {
+      payload.favoriteCharacterName = draft.favoriteCharacterName;
+      payload.favoriteCharacterAvatar = draft.favoriteCharacterAvatar;
+    }
 
     // Item ainda fora do tracking: mantem o status implicito que o fluxo antigo aplicava.
     if (!tracking && !payload.status) {
@@ -586,6 +595,35 @@ function PersonalTracking({
     setNotice(null);
   }
 
+  async function handlePantheonCrown(name: string, avatarUrl: string | null) {
+    const isSame = draft.favoriteCharacterName === name;
+    const nextName = isSame ? null : name;
+    const nextAvatar = isSame ? null : avatarUrl;
+
+    const previousDraft = draft;
+    const previousTracking = tracking;
+
+    updateDraft({
+      favoriteCharacterName: nextName,
+      favoriteCharacterAvatar: nextAvatar
+    });
+    setError(null);
+
+    try {
+      const entry = await saveTrackingItem(item.id, {
+        favoriteCharacterName: nextName,
+        favoriteCharacterAvatar: nextAvatar
+      });
+      setTracking(entry);
+      setDraft(draftFromEntry(entry));
+      setNotice(nextName ? `👑 ${nextName} coroado como favorito da obra!` : "Coroação removida.");
+    } catch (err) {
+      setDraft(previousDraft);
+      setTracking(previousTracking);
+      setError(errorMessage(err, "Falha ao salvar personagem favorito da obra."));
+    }
+  }
+
   async function handleRemoveTracking() {
     setSaving(true);
     setError(null);
@@ -696,6 +734,74 @@ function PersonalTracking({
             onChange={(rating) => void handleRatingChange(rating)}
           />
         </div>
+
+        {/* Panteão da Obra (Hall da Fama Pessoal - Coroação desbloqueada ao Concluir) */}
+        {draft.status === "COMPLETED" ? (
+          <div className="pantheon-block is-unlocked">
+            <div className="pantheon-info">
+              <span className="pantheon-title">
+                <span>👑</span> Panteão da Obra
+              </span>
+              <span className="pantheon-desc">
+                {draft.favoriteCharacterName
+                  ? `Seu personagem favorito coroado para esta obra:`
+                  : "Obra concluída! Escolha quem marcou a sua jornada para o seu Panteão:"}
+              </span>
+            </div>
+
+            {draft.favoriteCharacterName ? (
+              <div className="pantheon-crowned">
+                <div className="pantheon-avatar">
+                  {draft.favoriteCharacterAvatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={draft.favoriteCharacterAvatar} alt={draft.favoriteCharacterName} />
+                  ) : (
+                    <span>👤</span>
+                  )}
+                </div>
+                <strong className="pantheon-name">{draft.favoriteCharacterName}</strong>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  onClick={() => {
+                    const novo = window.prompt("Nome do seu personagem favorito:", draft.favoriteCharacterName ?? "");
+                    if (novo !== null) {
+                      void handlePantheonCrown(novo.trim(), draft.favoriteCharacterAvatar);
+                    }
+                  }}
+                >
+                  Alterar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="primary-button"
+                style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                onClick={() => {
+                  const nome = window.prompt("Digite o nome do seu personagem favorito desta obra:");
+                  if (nome && nome.trim()) {
+                    void handlePantheonCrown(nome.trim(), null);
+                  }
+                }}
+              >
+                Coroar personagem
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="pantheon-block" title="Marque a obra como Concluída / Zerada para desbloquear o Panteão">
+            <div className="pantheon-info">
+              <span className="pantheon-title" style={{ color: "var(--muted)" }}>
+                <span>🔒</span> Panteão da Obra
+              </span>
+              <span className="pantheon-desc">
+                Complete esta obra para coroar o seu personagem favorito no seu perfil e críticas.
+              </span>
+            </div>
+          </div>
+        )}
 
         <form
           className="field-stack notes-form"

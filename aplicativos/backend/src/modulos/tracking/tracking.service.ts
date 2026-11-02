@@ -4,6 +4,7 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { ItemCatalogo } from "../catalogo/catalogo.types";
 import { AtividadesService } from "../social/atividades.service";
+import { AvaliarEpisodioDto } from "./dto/avaliar-episodio.dto";
 import { MarcarEpisodiosDto } from "./dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
 import {
@@ -207,13 +208,20 @@ export class TrackingService {
   private async episodiosDoUsuario(userId: string, mediaItemId: string) {
     const { data, error } = await this.db
       .from("EpisodeProgress")
-      .select("season,episode")
+      .select("season,episode,rating,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
       .eq("userId", userId)
       .eq("mediaItemId", mediaItemId)
       .order("season")
       .order("episode");
     falha(error);
-    return (data ?? []) as Array<{ season: number; episode: number }>;
+    return (data ?? []) as Array<{
+      season: number;
+      episode: number;
+      rating?: number | null;
+      highlightCharacterId?: string | null;
+      highlightCharacterName?: string | null;
+      highlightCharacterAvatar?: string | null;
+    }>;
   }
 
   // Grava episodios em lote (importacao) e recalcula o progresso, sem gerar atividade.
@@ -286,5 +294,104 @@ export class TrackingService {
     }
 
     return { episodes: assistidos, tracking };
+  }
+
+  /**
+   * Avalia um episódio específico com nota fracionada (0.5 - 5.0) e/ou coroa o personagem que "Roubou a Cena".
+   * Garante que o episódio esteja marcado como assistido.
+   */
+  async avaliarEpisodio(authUserId: string, mediaItemId: string, dto: AvaliarEpisodioDto) {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    await Promise.all([
+      this.catalogoService.totalEpisodiosExibidos(mediaItemId),
+      this.catalogoService.garantirNoBanco(mediaItemId)
+    ]);
+
+    const payloadAtualizacao: Record<string, unknown> = {
+      userId,
+      mediaItemId,
+      season: dto.season,
+      episode: dto.episode
+    };
+
+    if (dto.rating !== undefined) {
+      payloadAtualizacao.rating = dto.rating;
+    }
+    if (dto.highlightCharacterId !== undefined) {
+      payloadAtualizacao.highlightCharacterId = dto.highlightCharacterId;
+    }
+    if (dto.highlightCharacterName !== undefined) {
+      payloadAtualizacao.highlightCharacterName = dto.highlightCharacterName;
+    }
+    if (dto.highlightCharacterAvatar !== undefined) {
+      payloadAtualizacao.highlightCharacterAvatar = dto.highlightCharacterAvatar;
+    }
+
+    const { error } = await this.db.from("EpisodeProgress").upsert(payloadAtualizacao, {
+      onConflict: "userId,mediaItemId,season,episode"
+    });
+    falha(error);
+
+    const assistidos = await this.episodiosDoUsuario(userId, mediaItemId);
+    return { episodes: assistidos };
+  }
+
+  /**
+   * Busca quem os amigos/seguidos destacaram em episódios dessa mídia (Social Íntimo, sem efeito manada).
+   */
+  async destaquesAmigos(authUserId: string, mediaItemId: string, season?: number) {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { data: seguindo, error: followErr } = await this.db
+      .from("Follow")
+      .select("followingId")
+      .eq("followerId", userId);
+    falha(followErr);
+
+    const amigosIds = (seguindo ?? []).map((f) => f.followingId as string);
+    if (amigosIds.length === 0) {
+      return [];
+    }
+
+    let query = this.db
+      .from("EpisodeProgress")
+      .select("userId,season,episode,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
+      .eq("mediaItemId", mediaItemId)
+      .in("userId", amigosIds)
+      .not("highlightCharacterName", "is", null);
+
+    if (season !== undefined && season !== null) {
+      query = query.eq("season", season);
+    }
+
+    const { data: destaques, error: epErr } = await query;
+    falha(epErr);
+
+    if (!destaques || destaques.length === 0) {
+      return [];
+    }
+
+    const perfis = await this.db
+      .from("User")
+      .select("id,username,displayName,avatarUrl")
+      .in("id", [...new Set(destaques.map((d) => d.userId as string))]);
+
+    const perfisMap = new Map((perfis.data ?? []).map((p) => [p.id as string, p]));
+
+    return destaques.map((d) => {
+      const perfil = perfisMap.get(d.userId as string);
+      return {
+        season: d.season as number,
+        episode: d.episode as number,
+        characterId: d.highlightCharacterId as string | null,
+        characterName: d.highlightCharacterName as string,
+        characterAvatar: d.highlightCharacterAvatar as string | null,
+        user: {
+          id: d.userId as string,
+          username: perfil?.username ?? "amigo",
+          displayName: perfil?.displayName ?? null,
+          avatarUrl: perfil?.avatarUrl ?? null
+        }
+      };
+    });
   }
 }

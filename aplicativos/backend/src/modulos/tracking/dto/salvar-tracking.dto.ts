@@ -49,4 +49,17 @@ export class SalvarTrackingDto {
   @IsString()
   @MaxLength(2000)
   customCoverUrl?: string | null;
+
+  // Coroação do personagem favorito da obra (Panteão pessoal - desbloqueado ao concluir)
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
+  @IsString()
+  @MaxLength(200)
+  favoriteCharacterName?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
+  @IsString()
+  @MaxLength(2000)
+  favoriteCharacterAvatar?: string | null;
 }

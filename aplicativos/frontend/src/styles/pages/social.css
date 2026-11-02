@@ -1,4 +1,4 @@
-﻿/* Navegacao */
+/* Navegacao */
 
 .site-nav a[aria-current="page"] {
   color: var(--text);
@@ -286,6 +286,245 @@
   color: var(--primary);
   border-color: rgba(110, 231, 200, 0.35);
   background: rgba(110, 231, 200, 0.08);
+}
+
+/* Acordeão de Avaliação Inline e "Roubou a Cena" */
+.episode-details-toggle-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.episode-details-toggle-btn:hover,
+.episode-details-toggle-btn.is-active {
+  color: var(--primary);
+  border-color: rgba(110, 231, 200, 0.35);
+  background: rgba(110, 231, 200, 0.08);
+}
+
+.episode-details-toggle-btn.has-data {
+  border-color: rgba(234, 179, 8, 0.3);
+  color: #facc15;
+}
+
+.episode-inline-panel {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 231, 200, 0.2);
+  background: rgba(18, 24, 38, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: slideDown 180ms ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.episode-inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.episode-inline-rating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.episode-characters-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episode-characters-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.episode-characters-carousel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+}
+
+.episode-char-card {
+  flex-shrink: 0;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+  transition: transform 140ms ease;
+}
+
+.episode-char-card:hover {
+  transform: translateY(-2px);
+}
+
+.episode-char-avatar-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  border: 2px solid var(--surface-border);
+  overflow: hidden;
+  position: relative;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.episode-char-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.episode-char-card.is-selected .episode-char-avatar-wrap {
+  border-color: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
+.episode-char-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-char-actor {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-social-insight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* Panteão / Coroação no Item Shell */
+.pantheon-block {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(24, 32, 48, 0.6);
+  border: 1px solid var(--surface-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pantheon-block.is-unlocked {
+  border-color: rgba(250, 204, 21, 0.35);
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.05) 0%, rgba(24, 32, 48, 0.8) 100%);
+}
+
+.pantheon-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pantheon-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #facc15;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pantheon-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.pantheon-crowned {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pantheon-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  border: 2px solid #facc15;
+  overflow: hidden;
+  position: relative;
+}
+
+.pantheon-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pantheon-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 @media (max-width: 640px) {

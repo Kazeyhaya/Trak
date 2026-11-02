@@ -4,6 +4,7 @@ import { CriarComentarioDto } from "../modulos/comentarios/dto/criar-comentario.
 import { ImportarLetterboxdDto } from "../modulos/importacao/dto/importar.dto";
 import { ModerarDenunciaDto } from "../modulos/moderacao/dto/moderar-denuncia.dto";
 import { SalvarPerfilDto } from "../modulos/social/dto/salvar-perfil.dto";
+import { AvaliarEpisodioDto } from "../modulos/tracking/dto/avaliar-episodio.dto";
 import { MarcarEpisodiosDto } from "../modulos/tracking/dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "../modulos/tracking/dto/salvar-tracking.dto";
 
@@ -90,6 +91,30 @@ describe("MarcarEpisodiosDto", () => {
     { season: 1, episodes: [1] }
   ])("rejeita %p", async (valor) => {
     expect((await erros(MarcarEpisodiosDto, valor)).message.length).toBeGreaterThan(0);
+  });
+});
+
+describe("AvaliarEpisodioDto", () => {
+  it("aceita avaliacao fracionada e personagem que roubou a cena", async () => {
+    const dto = await validar(AvaliarEpisodioDto, {
+      season: 1,
+      episode: 3,
+      rating: 4.5,
+      highlightCharacterId: "123",
+      highlightCharacterName: "Bill",
+      highlightCharacterAvatar: "https://image.tmdb.org/t/p/w185/bill.jpg"
+    });
+    expect(dto).toMatchObject({
+      season: 1,
+      episode: 3,
+      rating: 4.5,
+      highlightCharacterName: "Bill"
+    });
+  });
+
+  it("rejeita episodio negativo ou nota fora da faixa", async () => {
+    expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 0 })).message.length).toBeGreaterThan(0);
+    expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 1, rating: 6 })).message.length).toBeGreaterThan(0);
   });
 });
 

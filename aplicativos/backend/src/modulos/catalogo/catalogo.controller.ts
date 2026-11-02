@@ -35,6 +35,15 @@ export class CatalogoController {
     return this.catalogoService.listarEpisodios(id, temporada);
   }
 
+  @Get(":id/temporadas/:temporada/episodios/:episodio/creditos")
+  creditosEpisodio(
+    @Param("id") id: string,
+    @Param("temporada", ParseIntPipe) temporada: number,
+    @Param("episodio", ParseIntPipe) episodio: number
+  ) {
+    return this.catalogoService.creditosEpisodio(id, temporada, episodio);
+  }
+
   @Get(":id/relacionados")
   relacionados(@Param("id") id: string) {
     return this.catalogoService.relacionados(id);

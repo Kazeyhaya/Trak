@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { SupabaseAuthGuard } from "../../comum/autenticacao/supabase-auth.guard";
 import { UsuarioAuth, UsuarioLogado } from "../../comum/autenticacao/usuario-auth.decorator";
+import { AvaliarEpisodioDto } from "./dto/avaliar-episodio.dto";
 import { MarcarEpisodiosDto } from "./dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
 import { TrackingService } from "./tracking.service";
@@ -55,5 +56,24 @@ export class TrackingController {
     @Body() payload: MarcarEpisodiosDto
   ) {
     return this.trackingService.marcarEpisodios(usuario.id, mediaItemId, payload);
+  }
+
+  @Patch("items/:mediaItemId/episodios")
+  avaliarEpisodio(
+    @UsuarioLogado() usuario: UsuarioAuth,
+    @Param("mediaItemId") mediaItemId: string,
+    @Body() payload: AvaliarEpisodioDto
+  ) {
+    return this.trackingService.avaliarEpisodio(usuario.id, mediaItemId, payload);
+  }
+
+  @Get("items/:mediaItemId/destaques-amigos")
+  destaquesAmigos(
+    @UsuarioLogado() usuario: UsuarioAuth,
+    @Param("mediaItemId") mediaItemId: string,
+    @Query("season") season?: string
+  ) {
+    const seasonNumber = season !== undefined && season !== "" ? parseInt(season, 10) : undefined;
+    return this.trackingService.destaquesAmigos(usuario.id, mediaItemId, Number.isNaN(seasonNumber) ? undefined : seasonNumber);
   }
 }

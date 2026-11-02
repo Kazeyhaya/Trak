@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { RatingStars } from "./rating-stars";
 import { SectionHeading } from "./section-heading";
 import {
   Episode,
+  EpisodeCharacter,
   errorMessage,
+  FriendEpisodeHighlight,
+  getEpisodeCredits,
   getEpisodes,
+  getFriendsEpisodeHighlights,
   getSeasons,
   getWatchedEpisodes,
   markEpisodes,
+  rateEpisode,
   Season,
   TrackingEntry,
   WatchedEpisode
@@ -37,15 +43,26 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
   const [reverseOrder, setReverseOrder] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Acordeão inline: qual episódio está aberto para avaliação e destaque de personagem
+  const [expandedEpisode, setExpandedEpisode] = useState<number | null>(null);
+  const [episodeCredits, setEpisodeCredits] = useState<Record<number, EpisodeCharacter[]>>({});
+  const [loadingCredits, setLoadingCredits] = useState<Record<number, boolean>>({});
+  const [friendHighlights, setFriendHighlights] = useState<FriendEpisodeHighlight[]>([]);
+
   useEffect(() => {
     let active = true;
-    Promise.all([getSeasons(mediaItemId), getWatchedEpisodes(mediaItemId)])
-      .then(([seasonList, watchedList]) => {
+    Promise.all([
+      getSeasons(mediaItemId),
+      getWatchedEpisodes(mediaItemId),
+      getFriendsEpisodeHighlights(mediaItemId).catch(() => [])
+    ])
+      .then(([seasonList, watchedList, highlights]) => {
         if (!active) {
           return;
         }
         setSeasons(seasonList);
         setWatched(watchedList);
+        setFriendHighlights(highlights);
         // Abre a primeira temporada que ainda nao foi terminada.
         const vistos = (n: number) => watchedList.filter((w) => w.season === n).length;
         const proxima = seasonList.find((s) => s.seasonNumber > 0 && vistos(s.seasonNumber) < s.episodeCount);
@@ -155,10 +172,97 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
       // Sincroniza com a resposta oficial do backend
       setWatched(result.episodes);
       onTrackingChange(result.tracking);
+
+      // Se marcou um único episódio como visto pela primeira vez, abre o acordeão para avaliação
+      if (value && episodeNumbers.length === 1) {
+        handleToggleExpand(episodeNumbers[0]);
+      }
     } catch (err) {
       // Em caso de falha, desfaz a ação e avisa o usuário com mensagem de erro
       setWatched(previousWatched);
       setError(errorMessage(err, "Falha ao salvar episódio. As alterações foram revertidas."));
+    }
+  }
+
+  function handleToggleExpand(episodeNum: number) {
+    if (expandedEpisode === episodeNum) {
+      setExpandedEpisode(null);
+      return;
+    }
+    setExpandedEpisode(episodeNum);
+
+    // Carrega o elenco daquele episódio se ainda não estiver em cache
+    if (!episodeCredits[episodeNum] && selected !== null) {
+      setLoadingCredits((prev) => ({ ...prev, [episodeNum]: true }));
+      getEpisodeCredits(mediaItemId, selected, episodeNum)
+        .then((credits) => {
+          setEpisodeCredits((prev) => ({ ...prev, [episodeNum]: credits }));
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          setLoadingCredits((prev) => ({ ...prev, [episodeNum]: false }));
+        });
+    }
+  }
+
+  async function handleRateEpisode(episodeNum: number, nextRating: number | null) {
+    if (selected === null) return;
+    const previousWatched = watched;
+
+    // Atualização otimista imediata
+    setWatched((prev) =>
+      prev.map((w) => (w.season === selected && w.episode === episodeNum ? { ...w, rating: nextRating } : w))
+    );
+
+    try {
+      const res = await rateEpisode(mediaItemId, {
+        season: selected,
+        episode: episodeNum,
+        rating: nextRating
+      });
+      setWatched(res.episodes);
+    } catch (err) {
+      setWatched(previousWatched);
+      setError(errorMessage(err, "Falha ao salvar nota do episódio."));
+    }
+  }
+
+  async function handleSelectHighlight(episodeNum: number, character: EpisodeCharacter) {
+    if (selected === null) return;
+    const current = watched.find((w) => w.season === selected && w.episode === episodeNum);
+    const isSame = current?.highlightCharacterName === character.character;
+    const previousWatched = watched;
+
+    const nextId = isSame ? null : character.id;
+    const nextName = isSame ? null : character.character;
+    const nextAvatar = isSame ? null : character.avatarUrl;
+
+    // Atualização otimista imediata
+    setWatched((prev) =>
+      prev.map((w) =>
+        w.season === selected && w.episode === episodeNum
+          ? {
+              ...w,
+              highlightCharacterId: nextId,
+              highlightCharacterName: nextName,
+              highlightCharacterAvatar: nextAvatar
+            }
+          : w
+      )
+    );
+
+    try {
+      const res = await rateEpisode(mediaItemId, {
+        season: selected,
+        episode: episodeNum,
+        highlightCharacterId: nextId,
+        highlightCharacterName: nextName,
+        highlightCharacterAvatar: nextAvatar
+      });
+      setWatched(res.episodes);
+    } catch (err) {
+      setWatched(previousWatched);
+      setError(errorMessage(err, "Falha ao salvar personagem em destaque."));
     }
   }
 
@@ -315,6 +419,18 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                 ? aired.filter((n) => n <= episode.episodeNumber && !watchedInSeason.has(n))
                 : [];
 
+            const watchedEntry = watched.find(
+              (w) => w.season === selected && w.episode === episode.episodeNumber
+            );
+            const isExpanded = expandedEpisode === episode.episodeNumber;
+            const credits = episodeCredits[episode.episodeNumber] ?? [];
+            const isLoadingCredits = loadingCredits[episode.episodeNumber] ?? false;
+
+            // Busca amigos que destacaram personagens neste episódio
+            const friendHighlightsThisEp = friendHighlights.filter(
+              (h) => h.season === selected && h.episode === episode.episodeNumber
+            );
+
             return (
               <li key={episode.episodeNumber} className={isWatched ? "is-watched" : undefined}>
                 <div className="episode-row">
@@ -332,6 +448,21 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                       {!disponivel && " · em breve"}
                     </span>
                   </label>
+
+                  {isWatched && (
+                    <button
+                      type="button"
+                      className={`episode-details-toggle-btn${isExpanded ? " is-active" : ""}${
+                        watchedEntry?.rating || watchedEntry?.highlightCharacterName ? " has-data" : ""
+                      }`}
+                      onClick={() => handleToggleExpand(episode.episodeNumber)}
+                      title="Avaliar episódio e destacar quem roubou a cena"
+                    >
+                      {watchedEntry?.rating ? `★ ${watchedEntry.rating}` : "☆ Avaliar"}
+                      {watchedEntry?.highlightCharacterName && " · 👑"}
+                    </button>
+                  )}
+
                   {episodesUpToHere.length > 1 && (
                     <button
                       type="button"
@@ -343,6 +474,71 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                     </button>
                   )}
                 </div>
+
+                {isExpanded && isWatched && (
+                  <div className="episode-inline-panel">
+                    <div className="episode-inline-header">
+                      <div className="episode-inline-rating">
+                        <span>Sua nota no episódio:</span>
+                        <RatingStars
+                          value={watchedEntry?.rating ?? null}
+                          size="sm"
+                          onChange={(nextRating) => void handleRateEpisode(episode.episodeNumber, nextRating)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="episode-characters-block">
+                      <div className="episode-characters-title">
+                        <span>👑 Quem roubou a cena neste episódio?</span>
+                      </div>
+
+                      {isLoadingCredits ? (
+                        <p className="panel-note">Carregando elenco…</p>
+                      ) : credits.length === 0 ? (
+                        <p className="panel-note">Elenco do episódio não disponível.</p>
+                      ) : (
+                        <div className="episode-characters-carousel">
+                          {credits.map((char) => {
+                            const isSelected =
+                              watchedEntry?.highlightCharacterName === char.character;
+                            return (
+                              <button
+                                key={char.id}
+                                type="button"
+                                className={`episode-char-card${isSelected ? " is-selected" : ""}`}
+                                onClick={() => void handleSelectHighlight(episode.episodeNumber, char)}
+                                title={`${char.character} (interpretado por ${char.name})`}
+                              >
+                                <div className="episode-char-avatar-wrap">
+                                  {char.avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={char.avatarUrl} alt={char.character} />
+                                  ) : (
+                                    <span>👤</span>
+                                  )}
+                                </div>
+                                <span className="episode-char-name">{char.character}</span>
+                                <span className="episode-char-actor">{char.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Social Íntimo: Amigos que também destacaram */}
+                    {friendHighlightsThisEp.length > 0 && (
+                      <div className="episode-social-insight">
+                        <span>💬</span>
+                        <span>
+                          {friendHighlightsThisEp.map((f) => `@${f.user.username}`).join(", ")} também destacou{" "}
+                          <strong>{friendHighlightsThisEp[0].characterName}</strong> neste episódio.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}

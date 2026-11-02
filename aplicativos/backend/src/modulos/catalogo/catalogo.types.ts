@@ -37,6 +37,13 @@ export interface Episodio {
   runtime: number | null;
 }
 
+export interface PersonagemEpisodio {
+  id: string;
+  name: string;
+  character: string;
+  avatarUrl: string | null;
+}
+
 export interface Novidade {
   kind: "NEW_EPISODE" | "UPCOMING_EPISODE" | "UPCOMING_RELEASE";
   date: string;

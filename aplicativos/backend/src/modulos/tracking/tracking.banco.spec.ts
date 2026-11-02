@@ -44,6 +44,8 @@ describe("deBanco", () => {
       pagesRead: 120,
       totalPages: 300,
       customCoverUrl: "https://example.com/custom-cover.jpg",
+      favoriteCharacterName: null,
+      favoriteCharacterAvatar: null,
       startedAt: "2026-01-01T00:00:00.000Z",
       finishedAt: null,
       updatedAt: "2026-01-02T00:00:00.000Z"
