@@ -2,7 +2,9 @@ export type TipoMidia = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
 export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA" | "MANGA" | "HQ";
 
-export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary" | "gbooks" | "hardcover";
+export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary" | "gbooks" | "hardcover" | "igdb";
+
+export type { IProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface ItemCatalogo {
   id: string;

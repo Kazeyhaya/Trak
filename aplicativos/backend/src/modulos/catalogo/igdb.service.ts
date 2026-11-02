@@ -1,4 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { CatalogItem } from "./catalogo.types";
+import { IProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface IgdbCover {
   id: number;
@@ -42,8 +44,33 @@ export function formatarUrlCapaIgdb(
   return `https://images.igdb.com/igdb/image/upload/t_${tamanho}/${imageId}.jpg`;
 }
 
+export function mapIgdbGame(game: IgdbGame): CatalogItem {
+  let releaseYear: number | null = null;
+  if (typeof game.first_release_date === "number" && game.first_release_date > 0) {
+    const year = new Date(game.first_release_date * 1000).getUTCFullYear();
+    if (Number.isFinite(year) && year > 1950) {
+      releaseYear = year;
+    }
+  }
+
+  const coverUrl = game.cover?.image_id
+    ? formatarUrlCapaIgdb(game.cover.image_id, "cover_big_2x")
+    : null;
+
+  return {
+    id: `igdb_game_${game.id}`,
+    externalId: String(game.id),
+    source: "igdb",
+    type: "GAME",
+    title: game.name?.trim() || "Sem título",
+    coverUrl,
+    synopsis: game.summary?.trim() || null,
+    releaseYear
+  };
+}
+
 @Injectable()
-export class IgdbService {
+export class IgdbService implements IProvedorCatalogo {
   private readonly logger = new Logger(IgdbService.name);
   private readonly baseUrl = "https://api.igdb.com/v4";
   private readonly authUrl = "https://id.twitch.tv/oauth2/token";
@@ -164,6 +191,65 @@ export class IgdbService {
         return null;
       }
     });
+  }
+
+  /**
+   * Busca jogos na IGDB e devolve no formato unificado CatalogItem[].
+   */
+  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+    const maxResults = Math.min(Math.max(1, limit), 50);
+    const nomeLimpo = (query ?? "").replace(/[^\w\s-]/gi, "").trim();
+
+    const apicalypse = nomeLimpo
+      ? `search "${nomeLimpo}"; fields name,summary,first_release_date,cover.image_id,rating,rating_count; limit ${maxResults};`
+      : `fields name,summary,first_release_date,cover.image_id,rating,rating_count; where cover != null & rating_count > 20; sort rating_count desc; limit ${maxResults};`;
+
+    const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
+    if (!Array.isArray(resultado) || resultado.length === 0) {
+      return [];
+    }
+
+    return resultado
+      .filter((game) => Boolean(game?.id && game?.name?.trim()))
+      .map(mapIgdbGame);
+  }
+
+  /**
+   * Busca um jogo específico pelo ID na IGDB (ex: "igdb_game_1020" ou "1020") e devolve CatalogItem.
+   */
+  async buscarPorId(id: string): Promise<CatalogItem | null> {
+    if (!id?.trim()) {
+      return null;
+    }
+    const cleanId = id.trim().replace(/^igdb_game_/, "");
+    const numericId = parseInt(cleanId, 10);
+    if (Number.isNaN(numericId) || numericId <= 0) {
+      return null;
+    }
+
+    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
+    const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
+    const game = resultado?.[0];
+    if (!game?.id) {
+      return null;
+    }
+
+    return mapIgdbGame(game);
+  }
+
+  /**
+   * Busca os dados brutos de um jogo na IGDB pelo ID numérico.
+   */
+  async getGameRaw(id: string | number): Promise<IgdbGame | null> {
+    const cleanId = String(id).trim().replace(/^igdb_game_/, "");
+    const numericId = parseInt(cleanId, 10);
+    if (Number.isNaN(numericId) || numericId <= 0) {
+      return null;
+    }
+
+    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
+    const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
+    return resultado?.[0] ?? null;
   }
 
   /**

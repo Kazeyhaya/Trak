@@ -34,7 +34,17 @@ import {
   urlLojaJogo,
   urlProvedorStreaming
 } from "./catalogo.fontes";
-import { Episodio, ExtrasCatalogo, ItemCatalogo, NotaExterna, Novidade, ProvedorOndeAssistir, Temporada } from "./catalogo.types";
+import {
+  Episodio,
+  ExtrasCatalogo,
+  FonteCatalogo,
+  IProvedorCatalogo,
+  ItemCatalogo,
+  NotaExterna,
+  Novidade,
+  ProvedorOndeAssistir,
+  Temporada
+} from "./catalogo.types";
 
 type TmdbTv = TmdbItem & {
   number_of_episodes?: number;
@@ -76,13 +86,43 @@ function dicaDeErro(status: number) {
 export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
   private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
+  private readonly provedores: Record<string, IProvedorCatalogo>;
+  private readonly provedoresPorFonte: Partial<Record<FonteCatalogo, IProvedorCatalogo>>;
 
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly googleBooksService: GoogleBooksService,
     private readonly hardcoverService: HardcoverService,
     private readonly igdbService: IgdbService
-  ) {}
+  ) {
+    // Mapeamento polimórfico: Tipo/Provedor -> IProvedorCatalogo
+    this.provedores = {
+      BOOK: this.googleBooksService,
+      GAME: this.igdbService,
+      GBOOKS: this.googleBooksService,
+      HARDCOVER: this.hardcoverService,
+      IGDB: this.igdbService
+    };
+
+    // Mapeamento por fonte de ID para buscarPorId unificado
+    this.provedoresPorFonte = {
+      gbooks: this.googleBooksService,
+      hardcover: this.hardcoverService,
+      igdb: this.igdbService
+    };
+  }
+
+  /**
+   * Despacha a busca de mídia de forma polimórfica pelo mapa de provedores (`IProvedorCatalogo`).
+   */
+  async buscarMidia(tipo: string, query: string, limit = LIMITE_POR_FONTE): Promise<ItemCatalogo[]> {
+    const chave = tipo?.trim().toUpperCase();
+    const provedor = chave ? this.provedores[chave] : undefined;
+    if (!provedor) {
+      return [];
+    }
+    return provedor.buscar(query, limit);
+  }
 
   private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
     const atual = this.cache.get(chave);
@@ -608,8 +648,8 @@ export class CatalogoService implements OnModuleInit {
       const olTerm = ehManga ? `${query} manga` : (ehHq ? `${query} comic books` : (subject ? `${query} subject:${subject}` : query));
 
       const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.searchBooks(hcTerm, LIMITE_POR_FONTE),
-        this.googleBooksService.searchBooks(gbooksTerm, LIMITE_POR_FONTE),
+        this.hardcoverService.buscar(hcTerm, LIMITE_POR_FONTE),
+        this.googleBooksService.buscar(gbooksTerm, LIMITE_POR_FONTE),
         this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
           q: olTerm,
           limit: String(LIMITE_POR_FONTE),
@@ -633,8 +673,8 @@ export class CatalogoService implements OnModuleInit {
       const gbooksTerm = ehManga ? "manga" : (ehHq ? 'subject:"comics"' : `subject:${subject}`);
 
       const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.searchBooks(hcTerm, LIMITE_POR_FONTE),
-        this.googleBooksService.searchBooks(gbooksTerm, LIMITE_POR_FONTE),
+        this.hardcoverService.buscar(hcTerm, LIMITE_POR_FONTE),
+        this.googleBooksService.buscar(gbooksTerm, LIMITE_POR_FONTE),
         this.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
           limit: String(LIMITE_POR_FONTE)
         })
@@ -652,11 +692,11 @@ export class CatalogoService implements OnModuleInit {
 
     // 3. Vitrine inicial da aba Livros: combina populares da Hardcover, tendências da OpenLibrary e populares da Google Books
     const [hardcoverPopular, openLibTrending, gbooksPopular] = await Promise.allSettled([
-      this.hardcoverService.getPopularBooks(LIMITE_POR_FONTE),
+      this.hardcoverService.buscar("", LIMITE_POR_FONTE),
       this.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
         limit: String(LIMITE_POR_FONTE)
       }),
-      this.googleBooksService.searchBooks("ficcao fantasia romance bestseller", LIMITE_POR_FONTE)
+      this.googleBooksService.buscar("ficcao fantasia romance bestseller", LIMITE_POR_FONTE)
     ]);
 
     const hardcoverItens = hardcoverPopular.status === "fulfilled" ? hardcoverPopular.value : [];
@@ -836,6 +876,37 @@ export class CatalogoService implements OnModuleInit {
             url: urlLojaJogo(s.store!.name, tituloJogo, directUrl, s.store?.domain)
           };
         });
+
+      return {
+        genres: (jogo?.genres ?? []).map((g) => g.name),
+        watchProviders,
+        watchLink: watchProviders[0]?.url ?? null,
+        trakRating,
+        externalRatings
+      };
+    }
+
+    if (parsed.source === "igdb") {
+      const [jogo, trakRating] = await Promise.all([
+        this.igdbService.getGameRaw(parsed.externalId),
+        trakPromise
+      ]);
+
+      const externalRatings: NotaExterna[] = [];
+      if (jogo?.rating && jogo.rating > 0) {
+        externalRatings.push({ source: "IGDB", value: `${Math.round(jogo.rating)}/100` });
+      }
+
+      const tituloJogo = jogo?.name ?? "";
+      const watchProviders: ProvedorOndeAssistir[] = tituloJogo
+        ? [
+            {
+              name: "Steam",
+              category: "STORE" as const,
+              url: urlLojaJogo("Steam", tituloJogo, null)
+            }
+          ]
+        : [];
 
       return {
         genres: (jogo?.genres ?? []).map((g) => g.name),
@@ -1049,8 +1120,22 @@ export class CatalogoService implements OnModuleInit {
       };
     }
 
+    if (parsed?.source === "igdb" || id.startsWith("igdb_game_")) {
+      const provedor = this.provedoresPorFonte.igdb ?? this.igdbService;
+      const item = await provedor.buscarPorId(id);
+      if (!item) {
+        return null;
+      }
+      const synopsis = idioma === "pt-BR" ? await this.traduzirParaPtBr(item.synopsis) : item.synopsis;
+      return {
+        ...item,
+        synopsis
+      };
+    }
+
     if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
-      const item = await this.hardcoverService.getBookById(id);
+      const provedor = this.provedoresPorFonte.hardcover ?? this.hardcoverService;
+      const item = await provedor.buscarPorId(id);
       if (!item) {
         return null;
       }
@@ -1065,7 +1150,7 @@ export class CatalogoService implements OnModuleInit {
       }
       let coverUrl = item.coverUrl;
       if (!coverUrl) {
-        const gbooks = await this.googleBooksService.searchBooks(item.title, 1);
+        const gbooks = await this.googleBooksService.buscar(item.title, 1);
         if (gbooks[0]?.coverUrl) {
           coverUrl = gbooks[0].coverUrl;
         }
@@ -1078,7 +1163,8 @@ export class CatalogoService implements OnModuleInit {
     }
 
     if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
-      const item = await this.googleBooksService.getBookById(id);
+      const provedor = this.provedoresPorFonte.gbooks ?? this.googleBooksService;
+      const item = await provedor.buscarPorId(id);
       if (!item) {
         return null;
       }
@@ -1215,13 +1301,23 @@ export class CatalogoService implements OnModuleInit {
       return (data?.results ?? []).map((item) => ({ ...mapearRawg(item), synopsis: null }));
     }
 
+    if (parsed?.source === "igdb" || id.startsWith("igdb_game_")) {
+      const jogo = await this.igdbService.getGameRaw(parsed?.externalId ?? id);
+      const termoBusca = jogo?.genres?.[0]?.name || jogo?.name;
+      if (!termoBusca) {
+        return [];
+      }
+      const resultados = await this.igdbService.buscar(termoBusca, 8);
+      return resultados.filter((item) => item.id !== id);
+    }
+
     if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
       const book = await this.hardcoverService.getBookRaw(parsed?.externalId ?? id);
       const termoBusca = book?.cached_tags?.Genre?.[0]?.tag || book?.title;
       if (!termoBusca) {
         return [];
       }
-      const resultados = await this.hardcoverService.searchBooks(termoBusca, 8);
+      const resultados = await this.hardcoverService.buscar(termoBusca, 8);
       return resultados.filter((item) => item.id !== id);
     }
 
@@ -1231,7 +1327,7 @@ export class CatalogoService implements OnModuleInit {
       if (!categoria) {
         return [];
       }
-      const resultados = await this.googleBooksService.searchBooks(categoria, 8);
+      const resultados = await this.googleBooksService.buscar(categoria, 8);
       return resultados.filter((item) => item.id !== id);
     }
 
@@ -1243,7 +1339,7 @@ export class CatalogoService implements OnModuleInit {
       }
 
       // Prioriza busca de relacionados no Google Books para garantir capas oficiais de editora e sinopses em PT-BR
-      const relacionadosGbooks = await this.googleBooksService.searchBooks(termoBusca, 8);
+      const relacionadosGbooks = await this.googleBooksService.buscar(termoBusca, 8);
       const filtradosGbooks = relacionadosGbooks.filter((item) => item.id !== id);
       if (filtradosGbooks.length > 0) {
         return filtradosGbooks;
@@ -1292,7 +1388,7 @@ export class CatalogoService implements OnModuleInit {
           }
         }
       }
-    } else if (parsed?.source === "rawg") {
+    } else if (parsed?.source === "rawg" || parsed?.source === "igdb") {
       if (item?.title && this.igdbService.isConfigurado()) {
         const igdbCapas = await this.igdbService.buscarCapasAlternativas(item.title);
         for (const c of igdbCapas) {
@@ -1300,7 +1396,7 @@ export class CatalogoService implements OnModuleInit {
         }
       }
       // Usa capturas do RAWG apenas se a IGDB nao tiver retornado capas verticais alternativas
-      if (capasSet.size <= 1) {
+      if (parsed?.source === "rawg" && capasSet.size <= 1) {
         const rawgScreens = await this.rawg<{ results?: Array<{ image: string }> }>(
           `/games/${parsed.externalId}/screenshots`
         );
@@ -1329,14 +1425,14 @@ export class CatalogoService implements OnModuleInit {
         }
       }
     } else if (parsed?.source === "gbooks" && item?.title) {
-      const outros = await this.googleBooksService.searchBooks(item.title, 8);
+      const outros = await this.googleBooksService.buscar(item.title, 8);
       for (const b of outros) {
         if (b.coverUrl) {
           capasSet.add(b.coverUrl);
         }
       }
     } else if (parsed?.source === "hardcover" && item?.title) {
-      const outros = await this.hardcoverService.searchBooks(item.title, 8);
+      const outros = await this.hardcoverService.buscar(item.title, 8);
       for (const b of outros) {
         if (b.coverUrl) {
           capasSet.add(b.coverUrl);

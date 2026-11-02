@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
+import { IProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface GoogleBooksVolume {
   id: string;
@@ -100,12 +101,20 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
 }
 
 @Injectable()
-export class GoogleBooksService {
+export class GoogleBooksService implements IProvedorCatalogo {
   private readonly logger = new Logger(GoogleBooksService.name);
   private readonly baseUrl = "https://www.googleapis.com/books/v1/volumes";
 
   private getApiKey(): string | undefined {
     return process.env.GOOGLE_BOOKS_API_KEY?.trim() || undefined;
+  }
+
+  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+    return this.searchBooks(query, limit);
+  }
+
+  async buscarPorId(id: string): Promise<CatalogItem | null> {
+    return this.getBookById(id);
   }
 
   async searchBooks(query: string, maxResults = 20): Promise<CatalogItem[]> {

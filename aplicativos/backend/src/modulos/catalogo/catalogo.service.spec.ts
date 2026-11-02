@@ -684,5 +684,51 @@ describe("CatalogoService.extras", () => {
       const updateLegado = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
       expect(updateLegado?.payload).toEqual({ externalId: "legacy_media_legado_3498" });
     });
+
+    it("buscarMidia despacha polimorficamente para o provedor registrado via IProvedorCatalogo", async () => {
+      const gbooks = new GoogleBooksService();
+      const igdb = new IgdbService();
+
+      const spyBooks = jest.spyOn(gbooks, "buscar").mockResolvedValue([
+        {
+          id: "media_gbooks_1",
+          externalId: "1",
+          source: "gbooks",
+          type: "BOOK",
+          title: "Duna",
+          coverUrl: null,
+          synopsis: null,
+          releaseYear: 1965
+        }
+      ]);
+
+      const spyGames = jest.spyOn(igdb, "buscar").mockResolvedValue([
+        {
+          id: "igdb_game_1020",
+          externalId: "1020",
+          source: "igdb",
+          type: "GAME",
+          title: "GTA V",
+          coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co2lbd.jpg",
+          synopsis: null,
+          releaseYear: 2013
+        }
+      ]);
+
+      const servico = criarServico(gbooks, new HardcoverService(), igdb);
+
+      const livros = await servico.buscarMidia("BOOK", "Duna", 10);
+      expect(spyBooks).toHaveBeenCalledWith("Duna", 10);
+      expect(livros).toHaveLength(1);
+      expect(livros[0].title).toBe("Duna");
+
+      const jogos = await servico.buscarMidia("GAME", "GTA V", 5);
+      expect(spyGames).toHaveBeenCalledWith("GTA V", 5);
+      expect(jogos).toHaveLength(1);
+      expect(jogos[0].id).toBe("igdb_game_1020");
+
+      const desconhecido = await servico.buscarMidia("INVALIDO", "teste");
+      expect(desconhecido).toEqual([]);
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
+import { IProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface HardcoverImage {
   id?: number;
@@ -113,12 +114,20 @@ export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocumen
 }
 
 @Injectable()
-export class HardcoverService {
+export class HardcoverService implements IProvedorCatalogo {
   private readonly logger = new Logger(HardcoverService.name);
   private readonly graphqlUrl = "https://api.hardcover.app/v1/graphql";
 
   private getApiKey(): string | undefined {
     return process.env.HARDCOVER_API_KEY?.trim() || undefined;
+  }
+
+  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+    return this.searchBooks(query, limit);
+  }
+
+  async buscarPorId(id: string): Promise<CatalogItem | null> {
+    return this.getBookById(id);
   }
 
   async executeQuery<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {

@@ -131,4 +131,77 @@ describe("IgdbService", () => {
       expect(capaUrl).toBeNull();
     });
   });
+
+  describe("IProvedorCatalogo (buscar e buscarPorId)", () => {
+    it("buscar deve retornar lista padronizada de CatalogItem", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "token_abc",
+          expires_in: 3600
+        })
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 1020,
+            name: "Grand Theft Auto V",
+            summary: "Open world action game",
+            first_release_date: 1379376000,
+            cover: { id: 1, image_id: "co2lbd" }
+          }
+        ]
+      });
+
+      const itens = await service.buscar("Grand Theft Auto V", 5);
+      expect(itens).toEqual([
+        {
+          id: "igdb_game_1020",
+          externalId: "1020",
+          source: "igdb",
+          type: "GAME",
+          title: "Grand Theft Auto V",
+          coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co2lbd.jpg",
+          synopsis: "Open world action game",
+          releaseYear: 2013
+        }
+      ]);
+    });
+
+    it("buscarPorId deve retornar CatalogItem a partir do ID igdb_game_", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: "token_abc",
+          expires_in: 3600
+        })
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 1942,
+            name: "The Witcher 3: Wild Hunt",
+            summary: "RPG épico",
+            first_release_date: 1431993600,
+            cover: { id: 2, image_id: "co1wyy" }
+          }
+        ]
+      });
+
+      const item = await service.buscarPorId("igdb_game_1942");
+      expect(item).toMatchObject({
+        id: "igdb_game_1942",
+        externalId: "1942",
+        source: "igdb",
+        type: "GAME",
+        title: "The Witcher 3: Wild Hunt",
+        coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1wyy.jpg",
+        releaseYear: 2015
+      });
+    });
+  });
 });
