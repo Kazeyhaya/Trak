@@ -205,6 +205,9 @@ export const getEpisodeCredits = (mediaItemId: string, season: number, episode: 
     `/catalogo/${encodeURIComponent(mediaItemId)}/temporadas/${season}/episodios/${episode}/creditos`
   );
 
+export const getMediaCredits = (mediaItemId: string) =>
+  request<EpisodeCharacter[]>(`/catalogo/${encodeURIComponent(mediaItemId)}/creditos`);
+
 export const getWatchedEpisodes = (mediaItemId: string) =>
   request<WatchedEpisode[]>(`/tracking/items/${encodeURIComponent(mediaItemId)}/episodios`);
 

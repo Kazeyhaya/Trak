@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { CommentsSection } from "./comments-section";
 import { CustomCoverModal } from "./custom-cover-modal";
+import { PantheonModal } from "./pantheon-modal";
 import type { MediaType } from "../lib/catalogo-api";
 
 // Dynamic status label dictionary per MediaType
@@ -361,6 +362,7 @@ function PersonalTracking({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showPantheonModal, setShowPantheonModal] = useState(false);
   const pendingMetaRef = useRef<CheckpointMeta | null>(null);
   const onTrackingLoadedRef = useRef(onTrackingLoaded);
 
@@ -595,10 +597,9 @@ function PersonalTracking({
     setNotice(null);
   }
 
-  async function handlePantheonCrown(name: string, avatarUrl: string | null) {
-    const isSame = draft.favoriteCharacterName === name;
-    const nextName = isSame ? null : name;
-    const nextAvatar = isSame ? null : avatarUrl;
+  async function handlePantheonCrown(name: string | null, avatarUrl: string | null) {
+    const nextName = name ? name.trim() : null;
+    const nextAvatar = nextName ? avatarUrl : null;
 
     const previousDraft = draft;
     const previousTracking = tracking;
@@ -764,12 +765,7 @@ function PersonalTracking({
                   type="button"
                   className="secondary-button"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  onClick={() => {
-                    const novo = window.prompt("Nome do seu personagem favorito:", draft.favoriteCharacterName ?? "");
-                    if (novo !== null) {
-                      void handlePantheonCrown(novo.trim(), draft.favoriteCharacterAvatar);
-                    }
-                  }}
+                  onClick={() => setShowPantheonModal(true)}
                 >
                   Alterar
                 </button>
@@ -779,14 +775,9 @@ function PersonalTracking({
                 type="button"
                 className="primary-button"
                 style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                onClick={() => {
-                  const nome = window.prompt("Digite o nome do seu personagem favorito desta obra:");
-                  if (nome && nome.trim()) {
-                    void handlePantheonCrown(nome.trim(), null);
-                  }
-                }}
+                onClick={() => setShowPantheonModal(true)}
               >
-                Coroar personagem
+                👑 Coroar personagem
               </button>
             )}
           </div>
@@ -857,6 +848,17 @@ function PersonalTracking({
           </p>
         )}
       </div>
+
+      <PantheonModal
+        key={showPantheonModal ? `${item.id}-open` : "closed"}
+        isOpen={showPantheonModal}
+        onClose={() => setShowPantheonModal(false)}
+        mediaItemId={item.id}
+        itemTitle={item.title}
+        currentFavoriteName={draft.favoriteCharacterName}
+        currentFavoriteAvatar={draft.favoriteCharacterAvatar}
+        onSave={handlePantheonCrown}
+      />
 
       {isSeries && !loading && <EpisodesPanel mediaItemId={item.id} onTrackingChange={applyServerProgress} />}
     </>

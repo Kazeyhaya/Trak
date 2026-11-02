@@ -1278,20 +1278,212 @@ export class CatalogoService implements OnModuleInit {
     const membros = [...(data.cast ?? []), ...(data.guest_stars ?? [])];
     const unicos = new Map<string, PersonagemEpisodio>();
 
+    // Verifica se a série é animação / anime para enriquecer com avatares desenhados 2D da AniList
+    const parsed = parsearId(id);
+    let mapaAvataresAniList = new Map<string, string>();
+    const itemSerie = await this.buscarPorId(id).catch(() => null);
+    const ehAnimacao =
+      itemSerie?.subtype === "ANIME" ||
+      itemSerie?.subtype === "ANIMACAO" ||
+      itemSerie?.title?.toLowerCase().includes("dragon ball") ||
+      itemSerie?.title?.toLowerCase().includes("naruto") ||
+      itemSerie?.title?.toLowerCase().includes("one piece") ||
+      itemSerie?.title?.toLowerCase().includes("bleach") ||
+      itemSerie?.title?.toLowerCase().includes("attack on titan") ||
+      membros.some((m) => m.character?.toLowerCase().includes("(voice)") || m.character?.toLowerCase().includes("(voz)"));
+
+    if (ehAnimacao && itemSerie?.title) {
+      mapaAvataresAniList = await this.buscarPersonagensAniList(itemSerie.title);
+    }
+
     for (const m of membros) {
-      const charName = m.character?.trim();
-      if (!charName || unicos.has(charName.toLowerCase())) {
+      // Limpa sufixos de voz como "(voice)", "(voz)" e títulos duplicados
+      const cleanCharName = (m.character ?? "")
+        .replace(/\s*\((?:voice|voz|japanese|english)\)/gi, "")
+        .replace(/["']/g, "")
+        .trim();
+
+      if (!cleanCharName || unicos.has(cleanCharName.toLowerCase())) {
         continue;
       }
-      unicos.set(charName.toLowerCase(), {
+
+      // Procura primeiro pelo nome na AniList para obter a arte 2D desenhada do personagem
+      const avatar2d =
+        mapaAvataresAniList.get(cleanCharName.toLowerCase()) ||
+        this.encontrarCorrespondenciaPersonagem(cleanCharName.toLowerCase(), mapaAvataresAniList);
+
+      const avatarFinal = avatar2d || (m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null);
+
+      unicos.set(cleanCharName.toLowerCase(), {
         id: String(m.id),
         name: m.name,
-        character: charName,
-        avatarUrl: m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null
+        character: cleanCharName,
+        avatarUrl: avatarFinal
       });
     }
 
-    return Array.from(unicos.values()).slice(0, 20);
+    return Array.from(unicos.values()).slice(0, 24);
+  }
+
+  /**
+   * Retorna os personagens/elenco principais de uma obra (filme ou série) para o Panteão.
+   */
+  async creditosObra(id: string): Promise<PersonagemEpisodio[]> {
+    const parsed = parsearId(id);
+    if (!parsed || parsed.source !== "tmdb") {
+      return [];
+    }
+
+    type TmdbCreditMember = {
+      id: number;
+      name: string;
+      character?: string;
+      roles?: Array<{ character?: string }>;
+      profile_path?: string | null;
+    };
+
+    let membros: TmdbCreditMember[] = [];
+    const itemObra = await this.buscarPorId(id).catch(() => null);
+
+    if (parsed.type === "MOVIE") {
+      const data = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/movie/${parsed.externalId}/credits`);
+      membros = data?.cast ?? [];
+    } else if (parsed.type === "SERIES") {
+      const data = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/tv/${parsed.externalId}/aggregate_credits`).catch(
+        () => null
+      );
+      if (data?.cast && data.cast.length > 0) {
+        membros = data.cast.map((c) => ({
+          ...c,
+          character: c.roles?.[0]?.character || c.character
+        }));
+      } else {
+        const fallback = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/tv/${parsed.externalId}/credits`);
+        membros = fallback?.cast ?? [];
+      }
+    }
+
+    const unicos = new Map<string, PersonagemEpisodio>();
+    let mapaAvataresAniList = new Map<string, string>();
+    const ehAnimacao =
+      itemObra?.subtype === "ANIME" ||
+      itemObra?.subtype === "ANIMACAO" ||
+      itemObra?.title?.toLowerCase().includes("dragon ball") ||
+      itemObra?.title?.toLowerCase().includes("naruto") ||
+      itemObra?.title?.toLowerCase().includes("one piece") ||
+      itemObra?.title?.toLowerCase().includes("bleach") ||
+      itemObra?.title?.toLowerCase().includes("attack on titan") ||
+      membros.some((m) => m.character?.toLowerCase().includes("(voice)") || m.character?.toLowerCase().includes("(voz)"));
+
+    if (ehAnimacao && itemObra?.title) {
+      mapaAvataresAniList = await this.buscarPersonagensAniList(itemObra.title);
+    }
+
+    for (const m of membros) {
+      const cleanCharName = (m.character ?? "")
+        .replace(/\s*\((?:voice|voz|japanese|english)\)/gi, "")
+        .replace(/["']/g, "")
+        .trim();
+
+      if (!cleanCharName || unicos.has(cleanCharName.toLowerCase())) {
+        continue;
+      }
+
+      const avatar2d =
+        mapaAvataresAniList.get(cleanCharName.toLowerCase()) ||
+        this.encontrarCorrespondenciaPersonagem(cleanCharName.toLowerCase(), mapaAvataresAniList);
+
+      const avatarFinal = avatar2d || (m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null);
+
+      unicos.set(cleanCharName.toLowerCase(), {
+        id: String(m.id),
+        name: m.name,
+        character: cleanCharName,
+        avatarUrl: avatarFinal
+      });
+    }
+
+    return Array.from(unicos.values()).slice(0, 30);
+  }
+
+  private encontrarCorrespondenciaPersonagem(nome: string, mapa: Map<string, string>): string | null {
+    for (const [chave, url] of mapa.entries()) {
+      if (nome.includes(chave) || chave.includes(nome)) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Consulta a GraphQL da AniList para buscar artes oficiais dos personagens de animes/animações.
+   */
+  private async buscarPersonagensAniList(titulo: string): Promise<Map<string, string>> {
+    const mapa = new Map<string, string>();
+    const limpo = titulo.replace(/[^\w\s-]/gi, "").trim();
+    if (!limpo) return mapa;
+
+    const query = `
+      query ($search: String) {
+        Media(search: $search, type: ANIME) {
+          characters(sort: ROLE, perPage: 25) {
+            edges {
+              node {
+                name { full userPreferred }
+                image { medium large }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    return this.comCache(`anilist:chars:${normalizarTitulo(limpo)}`, async () => {
+      try {
+        const res = await fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ query, variables: { search: limpo } }),
+          signal: AbortSignal.timeout(4000)
+        });
+        if (!res.ok) return mapa;
+        const json = (await res.json()) as {
+          data?: {
+            Media?: {
+              characters?: {
+                edges?: Array<{
+                  node?: {
+                    name?: { full?: string; userPreferred?: string };
+                    image?: { medium?: string; large?: string };
+                  };
+                }>;
+              };
+            };
+          };
+        };
+
+        const edges = json.data?.Media?.characters?.edges ?? [];
+        for (const e of edges) {
+          const nomeFull = e.node?.name?.full?.toLowerCase().trim();
+          const nomePref = e.node?.name?.userPreferred?.toLowerCase().trim();
+          const img = e.node?.image?.medium || e.node?.image?.large;
+          if (img) {
+            if (nomeFull) mapa.set(nomeFull, img);
+            if (nomePref) mapa.set(nomePref, img);
+            // Também adiciona partes do nome para matching (ex: "goku" para "son goku")
+            const partes = (nomeFull || "").split(/\s+/);
+            for (const p of partes) {
+              if (p.length >= 3 && !mapa.has(p)) {
+                mapa.set(p, img);
+              }
+            }
+          }
+        }
+        return mapa;
+      } catch {
+        return mapa;
+      }
+    });
   }
 
   // Total de episodios ja exibidos, sem contar especiais.

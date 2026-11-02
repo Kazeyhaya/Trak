@@ -34,7 +34,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "cdn2.steamgriddb.com", pathname: "/**" },
       { protocol: "https", hostname: "books.google.com", pathname: "/**" },
       { protocol: "https", hostname: "assets.hardcover.app", pathname: "/**" },
-      { protocol: "https", hostname: "images.igdb.com", pathname: "/igdb/image/upload/**" }
+      { protocol: "https", hostname: "images.igdb.com", pathname: "/igdb/image/upload/**" },
+      { protocol: "https", hostname: "s4.anilist.co", pathname: "/file/anilistcdn/**" }
     ]
   },
   async headers() {

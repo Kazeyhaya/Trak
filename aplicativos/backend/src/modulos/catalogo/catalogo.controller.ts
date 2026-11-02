@@ -53,4 +53,9 @@ export class CatalogoController {
   capas(@Param("id") id: string) {
     return this.catalogoService.capas(id);
   }
+
+  @Get(":id/creditos")
+  creditosObra(@Param("id") id: string) {
+    return this.catalogoService.creditosObra(id);
+  }
 }
