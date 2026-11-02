@@ -1682,6 +1682,40 @@ export class CatalogoService implements OnModuleInit {
       );
     }
 
+    // Auto-atualização de capas de jogos salvas antes da IGDB:
+    // Se o jogo estiver salvo com a imagem horizontal padrão do RAWG (media.rawg.io) ou sem capa,
+    // consulta a IGDB / SteamGridDB em paralelo para obter a capa vertical oficial e atualiza no banco.
+    if (this.igdbService.isConfigurado() || process.env.STEAMGRIDDB_API_KEY?.trim()) {
+      const jogosComCapaHorizontal = linhas
+        .filter(
+          (item) =>
+            (item.type === "GAME" || item.source === "rawg") &&
+            Boolean(item.title) &&
+            (!item.coverUrl || item.coverUrl.includes("rawg.io"))
+        )
+        .slice(0, limiteBackfill);
+
+      if (jogosComCapaHorizontal.length > 0) {
+        await Promise.all(
+          jogosComCapaHorizontal.map(async (jogo) => {
+            try {
+              const capaVertical = await this.capaJogoVertical(jogo.title);
+              if (capaVertical && capaVertical !== jogo.coverUrl) {
+                jogo.coverUrl = capaVertical;
+                // Atualiza no banco de dados para que as próximas consultas já tenham a capa vertical oficial
+                await db
+                  .from("MediaItem")
+                  .update({ coverUrl: capaVertical, updatedAt: new Date().toISOString() })
+                  .eq("id", jogo.id);
+              }
+            } catch (err) {
+              this.logger.warn(`Falha ao auto-atualizar capa vertical de ${jogo.title}: ${(err as Error).message}`);
+            }
+          })
+        );
+      }
+    }
+
     return new Map(
       linhas.map((item) => {
         const coverUrl =
