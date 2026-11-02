@@ -500,7 +500,11 @@ function PersonalTracking({
   }
 
   async function handleStatusSelect(option: TrackingStatus) {
-    if (draft.status === option) return;
+    // Se clicar no mesmo status que já está ativo, remove do tracking (toggle)
+    if (draft.status === option) {
+      await handleRemoveTracking();
+      return;
+    }
 
     const previousDraft = draft;
     const previousTracking = tracking;
@@ -626,16 +630,26 @@ function PersonalTracking({
   }
 
   async function handleRemoveTracking() {
-    setSaving(true);
+    const previousDraft = draft;
+    const previousTracking = tracking;
+
+    // Atualização otimista imediata: desmarca o status na interface
+    setDraft(draftFromEntry(null));
+    setTracking(null);
+    pendingMetaRef.current = null;
+    setMetaDirty(false);
     setError(null);
+    setSaving(true);
+
     try {
       await removeTrackingItem(item.id);
-      setTracking(null);
-      setDraft(draftFromEntry(null));
-      pendingMetaRef.current = null;
-      setMetaDirty(false);
+      setNotice(t("tracking.removed", "Removido do tracking."));
+      onTrackingLoadedRef.current?.(null);
     } catch (err) {
-      setError(errorMessage(err));
+      // Em caso de falha de rede, reverte o estado anterior
+      setDraft(previousDraft);
+      setTracking(previousTracking);
+      setError(errorMessage(err, "Falha ao remover do tracking. Ação desfeita."));
     } finally {
       setSaving(false);
     }
@@ -678,11 +692,6 @@ function PersonalTracking({
         <UiButton variant="secondary" onClick={handleShare}>
           {t("tracking.share", "Compartilhar")}
         </UiButton>
-        {tracking && (
-          <UiButton variant="secondary" disabled={saving} onClick={handleRemoveTracking}>
-            {t("tracking.remove", "Remover do tracking")}
-          </UiButton>
-        )}
       </div>
 
       <div className="item-status-block">
@@ -695,8 +704,13 @@ function PersonalTracking({
                 type="button"
                 className={`filter-chip${isActive ? " is-active" : ""}`}
                 aria-pressed={isActive}
-                disabled={loading}
+                disabled={loading || saving}
                 onClick={() => void handleStatusSelect(option)}
+                title={
+                  isActive
+                    ? t("tracking.clickToRemove", "Clique novamente para remover do tracking")
+                    : getDynamicStatusLabel(option, item.type, language)
+                }
               >
                 {getDynamicStatusLabel(option, item.type, language)}
               </button>
