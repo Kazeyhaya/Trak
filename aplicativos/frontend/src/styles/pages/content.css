@@ -354,14 +354,29 @@
   padding: 10px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--surface-border);
-  background: rgba(18, 24, 36, 0.72);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  background: var(--surface);
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .media-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(24, 32, 48, 0.88);
+  border-color: var(--surface-border-strong);
+  background: var(--surface-elevated);
+}
+
+.media-card[data-media-type="MOVIE"] .media-card-type-icon {
+  color: var(--media-movie);
+}
+
+.media-card[data-media-type="SERIES"] .media-card-type-icon {
+  color: var(--media-series);
+}
+
+.media-card[data-media-type="GAME"] .media-card-type-icon {
+  color: var(--media-game);
+}
+
+.media-card[data-media-type="BOOK"] .media-card-type-icon {
+  color: var(--media-book);
 }
 
 .media-card-art {

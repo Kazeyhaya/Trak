@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BookOpen, Clapperboard, Crown, MessageCircle, Star, Tv } from "lucide-react";
 
 import { HomeHeroCta } from "./home-hero-cta";
 import { MediaGrid } from "./media-grid";
@@ -10,49 +11,70 @@ import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { useAuth } from "../contextos/auth-context";
-import { ehUsernameProvisorio, getPublicProfile, getStatusLabel, PublicProfile } from "../lib/api";
+import { ehUsernameProvisorio, getStatusLabel, getTrackingItems, TrackingEntry } from "../lib/api";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
+import { miniaturaCapa } from "../lib/imagens";
 
 type HomeShellProps = {
   destaques: CatalogItem[];
   initialLoggedIn: boolean;
 };
 
-const pilares = [
+const diferenciais = [
   {
-    title: "Filmes, séries, jogos e livros",
-    description: "Uma estante única para organizar o que você quer ver, está acompanhando ou já concluiu."
+    icon: Crown,
+    eyebrow: "Assinatura pessoal",
+    title: "Panteão da Obra",
+    description:
+      "Concluiu uma série, filme, jogo ou livro? Destrave a coroação do seu personagem favorito — ele acompanha suas críticas no feed."
   },
   {
-    title: "Progresso real",
-    description: "Marque episódio por episódio em séries, páginas lidas em livros e horas jogadas."
+    icon: MessageCircle,
+    eyebrow: "Social íntimo",
+    title: "Quem roubou a cena",
+    description:
+      "Dê notas de 0.5 a 5 estrelas por episódio e veja quem seus amigos destacaram, sem porcentagens globais de desconhecidos."
   },
   {
-    title: "Social e sem ruído",
-    description: "Acompanhe o que seus amigos estão achando, dê notas de 1 a 5 estrelas e importe seu histórico."
+    icon: BookOpen,
+    eyebrow: "Progresso fiel",
+    title: "Do episódio à página da edição",
+    description:
+      "Séries e animes com controle por temporada, livros pela paginação exata do seu exemplar e jogos por horas e marcos."
   }
 ];
 
 export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
   const { user, profile, loading } = useAuth();
   const isLoggedIn = loading ? initialLoggedIn : Boolean(user);
-  const [myPublicProfile, setMyPublicProfile] = useState<PublicProfile | null>(null);
+  const [library, setLibrary] = useState<TrackingEntry[]>([]);
 
   useEffect(() => {
-    if (profile?.username && !ehUsernameProvisorio(profile.username)) {
-      getPublicProfile(profile.username)
-        .then(setMyPublicProfile)
-        .catch(() => {});
-    }
-  }, [profile?.username]);
+    if (!user) return;
+    let active = true;
+    getTrackingItems()
+      .then((items) => {
+        if (active) setLibrary(items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
-  const inProgress = myPublicProfile?.inProgress ?? [];
-  const greetingName = profile?.displayName || (profile?.username && !ehUsernameProvisorio(profile.username) ? `@${profile.username}` : null);
+  const inProgress = library.filter(
+    (entry): entry is TrackingEntry & { item: CatalogItem } =>
+      entry.status === "WATCHING" && Boolean(entry.item)
+  );
+  const greetingName =
+    profile?.displayName ||
+    (profile?.username && !ehUsernameProvisorio(profile.username) ? `@${profile.username}` : null);
 
   const customCoverById = new Map<string, string>();
-  for (const entry of myPublicProfile?.library ?? []) {
-    if (entry.mediaItemId && entry.item?.coverUrl) {
-      customCoverById.set(entry.mediaItemId, entry.item.coverUrl);
+  for (const entry of library) {
+    const cover = entry.customCoverUrl || entry.item?.coverUrl;
+    if (entry.mediaItemId && cover) {
+      customCoverById.set(entry.mediaItemId, cover);
     }
   }
   const destaquesPersonalizados = destaques.map((item) => {
@@ -67,8 +89,8 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
 
         <section className="home-app-bar">
           <div>
-            <h1>{greetingName ? `Olá, ${greetingName}` : "Início"}</h1>
-            <p>Continue de onde parou ou descubra o que assistir, jogar e ler a seguir.</p>
+            <h1>{greetingName ? `Olá, ${greetingName}` : "Sua estante"}</h1>
+            <p>Retome de onde parou ou registre o que acabou de assistir, jogar ou ler.</p>
           </div>
           <div className="home-app-actions">
             <UiButton href="/catalogo">Explorar catálogo</UiButton>
@@ -89,35 +111,46 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
             </div>
 
             <div className="feed-in-progress-grid">
-              {inProgress.map(({ item, status, progress }) => (
-                <Link key={item.id} href={`/itens/${item.id}`} className="feed-in-progress-card">
-                  <div className="feed-in-progress-art">
-                    {item.coverUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.coverUrl} alt={item.title} />
-                    ) : (
-                      <span className="media-card-orb" />
-                    )}
-                    <div className="feed-in-progress-badge">
-                      <UiBadge tone="primary">{getStatusLabel(status, item.type)}</UiBadge>
-                    </div>
-                  </div>
-
-                  <div className="feed-in-progress-body">
-                    <span className="feed-in-progress-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
-                    <h3>{item.title}</h3>
-
-                    {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (
-                      <div className="feed-in-progress-bar-wrap">
-                        <div className="feed-in-progress-bar">
-                          <span style={{ width: `${Math.min(100, progress)}%` }} />
+              {inProgress.map(({ item, status, progress, customCoverUrl }) => {
+                const cover = customCoverUrl || item.coverUrl;
+                return (
+                  <Link key={item.id} href={`/itens/${item.id}`} className="feed-in-progress-card">
+                    <div className="feed-in-progress-art">
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          loading="lazy"
+                          decoding="async"
+                          src={miniaturaCapa(cover, 140) ?? cover}
+                          alt={item.title}
+                        />
+                      ) : (
+                        <div className="media-card-fallback">
+                          <Clapperboard size={16} aria-hidden="true" />
+                          <span>{item.title}</span>
                         </div>
-                        <small>{progress}%</small>
+                      )}
+                      <div className="feed-in-progress-badge">
+                        <UiBadge tone="primary">{getStatusLabel(status, item.type)}</UiBadge>
                       </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                    </div>
+
+                    <div className="feed-in-progress-body">
+                      <span className="feed-in-progress-type">{getMediaTypeLabel(item.type, item.subtype)}</span>
+                      <h3>{item.title}</h3>
+
+                      {(item.type === "GAME" || item.type === "BOOK") && progress > 0 && (
+                        <div className="feed-in-progress-bar-wrap">
+                          <div className="feed-in-progress-bar">
+                            <span style={{ width: `${Math.min(100, progress)}%` }} />
+                          </div>
+                          <small>{progress}%</small>
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
@@ -139,37 +172,78 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
     <main className="home-shell">
       <SiteHeader />
 
-      <section className="hero-card">
+      <section className="hero-card hero-card--editorial">
         <div className="hero-copy">
-          <h1>Tudo o que você assiste, joga e lê.</h1>
+          <span className="hero-eyebrow">Diário cultural sem ruído</span>
+          <h1>Seu caderno de filmes, séries, jogos e livros.</h1>
           <p>
-            Organize filmes, séries, jogos e livros num só lugar: marque onde parou, dê notas, siga amigos e descubra o
-            próximo favorito.
+            Registre cada episódio, página ou hora jogada. Dê notas fracionadas, coroe seus personagens favoritos no
+            Panteão e veja apenas o que seus amigos destacaram — sem algoritmo nem efeito manada.
           </p>
 
           <HomeHeroCta initialLoggedIn={false} />
         </div>
+
+        <aside className="hero-specimen" aria-label="Exemplo de ficha no Trak">
+          <div className="hero-specimen-header">
+            <span className="hero-specimen-tag">
+              <Tv size={13} aria-hidden="true" />
+              Série · T1 Ep. 3
+            </span>
+            <span className="hero-specimen-rating">
+              <Star size={13} fill="currentColor" aria-hidden="true" />
+              4.5
+            </span>
+          </div>
+
+          <strong className="hero-specimen-title">The Last of Us — &ldquo;Long, Long Time&rdquo;</strong>
+
+          <div className="hero-specimen-highlight">
+            <Crown size={14} className="pantheon-crown-icon" aria-hidden="true" />
+            <div>
+              <span>Roubou a cena no episódio</span>
+              <strong>Bill · destacado por você e @melissa</strong>
+            </div>
+          </div>
+
+          <div className="hero-specimen-pantheon">
+            <span className="hero-specimen-pantheon-badge">Panteão desbloqueado ao concluir</span>
+            <p>&ldquo;Obra concluída — Joel coroado no perfil.&rdquo;</p>
+          </div>
+        </aside>
       </section>
 
       {destaques.length > 0 && (
         <section className="roadmap-block">
           <SectionHeading
             title="Em alta na semana"
-            description="Abra qualquer obra para ver detalhes, avaliações e onde assistir, jogar ou ler."
+            description="Abra qualquer ficha para ver elenco, avaliações e onde assistir, jogar ou ler."
           />
           <MediaGrid items={destaques} label="Em alta na semana" />
         </section>
       )}
 
       <section className="roadmap-block">
-        <SectionHeading title="Uma estante para tudo" />
+        <SectionHeading
+          title="Por que o Trak é diferente"
+          description="Construído para conversas reais entre amigos, não para métricas de vaidade."
+        />
         <div className="landing-pillars">
-          {pilares.map((pilar) => (
-            <article key={pilar.title} className="landing-pillar">
-              <h3>{pilar.title}</h3>
-              <p>{pilar.description}</p>
-            </article>
-          ))}
+          {diferenciais.map((item) => {
+            const Icon = item.icon;
+            return (
+              <article key={item.title} className="landing-pillar">
+                <div className="landing-pillar-top">
+                  <span className="landing-pillar-icon" aria-hidden="true">
+                    <Icon size={16} />
+                  </span>
+                  <span className="landing-pillar-eyebrow">{item.eyebrow}</span>
+                </div>
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
     </main>

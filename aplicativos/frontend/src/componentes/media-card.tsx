@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { BookOpen, Clapperboard, Gamepad2, Tv } from "lucide-react";
 
+import { ehDominioOtimizado, miniaturaCapa } from "../lib/imagens";
+
 type MediaCardProps = {
   type: string;
   mediaType?: string;
@@ -14,12 +16,15 @@ type MediaCardProps = {
   accent?: string;
 };
 
-function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
-  const norm = `${mediaType ?? ""} ${type}`.toUpperCase();
+type CanonicalCategory = "MOVIE" | "SERIES" | "GAME" | "BOOK";
 
-  if (norm.includes("GAME") || norm.includes("JOGO")) {
-    return <Gamepad2 size={13} className="media-card-type-icon" aria-hidden="true" />;
+function resolverCategoria(type: string, mediaType?: string): CanonicalCategory {
+  const code = (mediaType ?? "").toUpperCase();
+  if (code === "GAME" || code === "BOOK" || code === "SERIES" || code === "MOVIE") {
+    return code;
   }
+  const norm = `${code} ${type}`.toUpperCase();
+  if (norm.includes("GAME") || norm.includes("JOGO")) return "GAME";
   if (
     norm.includes("BOOK") ||
     norm.includes("LIVRO") ||
@@ -28,52 +33,48 @@ function MediaIcon({ type, mediaType }: { type: string; mediaType?: string }) {
     norm.includes("HQ") ||
     norm.includes("COMIC")
   ) {
-    return <BookOpen size={13} className="media-card-type-icon" aria-hidden="true" />;
+    return "BOOK";
   }
   if (
     norm.includes("SERIES") ||
     norm.includes("SÉRIE") ||
     norm.includes("DORAMA") ||
     norm.includes("NOVELA") ||
-    norm.includes("TV")
+    norm.includes("TV") ||
+    norm.includes("ANIME")
   ) {
-    return <Tv size={13} className="media-card-type-icon" aria-hidden="true" />;
+    return "SERIES";
   }
-  return <Clapperboard size={13} className="media-card-type-icon" aria-hidden="true" />;
+  return "MOVIE";
 }
 
-function otimizarUrlCapa(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.includes("media.rawg.io/media/games/")) {
-    return url.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/");
+function MediaIcon({ category }: { category: CanonicalCategory }) {
+  switch (category) {
+    case "GAME":
+      return <Gamepad2 size={13} className="media-card-type-icon" aria-hidden="true" />;
+    case "BOOK":
+      return <BookOpen size={13} className="media-card-type-icon" aria-hidden="true" />;
+    case "SERIES":
+      return <Tv size={13} className="media-card-type-icon" aria-hidden="true" />;
+    case "MOVIE":
+      return <Clapperboard size={13} className="media-card-type-icon" aria-hidden="true" />;
   }
-  return url;
 }
 
 export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, accent }: MediaCardProps) {
   const [imgError, setImgError] = useState(false);
-  const cover = otimizarUrlCapa(coverUrl);
+  const category = resolverCategoria(type, mediaType);
+  const cover = miniaturaCapa(coverUrl, 200);
 
   const hasValidCover = Boolean(
     cover &&
-    !imgError &&
-    !cover.includes("/id/-1-") &&
-    !cover.includes("/id/0-")
-  );
-
-  const isKnownDomain = Boolean(
-    cover &&
-    (cover.includes("tmdb.org") ||
-      cover.includes("rawg.io") ||
-      cover.includes("openlibrary.org") ||
-      cover.includes("steamgriddb.com") ||
-      cover.includes("books.google.com") ||
-      cover.includes("hardcover.app") ||
-      cover.includes("images.igdb.com"))
+      !imgError &&
+      !cover.includes("/id/-1-") &&
+      !cover.includes("/id/0-")
   );
 
   return (
-    <article className="media-card">
+    <article className="media-card" data-media-type={category}>
       <div className="media-card-art" aria-hidden="true">
         {hasValidCover ? (
           <Image
@@ -84,12 +85,12 @@ export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, ac
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
             quality={75}
             loading="lazy"
-            unoptimized={!isKnownDomain}
+            unoptimized={!ehDominioOtimizado(cover)}
             onError={() => setImgError(true)}
           />
         ) : (
           <div className="media-card-fallback">
-            <MediaIcon type={type} mediaType={mediaType} />
+            <MediaIcon category={category} />
             <span>{title}</span>
           </div>
         )}
@@ -98,7 +99,7 @@ export function MediaCard({ type, mediaType, title, meta, coverUrl, progress, ac
       <div className="media-card-copy">
         <div className="media-card-meta-row">
           <span className="media-card-type-label">
-            <MediaIcon type={type} mediaType={mediaType} />
+            <MediaIcon category={category} />
             <span>{type}</span>
           </span>
           {meta && <span className="media-card-year">{meta}</span>}

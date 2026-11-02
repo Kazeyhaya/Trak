@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { Check, Crown, Lock, Star, User } from "lucide-react";
 
 import { CommentsSection } from "./comments-section";
 import { CustomCoverModal } from "./custom-cover-modal";
@@ -174,7 +175,8 @@ export function ItemShell({ item }: ItemShellProps) {
               alt={item.title}
               width={640}
               height={960}
-              quality={90}
+              quality={80}
+              sizes="(max-width: 680px) 60vw, 320px"
               priority
               unoptimized={Boolean(customCoverUrl)}
             />
@@ -639,7 +641,7 @@ function PersonalTracking({
       });
       setTracking(entry);
       setDraft(draftFromEntry(entry));
-      setNotice(nextName ? `👑 ${nextName} coroado como favorito da obra!` : "Coroação removida.");
+      setNotice(nextName ? `${nextName} coroado como favorito da obra!` : "Coroação removida.");
     } catch (err) {
       setDraft(previousDraft);
       setTracking(previousTracking);
@@ -705,7 +707,8 @@ function PersonalTracking({
     <>
       <div className="item-actions" aria-label="Ações do item">
         <UiButton variant="secondary" pressed={isFavorite} disabled={loading} onClick={handleFavorite}>
-          {isFavorite ? t("tracking.favorite", "★ Favorito") : t("tracking.addFavorite", "☆ Favoritar")}
+          <Star size={15} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+          <span>{isFavorite ? t("tracking.favorite", "Favorito") : t("tracking.addFavorite", "Favoritar")}</span>
         </UiButton>
         <UiButton variant="secondary" onClick={handleShare}>
           {t("tracking.share", "Compartilhar")}
@@ -721,8 +724,7 @@ function PersonalTracking({
               <button
                 key={option}
                 type="button"
-                className={`filter-chip${isActive ? " is-active" : ""}`}
-                style={isCompletedBlocked ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className={`filter-chip${isActive ? " is-active" : ""}${isCompletedBlocked ? " is-blocked" : ""}`}
                 aria-pressed={isActive}
                 disabled={loading || saving}
                 onClick={() => void handleStatusSelect(option)}
@@ -741,32 +743,20 @@ function PersonalTracking({
         </div>
 
         {isSeries && (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "4px 0 8px" }}>
-            <p className="panel-note" style={{ margin: 0 }}>
+          <div className="series-progress-inline">
+            <p className="panel-note">
               Progresso: <strong>{progress}%</strong>
               {seriesInfo?.totalEpisodes
                 ? ` (${Math.round((progress / 100) * seriesInfo.totalEpisodes)} de ${seriesInfo.totalEpisodes} eps)`
                 : ""}
             </p>
             {isEmDia ? (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                  padding: "3px 10px",
-                  borderRadius: "999px",
-                  background: "rgba(110, 231, 200, 0.12)",
-                  color: "var(--primary)",
-                  border: "1px solid rgba(110, 231, 200, 0.3)"
-                }}
-              >
-                ✓ Em dia com os lançamentos
+              <span className="series-em-dia-pill">
+                <Check size={13} aria-hidden="true" />
+                Em dia com os lançamentos
               </span>
             ) : (
-              <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+              <span className="series-progress-hint">
                 · marque os episódios na seção abaixo
               </span>
             )}
@@ -804,7 +794,8 @@ function PersonalTracking({
           <div className="pantheon-block is-unlocked">
             <div className="pantheon-info">
               <span className="pantheon-title">
-                <span>👑</span> Panteão da Obra
+                <Crown size={15} aria-hidden="true" />
+                Panteão da Obra
               </span>
               <span className="pantheon-desc">
                 {draft.favoriteCharacterName
@@ -818,16 +809,15 @@ function PersonalTracking({
                 <div className="pantheon-avatar">
                   {draft.favoriteCharacterAvatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={draft.favoriteCharacterAvatar} alt={draft.favoriteCharacterName} />
+                    <img loading="lazy" decoding="async" src={draft.favoriteCharacterAvatar} alt={draft.favoriteCharacterName} />
                   ) : (
-                    <span>👤</span>
+                    <User size={16} aria-hidden="true" />
                   )}
                 </div>
                 <strong className="pantheon-name">{draft.favoriteCharacterName}</strong>
                 <button
                   type="button"
-                  className="secondary-button"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  className="secondary-button pantheon-btn-sm"
                   onClick={() => setShowPantheonModal(true)}
                 >
                   Alterar
@@ -836,19 +826,20 @@ function PersonalTracking({
             ) : (
               <button
                 type="button"
-                className="primary-button"
-                style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                className="primary-button pantheon-btn-md"
                 onClick={() => setShowPantheonModal(true)}
               >
-                👑 Coroar personagem
+                <Crown size={14} aria-hidden="true" />
+                Coroar personagem
               </button>
             )}
           </div>
         ) : (
-          <div className="pantheon-block" title="Marque a obra como Concluída / Zerada para desbloquear o Panteão">
+          <div className="pantheon-block is-locked" title="Marque a obra como Concluída / Zerada para desbloquear o Panteão">
             <div className="pantheon-info">
-              <span className="pantheon-title" style={{ color: "var(--muted)" }}>
-                <span>🔒</span> Panteão da Obra
+              <span className="pantheon-title is-muted">
+                <Lock size={14} aria-hidden="true" />
+                Panteão da Obra
               </span>
               <span className="pantheon-desc">
                 Complete esta obra para coroar o seu personagem favorito no seu perfil e críticas.

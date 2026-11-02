@@ -109,6 +109,41 @@
   gap: 10px;
 }
 
+.filter-chip.is-blocked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.series-progress-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+
+.series-progress-inline .panel-note {
+  margin: 0;
+}
+
+.series-em-dia-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
+.series-progress-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .progress-control {
   display: grid;
   gap: 8px;

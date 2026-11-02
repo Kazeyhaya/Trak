@@ -238,7 +238,7 @@ export function FeedShell() {
                 <div className="feed-user-avatar">
                   {profile.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profile.avatarUrl} alt="" />
+                    <img loading="lazy" decoding="async" src={profile.avatarUrl} alt="" />
                   ) : (
                     <span>{userInitial}</span>
                   )}

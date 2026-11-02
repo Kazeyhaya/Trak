@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Crown, User, X } from "lucide-react";
 import { EpisodeCharacter, getEpisodeCredits, getMediaCredits } from "../lib/api";
 
 type PantheonModalProps = {
@@ -85,70 +86,45 @@ export function PantheonModal({
       <div className="cover-modal-card pantheon-modal" onClick={(e) => e.stopPropagation()}>
         <div className="cover-modal-header">
           <div>
-            <h3 style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span>👑</span> Panteão da Obra: {itemTitle}
+            <h3 className="modal-title-with-icon">
+              <Crown size={18} className="pantheon-crown-icon" aria-hidden="true" />
+              Panteão da Obra: {itemTitle}
             </h3>
             <p>
               Escolha o personagem que mais marcou a sua experiência para coroá-lo no seu perfil
             </p>
           </div>
           <button type="button" className="cover-modal-close" onClick={onClose} aria-label="Fechar">
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="cover-modal-body" style={{ gap: "18px" }}>
-          {/* Personagem Coroado Atual */}
+        <div className="cover-modal-body modal-section-stack">
           {(selectedName || customNameInput) && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background: "rgba(250, 204, 21, 0.08)",
-                border: "1px solid rgba(250, 204, 21, 0.3)"
-              }}
-            >
-              <div
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "9999px",
-                  border: "2px solid #facc15",
-                  overflow: "hidden",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(255, 255, 255, 0.05)"
-                }}
-              >
+            <div className="pantheon-selected-banner">
+              <div className="pantheon-selected-avatar">
                 {selectedAvatar && !customNameInput ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selectedAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img loading="lazy" decoding="async" src={selectedAvatar} alt="" />
                 ) : (
-                  <span style={{ fontSize: "1.2rem" }}>👑</span>
+                  <Crown size={18} aria-hidden="true" />
                 )}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: "0.75rem", color: "#facc15", fontWeight: 700 }}>ESCOLHIDO PARA O PANTEÃO:</span>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem" }}>
+              <div className="pantheon-selected-copy">
+                <span className="pantheon-selected-eyebrow">Escolhido para o Panteão</span>
+                <p className="pantheon-selected-name">
                   {customNameInput.trim() || selectedName}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Elenco / Personagens oficiais disponíveis */}
           {loading ? (
             <p className="panel-note">Carregando personagens da obra…</p>
           ) : characters.length > 0 ? (
-            <div>
-              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>
-                Personagens Principais
-              </span>
-              <div className="episode-characters-carousel" style={{ maxHeight: "170px", marginTop: "8px" }}>
+            <div className="modal-field-block">
+              <span className="modal-field-label">Personagens principais</span>
+              <div className="episode-characters-carousel episode-characters-carousel--modal">
                 {characters.map((char) => {
                   const isSelected = selectedName?.toLowerCase() === char.character?.toLowerCase();
                   return (
@@ -163,12 +139,12 @@ export function PantheonModal({
                       }}
                       title={char.character}
                     >
-                      <div className="episode-char-avatar-wrap" style={{ width: "64px", height: "64px" }}>
+                      <div className="episode-char-avatar-wrap episode-char-avatar-wrap--lg">
                         {char.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={char.avatarUrl} alt={char.character} />
+                          <img loading="lazy" decoding="async" src={char.avatarUrl} alt={char.character} />
                         ) : (
-                          <span>👤</span>
+                          <User size={22} aria-hidden="true" />
                         )}
                       </div>
                       <span className="episode-char-name">{char.character}</span>
@@ -180,16 +156,15 @@ export function PantheonModal({
             </div>
           ) : null}
 
-          {/* Opção de digitar nome caso seja outro personagem secundário */}
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "6px" }}>
-              Ou digite o nome de outro personagem:
+          <div className="modal-field-block">
+            <label htmlFor="pantheon-custom-input" className="modal-field-label">
+              Ou digite o nome de outro personagem
             </label>
             <input
+              id="pantheon-custom-input"
               type="text"
-              className="episode-search-input"
-              style={{ width: "100%", height: "40px" }}
-              placeholder="Ex: Jesse, Céline, Joel, Ellie, Goku, etc…"
+              className="episode-search-input pantheon-custom-input"
+              placeholder="Ex: Jesse, Céline, Joel, Ellie, Goku…"
               value={customNameInput}
               onChange={(e) => {
                 setCustomNameInput(e.target.value);

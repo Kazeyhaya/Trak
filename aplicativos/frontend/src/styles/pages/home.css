@@ -1,14 +1,120 @@
 .hero-card {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 24px;
   padding: 28px 32px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--surface-border);
-  background: linear-gradient(180deg, rgba(22, 29, 42, 0.82), rgba(13, 18, 27, 0.92));
+  background: var(--surface-strong);
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
+}
+
+.hero-card--editorial {
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  align-items: center;
+}
+
+.hero-eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.hero-specimen {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border-strong);
+  background: var(--bg-soft);
+}
+
+.hero-specimen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hero-specimen-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--media-series);
+}
+
+.hero-specimen-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-specimen-title {
+  font-size: var(--text-base);
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.hero-specimen-highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+}
+
+.hero-specimen-highlight div {
+  display: grid;
+  gap: 2px;
+}
+
+.hero-specimen-highlight span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.hero-specimen-highlight strong {
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.hero-specimen-pantheon {
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-border);
+  display: grid;
+  gap: 4px;
+}
+
+.hero-specimen-pantheon-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.hero-specimen-pantheon p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 
 .hero-copy,
@@ -81,14 +187,42 @@
 }
 
 .landing-pillar {
+  display: grid;
+  align-content: start;
+  gap: 8px;
   padding: 18px 20px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--surface-subtle);
+}
+
+.landing-pillar-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.landing-pillar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  color: var(--primary);
+}
+
+.landing-pillar-eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .landing-pillar h3 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }

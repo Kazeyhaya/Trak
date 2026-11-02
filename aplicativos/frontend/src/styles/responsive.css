@@ -1,5 +1,6 @@
 @media (max-width: 980px) {
   .hero-card,
+  .hero-card--editorial,
   .auth-hero,
   .content-hero,
   .item-hero,
@@ -160,5 +161,24 @@
   .primary-button,
   .secondary-button {
     width: 100%;
+  }
+
+  /* Alvos de toque confortáveis no mobile */
+  .episode-list label {
+    min-height: 44px;
+  }
+
+  .episode-list input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .rating-stars-track {
+    padding: 6px 0;
+  }
+
+  .pantheon-block {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

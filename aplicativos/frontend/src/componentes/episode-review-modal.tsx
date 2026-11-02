@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Crown, MessageCircle, User, X } from "lucide-react";
 import { RatingStars } from "./rating-stars";
 import { Episode, EpisodeCharacter, FriendEpisodeHighlight, WatchedEpisode } from "../lib/api";
 
@@ -47,15 +48,14 @@ export function EpisodeReviewModal({
             <p>Avalie o episódio e escolha quem roubou a cena</p>
           </div>
           <button type="button" className="cover-modal-close" onClick={onClose} aria-label="Fechar">
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="cover-modal-body" style={{ gap: "20px" }}>
-          {/* Seção da Nota */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>Sua nota no episódio:</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="cover-modal-body modal-section-stack">
+          <div className="modal-field-block">
+            <span className="modal-field-label">Sua nota no episódio</span>
+            <div className="modal-rating-row">
               <RatingStars
                 value={activeRating}
                 size="md"
@@ -67,22 +67,16 @@ export function EpisodeReviewModal({
             </div>
           </div>
 
-          {/* Quem roubou a cena */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#facc15", display: "flex", alignItems: "center", gap: "6px" }}>
-                <span>👑</span> Quem roubou a cena neste episódio?
+          <div className="modal-field-block">
+            <div className="modal-field-header">
+              <span className="modal-highlight-label">
+                <Crown size={15} aria-hidden="true" />
+                Quem roubou a cena neste episódio?
               </span>
               {selectedCharName && (
                 <button
                   type="button"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--muted)",
-                    fontSize: "0.75rem",
-                    cursor: "pointer"
-                  }}
+                  className="modal-link-action"
                   onClick={() => {
                     setSelectedCharName(null);
                     const dummy = { id: "", name: "", character: selectedCharName, avatarUrl: null };
@@ -99,7 +93,7 @@ export function EpisodeReviewModal({
             ) : credits.length === 0 ? (
               <p className="panel-note">Nenhum personagem registrado para este episódio.</p>
             ) : (
-              <div className="episode-characters-carousel" style={{ maxHeight: "170px" }}>
+              <div className="episode-characters-carousel episode-characters-carousel--modal">
                 {credits.map((char) => {
                   const isSelected = selectedCharName?.toLowerCase() === char.character?.toLowerCase();
                   return (
@@ -113,16 +107,16 @@ export function EpisodeReviewModal({
                       }}
                       title={`${char.character} (${char.name})`}
                     >
-                      <div className="episode-char-avatar-wrap" style={{ width: "64px", height: "64px" }}>
+                      <div className="episode-char-avatar-wrap episode-char-avatar-wrap--lg">
                         {char.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={char.avatarUrl} alt={char.character} />
+                          <img loading="lazy" decoding="async" src={char.avatarUrl} alt={char.character} />
                         ) : (
-                          <span style={{ fontSize: "1.4rem" }}>👤</span>
+                          <User size={22} aria-hidden="true" />
                         )}
                       </div>
-                      <span className="episode-char-name" style={{ maxWidth: "75px" }}>{char.character}</span>
-                      <span className="episode-char-actor" style={{ maxWidth: "75px" }}>{char.name}</span>
+                      <span className="episode-char-name">{char.character}</span>
+                      <span className="episode-char-actor">{char.name}</span>
                     </button>
                   );
                 })}
@@ -130,10 +124,9 @@ export function EpisodeReviewModal({
             )}
           </div>
 
-          {/* Social Íntimo */}
           {friendsThisEp.length > 0 && (
             <div className="episode-social-insight">
-              <span>💬</span>
+              <MessageCircle size={15} aria-hidden="true" />
               <span>
                 {friendsThisEp.map((f) => `@${f.user.username}`).join(", ")} também destacou{" "}
                 <strong>{friendsThisEp[0].characterName}</strong> neste episódio.
@@ -143,8 +136,8 @@ export function EpisodeReviewModal({
         </div>
 
         <div className="cover-modal-footer">
-          <div style={{ marginLeft: "auto" }}>
-            <button type="button" className="primary-button" onClick={onClose} style={{ minWidth: "100px" }}>
+          <div className="cover-modal-footer-actions">
+            <button type="button" className="primary-button" onClick={onClose}>
               Concluído
             </button>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Crown, Star } from "lucide-react";
 
 import { EpisodeReviewModal } from "./episode-review-modal";
 import { SectionHeading } from "./section-heading";
@@ -442,8 +443,18 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                       onClick={() => handleOpenReviewModal(episode)}
                       title="Avaliar episódio e destacar quem roubou a cena"
                     >
-                      {watchedEntry?.rating ? `★ ${watchedEntry.rating}` : "☆ Avaliar"}
-                      {watchedEntry?.highlightCharacterName && " · 👑"}
+                      <Star
+                        size={13}
+                        fill={watchedEntry?.rating ? "currentColor" : "none"}
+                        aria-hidden="true"
+                      />
+                      <span>{watchedEntry?.rating ? watchedEntry.rating : "Avaliar"}</span>
+                      {watchedEntry?.highlightCharacterName && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <Crown size={13} aria-hidden="true" />
+                        </>
+                      )}
                     </button>
                   )}
 

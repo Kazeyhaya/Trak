@@ -38,6 +38,7 @@ import {
   TrackingStatus
 } from "../lib/api";
 import { CatalogItem, getMediaTypeLabel, MediaType } from "../lib/catalogo-api";
+import { miniaturaCapa } from "../lib/imagens";
 
 type ProfileTab = "overview" | "library" | "favorites" | "achievements" | "activity";
 
@@ -237,7 +238,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
               <div className="profile-avatar-badge" aria-hidden="true">
                 {profile.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatarUrl} alt="" />
+                  <img loading="lazy" decoding="async" src={profile.avatarUrl} alt="" />
                 ) : (
                   avatarInitial
                 )}
@@ -430,7 +431,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                         <div className="featured-showcase-art">
                           {item.coverUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.coverUrl} alt={item.title} />
+                            <img loading="lazy" decoding="async" src={miniaturaCapa(item.coverUrl, 180) ?? item.coverUrl} alt={item.title} />
                           ) : (
                             <span className="media-card-orb" />
                           )}
@@ -726,7 +727,7 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                         <div className="featured-showcase-art">
                           {item.coverUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.coverUrl} alt={item.title} />
+                            <img loading="lazy" decoding="async" src={miniaturaCapa(item.coverUrl, 180) ?? item.coverUrl} alt={item.title} />
                           ) : (
                             <span className="media-card-orb" />
                           )}

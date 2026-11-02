@@ -66,7 +66,7 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                     <div className="activity-author-avatar">
                       {author?.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={author.avatarUrl} alt="" />
+                        <img loading="lazy" decoding="async" src={author.avatarUrl} alt="" />
                       ) : (
                         <span>{authorInitial}</span>
                       )}

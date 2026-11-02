@@ -240,10 +240,16 @@ export class SocialService {
     }
 
     const userIds = [...new Set(atividades.map((a) => a.userId))];
+    // Restringe a validação às obras presentes nesta página do feed, em vez de
+    // baixar a biblioteca inteira de cada autor.
+    const mediaIds = [...new Set(atividades.map((a) => a.mediaItemId).filter((id): id is string => Boolean(id)))];
+    if (mediaIds.length === 0) {
+      return [];
+    }
     const [{ data: trackings }, { data: favoritos }, { data: episodios }] = await Promise.all([
-      this.db.from(TABELA_TRACKING).select("userId,mediaItemId").in("userId", userIds),
-      this.db.from("Favorite").select("userId,mediaItemId").in("userId", userIds),
-      this.db.from("EpisodeProgress").select("userId,mediaItemId").in("userId", userIds)
+      this.db.from(TABELA_TRACKING).select("userId,mediaItemId").in("userId", userIds).in("mediaItemId", mediaIds),
+      this.db.from("Favorite").select("userId,mediaItemId").in("userId", userIds).in("mediaItemId", mediaIds),
+      this.db.from("EpisodeProgress").select("userId,mediaItemId").in("userId", userIds).in("mediaItemId", mediaIds)
     ]);
 
     const paresTracking = new Set((trackings ?? []).map((t) => `${t.userId}:${t.mediaItemId}`));

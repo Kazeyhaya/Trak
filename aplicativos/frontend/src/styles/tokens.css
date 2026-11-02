@@ -1,18 +1,60 @@
 :root {
-  --bg: #0b0e14;
-  --bg-soft: #10151f;
-  --surface: rgba(18, 24, 36, 0.84);
-  --surface-strong: #151c28;
+  /* Superfícies editoriais (grafite denso sem aspecto lavado de template) */
+  --bg: #0a0d12;
+  --bg-soft: #0f141c;
+  --surface: rgba(16, 21, 30, 0.92);
+  --surface-strong: #131924;
+  --surface-elevated: #18202e;
+  --surface-subtle: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.06);
   --surface-border: rgba(255, 255, 255, 0.08);
-  --primary: #6ee7c8;
-  --primary-strong: #3ec4a3;
-  --secondary: #82aaff;
-  --accent: #f6b76b;
+  --surface-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* Identidade e semântica */
+  --primary: #5eead4;
+  --primary-strong: #2dd4bf;
+  --primary-soft: rgba(94, 234, 212, 0.12);
+  --primary-border: rgba(94, 234, 212, 0.28);
+  --secondary: #7dd3fc;
+  --accent: #f59e0b;
+  --gold: #eab308;
+  --gold-soft: rgba(234, 179, 8, 0.1);
+  --gold-border: rgba(234, 179, 8, 0.32);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  /* Cores por tipo de mídia (linguagem de estante) */
+  --media-movie: #fb7185;
+  --media-series: #60a5fa;
+  --media-game: #34d399;
+  --media-book: #fbbf24;
+
+  /* Texto */
   --text: #f1f5f9;
-  --muted: #94a3b8;
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
-  --radius-xl: 18px;
-  --radius-lg: 14px;
-  --radius-md: 10px;
+  --text-secondary: #cbd5e1;
+  --muted: #8b9bb4;
+
+  /* Escala tipográfica fluida */
+  --text-xs: 0.75rem;
+  --text-sm: 0.84rem;
+  --text-base: 0.94rem;
+  --text-lg: 1.08rem;
+  --text-xl: clamp(1.2rem, 2vw, 1.4rem);
+  --text-2xl: clamp(1.55rem, 3vw, 2.15rem);
+  --text-3xl: clamp(1.95rem, 4vw, 2.85rem);
+
+  /* Espaçamento e geometria (raios mais precisos e editoriais) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
   --max-content: 1180px;
 }

@@ -193,7 +193,7 @@ export function FollowListModal({
                       <div className="follow-user-avatar">
                         {item.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.avatarUrl} alt="" />
+                          <img loading="lazy" decoding="async" src={item.avatarUrl} alt="" />
                         ) : (
                           <span>{initial}</span>
                         )}

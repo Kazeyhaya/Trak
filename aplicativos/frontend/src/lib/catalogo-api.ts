@@ -75,15 +75,23 @@ const fallbackItems: CatalogItem[] = [
 
 
 // Busca usada pelos Server Components (opcionalmente autenticada via token).
-export async function fetchJson<T>(path: string, token?: string | null): Promise<T | null> {
+// Requisicoes publicas podem usar o Data Cache do Next (revalidate em segundos);
+// requisicoes autenticadas nunca sao cacheadas para nao vazar dados pessoais.
+export async function fetchJson<T>(
+  path: string,
+  token?: string | null,
+  options: { revalidate?: number } = {}
+): Promise<T | null> {
   try {
     const headers: Record<string, string> = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
 
+    const podeCachear = !token && options.revalidate !== undefined && options.revalidate > 0;
+
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      cache: "no-store",
+      ...(podeCachear ? { next: { revalidate: options.revalidate } } : { cache: "no-store" as const }),
       headers,
       signal: AbortSignal.timeout(10000)
     });
@@ -128,7 +136,8 @@ export async function getCatalogItems(query = "", type = "", genre = "", lang = 
   }
 
   const suffix = params.size > 0 ? `?${params}` : "";
-  const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`);
+  // Lista publica do catalogo: 10 minutos de cache (destaques e buscas repetidas).
+  const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`, null, { revalidate: 600 });
 
   return items ? { items, offline: false } : { items: fallbackItems, offline: true };
 }
@@ -136,7 +145,10 @@ export async function getCatalogItems(query = "", type = "", genre = "", lang = 
 export async function getCatalogItemById(id: string, lang = "") {
   const idioma = lang || obterIdiomaUsuario();
   const query = idioma ? `?lang=${encodeURIComponent(idioma)}` : "";
-  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}${query}`);
+  // Detalhe publico da obra: 1 hora de cache (metadados mudam raramente).
+  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}${query}`, null, {
+    revalidate: 3600
+  });
 
   return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }

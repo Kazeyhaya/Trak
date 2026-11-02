@@ -233,7 +233,7 @@ export function NotificationBell() {
                           <div className="notif-item-avatar">
                             {item.actor?.avatarUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.actor.avatarUrl} alt="" />
+                              <img loading="lazy" decoding="async" src={item.actor.avatarUrl} alt="" />
                             ) : item.actor ? (
                               <span className="notif-avatar-initial">{avatarInitial}</span>
                             ) : null}

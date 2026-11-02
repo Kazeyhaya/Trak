@@ -21,6 +21,7 @@ import {
   saveMyProfile
 } from "../lib/api";
 import { problemaUsername } from "../lib/perfil";
+import { miniaturaCapa } from "../lib/imagens";
 
 const THEMES: Array<{ id: ProfileTheme; label: string; color: string }> = [
   { id: "emerald", label: "Esmeralda", color: "#7ce1c7" },
@@ -232,7 +233,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
             <div className="profile-avatar-badge" aria-hidden="true">
               {avatarUrl.trim() ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl.trim()} alt="" />
+                <img loading="lazy" decoding="async" src={avatarUrl.trim()} alt="" />
               ) : (
                 avatarInitial
               )}
@@ -333,7 +334,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
               <div className="avatar-picker-preview" aria-hidden="true">
                 {avatarUrl.trim() ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl.trim()} alt="" />
+                  <img loading="lazy" decoding="async" src={avatarUrl.trim()} alt="" />
                 ) : (
                   avatarInitial
                 )}
@@ -421,7 +422,7 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
                         title={`Usar "${item.title}" como fundo do perfil`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cover} alt={item.title} />
+                        <img loading="lazy" decoding="async" src={miniaturaCapa(cover, 120) ?? cover} alt={item.title} />
                         <span>{item.title}</span>
                       </button>
                     );
