@@ -4,7 +4,7 @@ export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA" | "MANGA" 
 
 export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary" | "gbooks" | "hardcover" | "igdb";
 
-export type { IProvedorCatalogo } from "./provedor-catalogo.interface";
+export type { ProvedorCatalogo, IProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface ItemCatalogo {
   id: string;

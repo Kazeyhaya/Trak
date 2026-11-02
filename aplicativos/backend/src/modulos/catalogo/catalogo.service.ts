@@ -35,16 +35,17 @@ import {
   urlProvedorStreaming
 } from "./catalogo.fontes";
 import {
+  CatalogItem,
   Episodio,
   ExtrasCatalogo,
   FonteCatalogo,
-  IProvedorCatalogo,
   ItemCatalogo,
   NotaExterna,
   Novidade,
   ProvedorOndeAssistir,
   Temporada
 } from "./catalogo.types";
+import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 type TmdbTv = TmdbItem & {
   number_of_episodes?: number;
@@ -86,8 +87,8 @@ function dicaDeErro(status: number) {
 export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
   private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
-  private readonly provedores: Record<string, IProvedorCatalogo>;
-  private readonly provedoresPorFonte: Partial<Record<FonteCatalogo, IProvedorCatalogo>>;
+  private provedores: Record<string, ProvedorCatalogo>;
+  private readonly provedoresPorFonte: Partial<Record<FonteCatalogo, ProvedorCatalogo>>;
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -95,10 +96,10 @@ export class CatalogoService implements OnModuleInit {
     private readonly hardcoverService: HardcoverService,
     private readonly igdbService: IgdbService
   ) {
-    // Mapeamento polimórfico: Tipo/Provedor -> IProvedorCatalogo
+    // O mapa que liga o tipo de mídia ao serviço responsável
     this.provedores = {
-      BOOK: this.googleBooksService,
       GAME: this.igdbService,
+      BOOK: this.googleBooksService,
       GBOOKS: this.googleBooksService,
       HARDCOVER: this.hardcoverService,
       IGDB: this.igdbService
@@ -113,7 +114,18 @@ export class CatalogoService implements OnModuleInit {
   }
 
   /**
-   * Despacha a busca de mídia de forma polimórfica pelo mapa de provedores (`IProvedorCatalogo`).
+   * Roteia a busca de mídia diretamente para o provedor configurado no mapa Strategy (`ProvedorCatalogo`).
+   */
+  async buscar(query: string, tipo: string): Promise<CatalogItem[]> {
+    const provedor = this.provedores[tipo?.trim().toUpperCase()];
+    if (!provedor) {
+      throw new Error(`Provedor não configurado para o tipo: ${tipo}`);
+    }
+    return provedor.buscar(query);
+  }
+
+  /**
+   * Despacha a busca de mídia de forma polimórfica pelo mapa de provedores (`ProvedorCatalogo`).
    */
   async buscarMidia(tipo: string, query: string, limit = LIMITE_POR_FONTE): Promise<ItemCatalogo[]> {
     const chave = tipo?.trim().toUpperCase();
@@ -1120,66 +1132,53 @@ export class CatalogoService implements OnModuleInit {
       };
     }
 
-    if (parsed?.source === "igdb" || id.startsWith("igdb_game_")) {
-      const provedor = this.provedoresPorFonte.igdb ?? this.igdbService;
-      const item = await provedor.buscarPorId(id);
+    // Roteamento via Strategy (mapa de provedores por fonte: igdb, hardcover, gbooks)
+    const provedorFonte = parsed?.source ? this.provedoresPorFonte[parsed.source] : undefined;
+    if (provedorFonte && parsed) {
+      const item = await provedorFonte.buscarPorId(id);
       if (!item) {
         return null;
       }
-      const synopsis = idioma === "pt-BR" ? await this.traduzirParaPtBr(item.synopsis) : item.synopsis;
-      return {
-        ...item,
-        synopsis
-      };
-    }
 
-    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
-      const provedor = this.provedoresPorFonte.hardcover ?? this.hardcoverService;
-      const item = await provedor.buscarPorId(id);
-      if (!item) {
-        return null;
+      if (parsed.source === "igdb") {
+        const synopsis = idioma === "pt-BR" ? await this.traduzirParaPtBr(item.synopsis) : item.synopsis;
+        return { ...item, synopsis };
       }
-      let sinopse = item.synopsis;
-      if (idioma === "pt-BR") {
-        const sinopseGoogle = await this.googleBooksBuscarSinopse(item.title, "pt-BR");
-        if (sinopseGoogle) {
-          sinopse = sinopseGoogle;
-        } else if (sinopse) {
-          sinopse = await this.traduzirParaPtBr(sinopse);
-        }
-      }
-      let coverUrl = item.coverUrl;
-      if (!coverUrl) {
-        const gbooks = await this.googleBooksService.buscar(item.title, 1);
-        if (gbooks[0]?.coverUrl) {
-          coverUrl = gbooks[0].coverUrl;
-        }
-      }
-      return {
-        ...item,
-        coverUrl,
-        synopsis: sinopse
-      };
-    }
 
-    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
-      const provedor = this.provedoresPorFonte.gbooks ?? this.googleBooksService;
-      const item = await provedor.buscarPorId(id);
-      if (!item) {
-        return null;
-      }
-      if (!item.coverUrl) {
-        const olSearch = await this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
-          q: item.title,
-          limit: "1",
-          fields: "key,cover_i"
-        });
-        const coverId = olSearch?.docs?.[0]?.cover_i;
-        if (coverId) {
-          item.coverUrl = `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`;
+      if (parsed.source === "hardcover") {
+        let sinopse = item.synopsis;
+        if (idioma === "pt-BR") {
+          const sinopseGoogle = await this.googleBooksBuscarSinopse(item.title, "pt-BR");
+          if (sinopseGoogle) {
+            sinopse = sinopseGoogle;
+          } else if (sinopse) {
+            sinopse = await this.traduzirParaPtBr(sinopse);
+          }
         }
+        let coverUrl = item.coverUrl;
+        if (!coverUrl) {
+          const gbooks = await this.googleBooksService.buscar(item.title, 1);
+          if (gbooks[0]?.coverUrl) {
+            coverUrl = gbooks[0].coverUrl;
+          }
+        }
+        return { ...item, coverUrl, synopsis: sinopse };
       }
-      return item;
+
+      if (parsed.source === "gbooks") {
+        if (!item.coverUrl) {
+          const olSearch = await this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
+            q: item.title,
+            limit: "1",
+            fields: "key,cover_i"
+          });
+          const coverId = olSearch?.docs?.[0]?.cover_i;
+          if (coverId) {
+            item.coverUrl = `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`;
+          }
+        }
+        return item;
+      }
     }
 
     if (parsed?.source === "openlibrary") {

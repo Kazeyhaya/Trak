@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
-import { IProvedorCatalogo } from "./provedor-catalogo.interface";
+import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface IgdbCover {
   id: number;
@@ -70,7 +70,7 @@ export function mapIgdbGame(game: IgdbGame): CatalogItem {
 }
 
 @Injectable()
-export class IgdbService implements IProvedorCatalogo {
+export class IgdbService implements ProvedorCatalogo {
   private readonly logger = new Logger(IgdbService.name);
   private readonly baseUrl = "https://api.igdb.com/v4";
   private readonly authUrl = "https://id.twitch.tv/oauth2/token";

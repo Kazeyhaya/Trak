@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
-import { IProvedorCatalogo } from "./provedor-catalogo.interface";
+import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface GoogleBooksVolume {
   id: string;
@@ -101,7 +101,7 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
 }
 
 @Injectable()
-export class GoogleBooksService implements IProvedorCatalogo {
+export class GoogleBooksService implements ProvedorCatalogo {
   private readonly logger = new Logger(GoogleBooksService.name);
   private readonly baseUrl = "https://www.googleapis.com/books/v1/volumes";
 

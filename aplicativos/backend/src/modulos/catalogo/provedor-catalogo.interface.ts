@@ -5,7 +5,9 @@ import { CatalogItem } from "./catalogo.types";
  * Qualquer integração externa (Google Books, Hardcover, IGDB, etc.) que assine este contrato
  * deve retornar itens já normalizados no formato `CatalogItem`.
  */
-export interface IProvedorCatalogo {
+export interface ProvedorCatalogo {
   buscar(query: string, limit?: number): Promise<CatalogItem[]>;
   buscarPorId(id: string): Promise<CatalogItem | null>;
 }
+
+export type IProvedorCatalogo = ProvedorCatalogo;

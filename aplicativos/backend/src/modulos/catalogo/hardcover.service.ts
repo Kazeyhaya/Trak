@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CatalogItem } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
-import { IProvedorCatalogo } from "./provedor-catalogo.interface";
+import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface HardcoverImage {
   id?: number;
@@ -114,7 +114,7 @@ export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocumen
 }
 
 @Injectable()
-export class HardcoverService implements IProvedorCatalogo {
+export class HardcoverService implements ProvedorCatalogo {
   private readonly logger = new Logger(HardcoverService.name);
   private readonly graphqlUrl = "https://api.hardcover.app/v1/graphql";
 

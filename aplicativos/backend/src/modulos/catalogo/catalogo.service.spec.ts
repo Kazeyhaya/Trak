@@ -729,6 +729,14 @@ describe("CatalogoService.extras", () => {
 
       const desconhecido = await servico.buscarMidia("INVALIDO", "teste");
       expect(desconhecido).toEqual([]);
+
+      const jogosViaBuscar = await servico.buscar("GTA V", "game");
+      expect(jogosViaBuscar).toHaveLength(1);
+      expect(jogosViaBuscar[0].id).toBe("igdb_game_1020");
+
+      await expect(servico.buscar("teste", "INVALIDO")).rejects.toThrow(
+        "Provedor não configurado para o tipo: INVALIDO"
+      );
     });
   });
 });
