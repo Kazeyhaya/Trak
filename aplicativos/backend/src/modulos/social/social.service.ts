@@ -12,6 +12,7 @@ import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { NotificacoesService } from "../notificacoes/notificacoes.service";
+import { importacaoCompleta } from "../importacao/importacao.parsers";
 import { statusDoBanco, TABELA_TRACKING } from "../tracking/tracking.banco";
 import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
@@ -22,7 +23,6 @@ const CAMPOS_PERFIL_LEGADO = "id,username,displayName,bio,isPublic,createdAt";
 
 const TEMA_PADRAO = "emerald";
 const IDIOMA_PADRAO: "pt-BR" | "en-US" = "pt-BR";
-const FONTES_IMPORTACAO = ["letterboxd", "trakt", "steam"] as const;
 
 type LinhaUser = Omit<Perfil, "userId" | "hasImported"> & { id: string };
 
@@ -49,7 +49,7 @@ function perfilDe(linha: LinhaUser, meta?: MetaPerfil | null): Perfil {
     : Array.isArray(meta?.importedSources)
       ? meta.importedSources
       : [];
-  const todasImportadas = FONTES_IMPORTACAO.every((f) => importedSources.includes(f));
+  const todasImportadas = importacaoCompleta(importedSources);
 
   return {
     ...resto,

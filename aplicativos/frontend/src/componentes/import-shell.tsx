@@ -31,10 +31,12 @@ export function ImportShell() {
 
   const importedSources = profile?.importedSources ?? [];
   const letterboxdImported = importedSources.includes("letterboxd");
+  // Cada lista do Letterboxd e importada uma vez; contas antigas so tem "letterboxd".
+  const listaImportada = importedSources.includes(`letterboxd:${lista}`);
   const traktImported = importedSources.includes("trakt");
   const steamImported = importedSources.includes("steam");
-  const allImported =
-    Boolean(profile?.hasImported) || (letterboxdImported && traktImported && steamImported);
+  // A API decide quando nao ha mais nada a importar (inclui todas as listas do Letterboxd).
+  const allImported = Boolean(profile?.hasImported);
 
   async function run(fonte: Fonte, tarefa: () => Promise<ImportResult>) {
     setRunning(fonte);
@@ -137,10 +139,7 @@ export function ImportShell() {
               Em letterboxd.com, vá em Settings → Data → Export your data. Descompacte o .zip e envie o watched.csv,
               ratings.csv, diary.csv ou watchlist.csv.
             </p>
-            {letterboxdImported ? (
-              <p className="auth-notice">Histórico do Letterboxd já importado nesta conta.</p>
-            ) : (
-              <>
+            <>
                 <input
                   type="file"
                   accept=".csv,text/csv"
@@ -163,16 +162,16 @@ export function ImportShell() {
                     <option value="watchlist">Watchlist (quero ver)</option>
                   </select>
                 </label>
+                {listaImportada && <p className="auth-notice">Esta lista já foi importada. Escolha outra.</p>}
                 <UiButton
-                  disabled={ocupado || !letterboxdFile}
+                  disabled={ocupado || !letterboxdFile || listaImportada}
                   onClick={() =>
                     letterboxdFile && run("letterboxd", async () => importLetterboxd(await letterboxdFile.text(), lista))
                   }
                 >
                   {running === "letterboxd" ? "Importando…" : "Importar do Letterboxd"}
                 </UiButton>
-              </>
-            )}
+            </>
           </UiCard>
 
           <UiCard className="import-card">
