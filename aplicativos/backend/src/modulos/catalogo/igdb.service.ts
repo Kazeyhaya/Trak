@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { normalizarTitulo } from "./catalogo.fontes";
 import { ItemCatalogo } from "./catalogo.types";
 import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
@@ -18,6 +19,10 @@ export interface IgdbGame {
   cover?: IgdbCover | null;
   rating?: number;
   rating_count?: number;
+  // Tipo do jogo (0 principal, 1 DLC, 3 coletanea, 5 mod, 8 remake, 9 remaster, 11 porte...).
+  game_type?: number;
+  // Preenchido em edicoes (Gold Edition, Wii Edition...): aponta para o jogo original.
+  version_parent?: number | null;
   genres?: Array<{ id: number; name: string }>;
   websites?: Array<{ id: number; category: number; url: string }>;
 }
@@ -42,6 +47,28 @@ export function formatarUrlCapaIgdb(
 ): string {
   if (!imageId) return "";
   return `https://images.igdb.com/igdb/image/upload/t_${tamanho}/${imageId}.jpg`;
+}
+
+// Tipos que nao sao um jogo proprio para acompanhar: DLC, coletanea, mod, episodio,
+// temporada, porte, fork, pacote e atualizacao. Remakes e remasters continuam.
+const TIPOS_FORA_DA_BUSCA = new Set([1, 3, 5, 6, 7, 11, 12, 13, 14]);
+
+// A IGDB lista cada edicao, porte e coletanea como um jogo. Fica um item por jogo:
+// sem edicoes e tipos derivados, e sem repetir titulo + ano.
+export function semDuplicatas(jogos: IgdbGame[]): IgdbGame[] {
+  const vistos = new Set<string>();
+  return jogos.filter((jogo) => {
+    if (jogo.version_parent || (jogo.game_type !== undefined && TIPOS_FORA_DA_BUSCA.has(jogo.game_type))) {
+      return false;
+    }
+    const ano = jogo.first_release_date ? new Date(jogo.first_release_date * 1000).getUTCFullYear() : "";
+    const chave = `${normalizarTitulo(jogo.name ?? "")}:${ano}`;
+    if (vistos.has(chave)) {
+      return false;
+    }
+    vistos.add(chave);
+    return true;
+  });
 }
 
 export function mapIgdbGame(game: IgdbGame): ItemCatalogo {
@@ -200,17 +227,24 @@ export class IgdbService implements ProvedorCatalogo {
     const maxResults = Math.min(Math.max(1, limit), 50);
     const nomeLimpo = (query ?? "").replace(/[^\w\s-]/gi, "").trim();
 
-    const apicalypse = nomeLimpo
-      ? `search "${nomeLimpo}"; fields name,summary,first_release_date,cover.image_id,rating,rating_count; limit ${maxResults};`
-      : `fields name,summary,first_release_date,cover.image_id,rating,rating_count; where cover != null & rating_count > 20; sort rating_count desc; limit ${maxResults};`;
+    // Pede o dobro: edicoes e derivados saem no filtro, e o limite ainda deve ser atingido.
+    const pedidos = Math.min(maxResults * 2, 50);
+    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count";
+    const montar = (extras: string, filtro: string) =>
+      nomeLimpo
+        ? `search "${nomeLimpo}"; fields ${campos}${extras};${filtro ? ` where ${filtro};` : ""} limit ${pedidos};`
+        : `fields ${campos}${extras}; where cover != null & rating_count > 20${filtro ? ` & ${filtro}` : ""}; sort rating_count desc; limit ${pedidos};`;
 
-    const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
+    // Se a IGDB recusar os campos de tipo/edicao, repete a consulta basica.
+    const resultado =
+      (await this.consulta<IgdbGame[]>("games", montar(",game_type,version_parent", "version_parent = null"))) ??
+      (await this.consulta<IgdbGame[]>("games", montar("", "")));
     if (!Array.isArray(resultado) || resultado.length === 0) {
       return [];
     }
 
-    return resultado
-      .filter((game) => Boolean(game?.id && game?.name?.trim()))
+    return semDuplicatas(resultado.filter((game) => Boolean(game?.id && game?.name?.trim())))
+      .slice(0, maxResults)
       .map(mapIgdbGame);
   }
 

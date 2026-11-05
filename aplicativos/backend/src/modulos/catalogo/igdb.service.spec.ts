@@ -1,4 +1,4 @@
-import { formatarUrlCapaIgdb, IgdbService } from "./igdb.service";
+import { formatarUrlCapaIgdb, IgdbService, semDuplicatas } from "./igdb.service";
 
 describe("IgdbService", () => {
   let service: IgdbService;
@@ -203,5 +203,33 @@ describe("IgdbService", () => {
         releaseYear: 2015
       });
     });
+  });
+});
+
+describe("semDuplicatas", () => {
+  const ano = (a: number) => Date.UTC(a, 5, 1) / 1000;
+
+  it("deixa um item por jogo: sem edicoes, coletaneas, mods ou titulo+ano repetido", () => {
+    const jogos = [
+      { id: 1, name: "Resident Evil 4", first_release_date: ano(2005), game_type: 0 },
+      { id: 2, name: "Resident Evil 4", first_release_date: ano(2005), game_type: 0 },
+      { id: 3, name: "Resident Evil 4", first_release_date: ano(2023), game_type: 8 },
+      { id: 4, name: "Resident Evil 4: Gold Edition", first_release_date: ano(2024), version_parent: 3 },
+      { id: 5, name: "Resident Evil 4: Wii Edition", first_release_date: ano(2007), version_parent: 1 },
+      { id: 6, name: "Resident Evil 4 and Resident Evil Code: Veronica", first_release_date: ano(2009), game_type: 3 },
+      { id: 7, name: "Resident Evil 4 HD Project", first_release_date: ano(2022), game_type: 5 },
+      { id: 8, name: "Resident Evil 4: Separate Ways", first_release_date: ano(2023), game_type: 1 }
+    ];
+
+    expect(semDuplicatas(jogos).map((j) => j.id)).toEqual([1, 3]);
+  });
+
+  it("sem game_type (consulta basica), so tira as repeticoes", () => {
+    const jogos = [
+      { id: 1, name: "Hades", first_release_date: ano(2020) },
+      { id: 2, name: "HADES", first_release_date: ano(2020) },
+      { id: 3, name: "Hades II", first_release_date: ano(2025) }
+    ];
+    expect(semDuplicatas(jogos).map((j) => j.id)).toEqual([1, 3]);
   });
 });
