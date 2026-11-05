@@ -152,25 +152,17 @@ export class CatalogoService implements OnModuleInit {
     }
   }
 
+  // Media das notas dadas no Trak, calculada no banco (trak_nota_media).
   private async mediaTrak(mediaItemId: string) {
-    try {
-      const { data } = await this.supabaseService
-        .getClient()
-        .from("UserMedia")
-        .select("personalRating")
-        .eq("mediaItemId", mediaItemId);
-
-      const notas = (data ?? []).flatMap((r) =>
-        typeof r.personalRating === "number" && r.personalRating > 0 ? [r.personalRating] : []
-      );
-      if (notas.length === 0) {
-        return { average: null, count: 0 };
+    const { data, error } = await this.supabaseService.getClient().rpc("trak_nota_media", { item: mediaItemId });
+    const linha = Array.isArray(data) ? (data[0] as { average: number | string | null; count: number } | undefined) : undefined;
+    if (error || !linha?.count) {
+      if (error) {
+        this.logger.warn(`Nao foi possivel calcular a nota do Trak de ${mediaItemId}: ${error.message}`);
       }
-      const media = Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 10) / 10;
-      return { average: media, count: notas.length };
-    } catch {
       return { average: null, count: 0 };
     }
+    return { average: Number(linha.average), count: linha.count };
   }
 
   // Duracao de varios itens salvos. Itens ainda sem duracao sao calculados

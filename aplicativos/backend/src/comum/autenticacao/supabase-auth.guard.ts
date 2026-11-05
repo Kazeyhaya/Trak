@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException
 } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { SupabaseService } from "../supabase/supabase.service";
 import { UsuarioAuth } from "./usuario-auth.decorator";
 
@@ -12,6 +13,27 @@ type RequestComUsuario = {
   headers: { authorization?: string };
   usuarioAuth?: UsuarioAuth;
 };
+
+// Tokens ja validados no Supabase, por ate 60s (ou ate expirarem, o que vier antes).
+// Sem isso, cada requisicao autenticada fazia uma chamada de rede ao Supabase Auth.
+// Contrapartida: um token revogado (logout) ainda vale por ate 60s nesta instancia.
+const VALIDADE_CACHE_MS = 60_000;
+const MAX_TOKENS_EM_CACHE = 5000;
+const tokensValidados = new Map<string, { usuario: UsuarioAuth; expiraEm: number }>();
+
+function expiracaoDoToken(token: string) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+// Usado nos testes para comecar cada caso sem tokens guardados.
+export function limparCacheDeTokens() {
+  tokensValidados.clear();
+}
 
 async function autenticar(
   supabaseService: SupabaseService,
@@ -25,17 +47,33 @@ async function autenticar(
   }
 
   const token = authHeader.slice("Bearer ".length).trim();
+  const chave = createHash("sha256").update(token).digest("hex");
+  const agora = Date.now();
+  const guardado = tokensValidados.get(chave);
+  if (guardado && guardado.expiraEm > agora) {
+    request.usuarioAuth = guardado.usuario;
+    return guardado.usuario;
+  }
+
   const { data, error } = await supabaseService.getClient().auth.getUser(token);
 
   if (error || !data.user) {
+    tokensValidados.delete(chave);
     if (opcional) {
       return null;
     }
     throw new UnauthorizedException("Token invalido ou expirado.");
   }
 
-  request.usuarioAuth = { id: data.user.id, email: data.user.email };
-  return request.usuarioAuth;
+  const usuario = { id: data.user.id, email: data.user.email };
+  const expiraEm = Math.min(agora + VALIDADE_CACHE_MS, expiracaoDoToken(token) ?? agora + VALIDADE_CACHE_MS);
+  if (tokensValidados.size >= MAX_TOKENS_EM_CACHE) {
+    tokensValidados.delete(tokensValidados.keys().next().value as string);
+  }
+  tokensValidados.set(chave, { usuario, expiraEm });
+
+  request.usuarioAuth = usuario;
+  return usuario;
 }
 
 @Injectable()

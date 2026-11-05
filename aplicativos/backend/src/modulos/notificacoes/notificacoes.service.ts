@@ -74,6 +74,44 @@ export class NotificacoesService {
     return data;
   }
 
+  // Varias notificacoes num insert so (ex.: todos que comentaram na mesma obra).
+  async criarVarias(inputs: CriarNotificacaoInput[]) {
+    const linhas = inputs
+      .filter((input) => !(input.actorId && input.actorId === input.userId))
+      .map((input) => ({
+        id: randomUUID(),
+        userId: input.userId,
+        actorId: input.actorId ?? null,
+        type: input.type,
+        title: input.title,
+        body: input.body ?? null,
+        mediaItemId: input.mediaItemId ?? null,
+        link: input.link,
+        read: false,
+        data: input.data ?? {}
+      }));
+    if (linhas.length === 0) {
+      return;
+    }
+    const { error } = await this.db.from("Notification").insert(linhas);
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+  }
+
+  // Ja existe notificacao deste tipo, deste autor para esta pessoa, desde `desde`?
+  // Evita uma enxurrada de "comecou a seguir voce" quando alguem segue e deixa de seguir.
+  async existeRecente(userId: string, actorId: string, type: TipoNotificacao, desde: Date) {
+    const { count, error } = await this.db
+      .from("Notification")
+      .select("id", { count: "exact", head: true })
+      .eq("userId", userId)
+      .eq("actorId", actorId)
+      .eq("type", type)
+      .gte("createdAt", desde.toISOString());
+    return !error && (count ?? 0) > 0;
+  }
+
   async listar(authUserId: string, limite = 30): Promise<NotificacaoItem[]> {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const limiteSeguro = Math.max(1, Math.min(100, Number(limite) || 30));

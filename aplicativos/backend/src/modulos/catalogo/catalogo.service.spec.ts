@@ -389,9 +389,9 @@ describe("CatalogoService.extras", () => {
       }
     });
 
-    const supabase = criarSupabaseServiceMock(() => ({
-      data: [{ personalRating: 5 }, { personalRating: 4 }]
-    }));
+    const supabase = criarSupabaseServiceMock((op) =>
+      op.action === "rpc" && op.table === "trak_nota_media" ? { data: [{ average: "4.5", count: 2 }] } : { data: null }
+    );
     const servico = new CatalogoService(
       supabase.service as unknown as SupabaseService,
       new GoogleBooksService(),

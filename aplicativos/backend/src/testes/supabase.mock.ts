@@ -57,7 +57,7 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
         Promise.resolve().then(executar).then(resolve, reject)
     };
 
-    for (const filtro of ["eq", "neq", "in", "not", "ilike", "order", "limit"]) {
+    for (const filtro of ["eq", "neq", "gte", "in", "not", "ilike", "order", "limit"]) {
       proxy[filtro] = (...args: unknown[]) => {
         op.filtros.push([filtro, ...args]);
         return proxy;

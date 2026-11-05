@@ -139,17 +139,17 @@ export class ComentariosService {
           .limit(20);
 
         const destinatarios = [...new Set((outros ?? []).map((c) => c.userId as string))];
-        for (const destId of destinatarios) {
-          await this.notificacoesService.criar({
+        await this.notificacoesService.criarVarias(
+          destinatarios.map((destId) => ({
             userId: destId,
             actorId: userId,
-            type: "COMMENT",
+            type: "COMMENT" as const,
             title: `${autorNome} comentou em uma obra que você acompanha`,
             body: content.slice(0, 120),
             mediaItemId,
             link: `/itens/${mediaItemId}`
-          });
-        }
+          }))
+        );
       } catch {
         // Notificação não interrompe a criação do comentário
       }

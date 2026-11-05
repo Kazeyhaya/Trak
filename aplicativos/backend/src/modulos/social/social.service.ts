@@ -550,11 +550,11 @@ export class SocialService {
       .filter((r) => r.mediaItemId && statusDoBanco(r.status) !== "WANT")
       .map((r) => r.mediaItemId!);
 
+    // Duracoes que faltam so sao buscadas nas fontes externas quando a pessoa ve o proprio
+    // perfil: uma visita anonima nao pode disparar chamadas ao TMDB nem gravar no banco.
     const [itensMapa, duracoes] = await Promise.all([
       this.catalogoService.buscarSalvos([...new Set([...idsFavoritos, ...idsTracking])]),
-      typeof this.catalogoService.duracoes === "function"
-        ? this.catalogoService.duracoes(idsComDuracao)
-        : Promise.resolve(new Map<string, number>())
+      this.catalogoService.duracoes(idsComDuracao, isMe ? 15 : 0)
     ]);
 
     const summary = resumoCultural(
@@ -647,7 +647,11 @@ export class SocialService {
       .upsert({ followerId: userId, followingId: alvo.userId }, { onConflict: "followerId,followingId", ignoreDuplicates: true });
     falha(error);
 
-    if (this.notificacoesService) {
+    const umDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (
+      this.notificacoesService &&
+      !(await this.notificacoesService.existeRecente(alvo.userId, userId, "FOLLOW", umDiaAtras))
+    ) {
       try {
         const { data: seguidor } = await this.db
           .from("User")
