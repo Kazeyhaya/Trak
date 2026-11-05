@@ -1,122 +1,31 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-  OnModuleInit
-} from "@nestjs/common";
-import { createHash } from "node:crypto";
+import { Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { IdParseado, parsearId } from "./catalogo.fontes";
+import { ClienteCatalogo } from "./catalogo.http";
+import { ListagemCatalogo } from "./catalogo.listagem";
+import { ExtrasCatalogo, FonteCatalogo, ItemCatalogo, Novidade } from "./catalogo.types";
+import { Fonte } from "./fontes/fonte";
+import { FonteGoogleBooks } from "./fontes/google-books";
+import { FonteHardcover } from "./fontes/hardcover";
+import { FonteIgdb } from "./fontes/igdb";
+import { FonteOpenLibrary } from "./fontes/open-library";
+import { FonteRawg } from "./fontes/rawg";
+import { FonteTmdb } from "./fontes/tmdb";
 import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
 import { IgdbService } from "./igdb.service";
-import {
-  chaveDeduplicacaoLivro,
-  detectarSubtipoTmdb,
-  GeneroCatalogo,
-  GENEROS_CATALOGO,
-  IDIOMAS_DORAMA,
-  MAPA_GENEROS,
-  mapearOpenLibrary,
-  mapearRawg,
-  mapearTmdb,
-  MINUTOS_POR_PAGINA,
-  normalizarTitulo,
-  OpenLibraryDoc,
-  PAISES_DORAMA,
-  PAISES_NOVELA,
-  parsearId,
-  RawgItem,
-  TMDB_GENERO_ANIMACAO,
-  TMDB_GENERO_NOVELA,
-  TMDB_GENERO_REALITY,
-  TMDB_GENERO_TALK,
-  TmdbItem,
-  urlLojaJogo,
-  urlProvedorStreaming
-} from "./catalogo.fontes";
-import {
-  Episodio,
-  ExtrasCatalogo,
-  FonteCatalogo,
-  ItemCatalogo,
-  NotaExterna,
-  Novidade,
-  PersonagemEpisodio,
-  ProvedorOndeAssistir,
-  SeriesInfo,
-  Temporada
-} from "./catalogo.types";
-import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
-type TmdbTv = TmdbItem & {
-  status?: string;
-  number_of_episodes?: number;
-  seasons?: Array<{ season_number: number; name: string; episode_count: number; air_date: string | null }>;
-  next_episode_to_air?: TmdbEpisodio | null;
-  last_episode_to_air?: TmdbEpisodio | null;
-};
-
-type TmdbEpisodio = {
-  episode_number: number;
-  season_number: number;
-  name: string;
-  air_date: string | null;
-  overview?: string;
-  runtime?: number | null;
-};
-
-type FiltroTipo = "movie" | "series" | "game" | "book" | "anime" | "novela" | "dorama" | "manga" | "hq" | "quadrinhos";
-
-const CACHE_TTL_MS = 10 * 60 * 1000;
-const CACHE_MAX_ENTRIES = 1000;
-const FETCH_TIMEOUT_MS = 8000;
-const TMDB = "https://api.themoviedb.org/3";
-const RAWG = "https://api.rawg.io/api";
-const OPEN_LIBRARY = "https://openlibrary.org";
-const OMDB = "https://www.omdbapi.com";
-const STEAMGRIDDB = "https://www.steamgriddb.com/api/v2";
-const DIA_MS = 24 * 60 * 60 * 1000;
-const LIMITE_POR_FONTE = 20;
-
-type MembroElenco = {
-  id: number;
-  name: string;
-  character?: string;
-  profile_path?: string | null;
-};
-
-type ArteAniList = { nomes: string[][]; imagem: string };
-
-function palavras(nome: string) {
-  return normalizarTitulo(nome).split(" ").filter(Boolean);
-}
-
-// "Goku" casa com "Son Goku" (todas as palavras de um estao no outro), mas
-// "Jason" nao casa com "Son Goku": compara palavras inteiras, nunca trechos.
-export function arteDoPersonagem(personagem: string, artes: ArteAniList[]): string | null {
-  const alvo = palavras(personagem);
-  if (alvo.length === 0) {
-    return null;
-  }
-  const contido = (menor: string[], maior: string[]) => menor.every((p) => maior.includes(p));
-  const exata = artes.find((a) => a.nomes.some((n) => n.join(" ") === alvo.join(" ")));
-  const parcial = artes.find((a) => a.nomes.some((n) => contido(alvo, n) || contido(n, alvo)));
-  return (exata ?? parcial)?.imagem ?? null;
-}
-
-function dicaDeErro(status: number) {
-  if (status === 401 || status === 403) {
-    return " (chave de API invalida; no TMDB use a \"API Key\" v3, nao o token de leitura v4)";
-  }
-  return status === 429 ? " (limite de requisicoes da API atingido)" : "";
-}
-
+// Porta de entrada do catalogo. Escolhe a fonte pelo prefixo do id (tmdb_, rawg_game_,
+// igdb_game_, openlibrary_book_, media_gbooks_, media_hardcover_) e delega; aqui ficam
+// so o que e comum a todas: persistencia em MediaItem, nota do Trak e duracoes.
 @Injectable()
 export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
-  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
-  private readonly provedoresPorFonte: Partial<Record<FonteCatalogo, ProvedorCatalogo>>;
+  private readonly http: ClienteCatalogo;
+  private readonly listagem: ListagemCatalogo;
+  private readonly tmdb: FonteTmdb;
+  private readonly rawg: FonteRawg;
+  private readonly fontes: Record<FonteCatalogo, Fonte<never>>;
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -124,50 +33,110 @@ export class CatalogoService implements OnModuleInit {
     private readonly hardcoverService: HardcoverService,
     private readonly igdbService: IgdbService
   ) {
-    // Fontes cujo detalhe vem de um servico dedicado (as demais sao tratadas aqui).
-    this.provedoresPorFonte = {
-      gbooks: this.googleBooksService,
-      hardcover: this.hardcoverService,
-      igdb: this.igdbService
+    this.http = new ClienteCatalogo(igdbService, this.logger);
+    this.listagem = new ListagemCatalogo(this.http, googleBooksService, hardcoverService, igdbService);
+    this.tmdb = new FonteTmdb(this.http);
+    this.rawg = new FonteRawg(this.http, igdbService);
+    this.fontes = {
+      tmdb: this.tmdb,
+      rawg: this.rawg,
+      igdb: new FonteIgdb(this.http, igdbService),
+      openlibrary: new FonteOpenLibrary(this.http, googleBooksService),
+      gbooks: new FonteGoogleBooks(this.http, googleBooksService),
+      hardcover: new FonteHardcover(this.http, hardcoverService, googleBooksService)
     };
   }
 
-  private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
-    const atual = this.cache.get(chave);
-    if (atual && atual.expiresAt > Date.now()) {
-      return atual.value as T;
-    }
-
-    const value = await carregar();
-    // Falhas (null) nao sao guardadas, para a proxima chamada tentar de novo.
-    if (value !== null) {
-      if (this.cache.size >= CACHE_MAX_ENTRIES) {
-        this.cache.delete(this.cache.keys().next().value as string);
-      }
-      this.cache.set(chave, { expiresAt: Date.now() + CACHE_TTL_MS, value });
-    }
-    return value;
+  // A fonte do id, ja com o id interpretado. null quando o id nao segue nenhum padrao.
+  private fonte(id: string): { p: IdParseado; fonte: Fonte } | null {
+    const p = parsearId(id);
+    return p ? { p, fonte: this.fontes[p.source] as unknown as Fonte } : null;
   }
 
-  private async fetchJson<T>(url: string): Promise<T | null> {
-    try {
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { "User-Agent": "Trak (https://github.com/Kazeyhaya/Trak)" }
-      });
-      if (!response.ok) {
-        // 404 e normal (item inexistente); os demais indicam chave invalida, limite ou queda.
-        if (response.status !== 404) {
-          this.logger.warn(`${new URL(url).host} respondeu ${response.status}${dicaDeErro(response.status)}`);
-        }
-        return null;
-      }
-      return (await response.json()) as T;
-    } catch (error) {
-      this.logger.warn(`Falha ao acessar ${new URL(url).host}: ${(error as Error).message}`);
-      return null;
-    }
+  listar(query?: string, tipo?: string, genero?: string, lang?: string) {
+    return this.listagem.listar(query, tipo, genero, lang);
   }
+
+  async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
+    const alvo = this.fonte(id);
+    const item = alvo ? await alvo.fonte.item(alvo.p, id, lang === "en-US" ? "en-US" : "pt-BR") : null;
+    if (!item) {
+      throw new NotFoundException("Item nao encontrado.");
+    }
+    return item;
+  }
+
+  async extras(id: string): Promise<ExtrasCatalogo> {
+    const alvo = this.fonte(id);
+    if (!alvo) {
+      throw new NotFoundException("Item nao encontrado.");
+    }
+    return alvo.fonte.extras(alvo.p, id, this.mediaTrak(id));
+  }
+
+  async relacionados(id: string): Promise<ItemCatalogo[]> {
+    const alvo = this.fonte(id);
+    return alvo ? alvo.fonte.relacionados(alvo.p, id) : [];
+  }
+
+  // Capa atual primeiro, depois as alternativas da fonte, sem repetir.
+  async capas(id: string): Promise<{ capas: string[] }> {
+    const item = await this.buscarPorId(id);
+    const alvo = this.fonte(id);
+    const alternativas = alvo ? await alvo.fonte.capas(alvo.p, item) : [];
+    return { capas: [...new Set([item.coverUrl, ...alternativas].filter((c): c is string => Boolean(c)))] };
+  }
+
+  async novidades(id: string, agora = new Date()): Promise<Novidade | null> {
+    const alvo = this.fonte(id);
+    return alvo ? alvo.fonte.novidade(alvo.p, agora) : null;
+  }
+
+  // Duracao estimada da obra inteira, em minutos (null quando a fonte nao informa).
+  async duracaoMinutos(id: string): Promise<number | null> {
+    const alvo = this.fonte(id);
+    return alvo ? alvo.fonte.duracao(alvo.p, id) : null;
+  }
+
+  // Series (so TMDB)
+
+  listarTemporadas(id: string) {
+    return this.tmdb.listarTemporadas(id);
+  }
+
+  listarEpisodios(id: string, temporada: number) {
+    return this.tmdb.listarEpisodios(id, temporada);
+  }
+
+  creditosEpisodio(id: string, temporada: number, episodio: number) {
+    return this.tmdb.creditosEpisodio(id, temporada, episodio);
+  }
+
+  async creditosObra(id: string) {
+    const p = parsearId(id);
+    return p?.source === "tmdb" ? this.tmdb.creditosObra(p, id) : [];
+  }
+
+  infoEpisodiosSerie(id: string) {
+    return this.tmdb.infoEpisodiosSerie(id);
+  }
+
+  // Episodios ja exibidos, sem especiais.
+  totalEpisodiosExibidos(id: string) {
+    return this.tmdb.totalEpisodiosExibidos(id);
+  }
+
+  // Importacao
+
+  buscarFilmePorTitulo(titulo: string, ano?: number | null) {
+    return this.tmdb.buscarFilmePorTitulo(titulo, ano);
+  }
+
+  buscarJogoPorNome(nome: string) {
+    return this.rawg.buscarPorNome(nome);
+  }
+
+  // Persistencia e dados do Trak
 
   // Avisa no log, ao subir a API, quais fontes ficarao sem resultados.
   onModuleInit() {
@@ -181,550 +150,6 @@ export class CatalogoService implements OnModuleInit {
         this.logger.warn(`${variavel} nao configurada: o catalogo ficara sem ${fonte}.`);
       }
     }
-  }
-
-  private tmdb<T>(path: string, params: Record<string, string> = {}) {
-    const apiKey = process.env.TMDB_API_KEY?.trim();
-    if (!apiKey) {
-      return Promise.resolve(null);
-    }
-    const language = params.language || "pt-BR";
-    const query = new URLSearchParams({ api_key: apiKey, language, ...params });
-    return this.comCache(`tmdb:${language}:${path}?${new URLSearchParams(params)}`, () =>
-      this.fetchJson<T>(`${TMDB}${path}?${query}`)
-    );
-  }
-
-  private rawg<T>(path: string, params: Record<string, string> = {}) {
-    const apiKey = process.env.RAWG_API_KEY?.trim();
-    if (!apiKey) {
-      return Promise.resolve(null);
-    }
-    const query = new URLSearchParams({ key: apiKey, ...params });
-    return this.comCache(`rawg:${path}?${new URLSearchParams(params)}`, () =>
-      this.fetchJson<T>(`${RAWG}${path}?${query}`)
-    );
-  }
-
-  private openLibrary<T>(path: string, params: Record<string, string> = {}) {
-    const query = new URLSearchParams(params);
-    return this.comCache(`ol:${path}?${query}`, () => this.fetchJson<T>(`${OPEN_LIBRARY}${path}?${query}`));
-  }
-
-  private omdb<T>(params: Record<string, string>) {
-    const apiKey = process.env.OMDB_API_KEY?.trim();
-    if (!apiKey) {
-      return Promise.resolve(null);
-    }
-    const query = new URLSearchParams({ apikey: apiKey, ...params });
-    return this.comCache(`omdb:${new URLSearchParams(params)}`, () => this.fetchJson<T>(`${OMDB}/?${query}`));
-  }
-
-  private async capaJogoVertical(nomeJogo: string): Promise<string | null> {
-    if (!nomeJogo?.trim()) {
-      return null;
-    }
-
-    // 1. Prioriza a IGDB para capas oficiais nítidas em alta resolução
-    if (this.igdbService.isConfigurado()) {
-      const capaIgdb = await this.igdbService.buscarCapaPorNome(nomeJogo);
-      if (capaIgdb) {
-        return capaIgdb;
-      }
-    }
-
-    // 2. Fallback para SteamGridDB caso configurado
-    return this.capaSteamGridDb(nomeJogo);
-  }
-
-  private async capaSteamGridDb(nomeJogo: string): Promise<string | null> {
-    const apiKey = process.env.STEAMGRIDDB_API_KEY?.trim();
-    if (!apiKey || !nomeJogo.trim()) {
-      return null;
-    }
-    const chave = `sgdb:${normalizarTitulo(nomeJogo)}`;
-    return this.comCache(chave, async () => {
-      try {
-        const headers = {
-          Authorization: `Bearer ${apiKey}`,
-          "User-Agent": "Trak (https://github.com/Kazeyhaya/Trak)"
-        };
-        const buscaRes = await fetch(
-          `${STEAMGRIDDB}/search/autocomplete/${encodeURIComponent(nomeJogo.trim())}`,
-          { signal: AbortSignal.timeout(3500), headers }
-        );
-        if (!buscaRes.ok) {
-          return null;
-        }
-        const busca = (await buscaRes.json()) as { data?: Array<{ id: number; name: string }> };
-        const alvo = normalizarTitulo(nomeJogo);
-        const escolhido =
-          busca.data?.find((g) => normalizarTitulo(g.name) === alvo) ?? busca.data?.[0];
-        if (!escolhido?.id) {
-          return null;
-        }
-
-        const gridsRes = await fetch(
-          `${STEAMGRIDDB}/grids/game/${escolhido.id}?dimensions=600x900&types=static`,
-          { signal: AbortSignal.timeout(3500), headers }
-        );
-        if (!gridsRes.ok) {
-          return null;
-        }
-        const grids = (await gridsRes.json()) as { data?: Array<{ url?: string }> };
-        return grids.data?.[0]?.url ?? null;
-      } catch {
-        return null;
-      }
-    });
-  }
-
-  // Consulta a Google Books API com langRestrict=pt para sinopses ricas em portugues.
-  private async googleBooksBuscarSinopse(titulo: string, idioma = "pt-BR"): Promise<string | null> {
-    const cleanTitle = titulo.trim();
-    if (!cleanTitle) {
-      return null;
-    }
-    const lang = idioma === "en-US" ? "en" : "pt";
-    const chave = `gbooks:synopsis:${lang}:${normalizarTitulo(cleanTitle)}`;
-    return this.comCache(chave, async () => {
-      try {
-        const query = new URLSearchParams({
-          q: `intitle:${cleanTitle}`,
-          langRestrict: lang,
-          printType: "books",
-          maxResults: "1"
-        });
-        const res = await this.fetchJson<{
-          items?: Array<{
-            volumeInfo?: {
-              description?: string;
-            };
-          }>;
-        }>(`https://www.googleapis.com/books/v1/volumes?${query}`);
-        const desc = res?.items?.[0]?.volumeInfo?.description?.trim();
-        if (!desc) {
-          return null;
-        }
-        return desc.replace(/<[^>]+>/g, "").trim() || null;
-      } catch {
-        return null;
-      }
-    });
-  }
-
-  // Listagem e busca
-
-  async listar(query?: string, tipo?: string, genero?: string, lang?: string) {
-    const idioma = lang === "en-US" ? "en-US" : "pt-BR";
-    // Fontes sem chave configurada simplesmente nao retornam itens.
-    const busca = query?.trim().slice(0, 50) || undefined;
-    const filtro = (
-      ["movie", "series", "game", "book", "anime", "novela", "dorama", "manga", "hq", "quadrinhos"] as const
-    ).find((t) => t === tipo);
-    const generoValido = GENEROS_CATALOGO.find((g) => g === genero?.toLowerCase());
-
-    // Animes e animacoes: series e filmes do genero Animacao, mais populares primeiro.
-    if (filtro === "anime") {
-      const [series, movies] = await Promise.all([
-        this.listarAnimacoes("tv", busca, generoValido, idioma),
-        this.listarAnimacoes("movie", busca, generoValido, idioma)
-      ]);
-      return [...series, ...movies];
-    }
-
-    if (filtro === "novela") {
-      return this.listarNovelas(busca, generoValido, idioma);
-    }
-
-    if (filtro === "dorama") {
-      return this.listarDoramas(busca, generoValido, idioma);
-    }
-
-    if (filtro === "manga") {
-      return this.listarLivros(busca, "manga");
-    }
-
-    if (filtro === "hq" || filtro === "quadrinhos") {
-      return this.listarLivros(busca, "quadrinhos");
-    }
-
-    const incluir = (t: FiltroTipo) => !filtro || filtro === t;
-
-    const [movies, series, games, books] = await Promise.all([
-      incluir("movie") ? this.listarTmdb("movie", busca, generoValido, filtro === "movie", false, idioma) : [],
-      incluir("series") ? this.listarTmdb("tv", busca, generoValido, true, filtro === "series", idioma) : [],
-      incluir("game") ? this.listarRawg(busca, generoValido) : [],
-      incluir("book") ? this.listarLivros(busca, generoValido) : []
-    ]);
-
-    return [...movies, ...series, ...games, ...books];
-  }
-
-  private async listarTmdb(
-    mediaType: "movie" | "tv",
-    query?: string,
-    genero?: GeneroCatalogo,
-    excluirAnimacao = false,
-    forcarDiscover = false,
-    idioma = "pt-BR"
-  ): Promise<ItemCatalogo[]> {
-    const type = mediaType === "movie" ? "MOVIE" : "SERIES";
-    const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
-    if (genero && !tmdbGenre) {
-      return [];
-    }
-
-    const discoverParams: Record<string, string> = {
-      sort_by: "popularity.desc"
-    };
-    if (tmdbGenre) {
-      discoverParams.with_genres = String(tmdbGenre);
-    }
-    if (excluirAnimacao) {
-      discoverParams.without_genres = String(TMDB_GENERO_ANIMACAO);
-    }
-
-    const data = query
-      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query, language: idioma })
-      : tmdbGenre || forcarDiscover
-        ? await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, { ...discoverParams, language: idioma })
-        : await this.tmdb<{ results: TmdbItem[] }>(`/trending/${mediaType}/week`, { language: idioma });
-
-    return (data?.results ?? [])
-      .filter((item) => {
-        if (excluirAnimacao && item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
-          return false;
-        }
-        return !query || !tmdbGenre || item.genre_ids?.includes(tmdbGenre);
-      })
-      .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, type));
-  }
-
-  private async listarAnimacoes(
-    mediaType: "movie" | "tv",
-    query?: string,
-    genero?: GeneroCatalogo,
-    idioma = "pt-BR"
-  ): Promise<ItemCatalogo[]> {
-    const type = mediaType === "movie" ? "MOVIE" : "SERIES";
-    const tmdbGenre = genero ? (mediaType === "movie" ? MAPA_GENEROS[genero].tmdbMovie : MAPA_GENEROS[genero].tmdbTv) : undefined;
-    if (genero && !tmdbGenre) {
-      return [];
-    }
-    const genresParam = tmdbGenre ? `${TMDB_GENERO_ANIMACAO},${tmdbGenre}` : String(TMDB_GENERO_ANIMACAO);
-    // A busca por texto do TMDB nao filtra genero, entao o filtro e feito nos resultados.
-    const data = query
-      ? await this.tmdb<{ results: TmdbItem[] }>(`/search/${mediaType}`, { query, language: idioma })
-      : await this.tmdb<{ results: TmdbItem[] }>(`/discover/${mediaType}`, {
-          with_genres: genresParam,
-          sort_by: "popularity.desc",
-          language: idioma
-        });
-
-    return (data?.results ?? [])
-      .filter(
-        (item) =>
-          !query ||
-          (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO) && (!tmdbGenre || item.genre_ids?.includes(tmdbGenre)))
-      )
-      .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, type));
-  }
-
-  private async listarNovelas(query?: string, genero?: GeneroCatalogo, idioma = "pt-BR"): Promise<ItemCatalogo[]> {
-    const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
-    if (genero && !tmdbGenre) {
-      return [];
-    }
-
-    if (query) {
-      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query, language: idioma });
-      const paisesSet = new Set<string>(PAISES_NOVELA);
-      return (data?.results ?? [])
-        .filter((item) => {
-          if (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
-            return false;
-          }
-          if (tmdbGenre && !item.genre_ids?.includes(tmdbGenre)) {
-            return false;
-          }
-          const ehSoap = item.genre_ids?.includes(TMDB_GENERO_NOVELA);
-          const ehPaisNovela =
-            item.origin_country?.some((c) => paisesSet.has(c)) && item.genre_ids?.includes(18);
-          return Boolean(ehSoap || ehPaisNovela);
-        })
-        .slice(0, LIMITE_POR_FONTE)
-        .map((item) => mapearTmdb(item, "SERIES", "NOVELA"));
-    }
-
-    const soapGenres = tmdbGenre
-      ? `${TMDB_GENERO_NOVELA},${tmdbGenre}`
-      : String(TMDB_GENERO_NOVELA);
-    const dramaGenres = tmdbGenre ? `18,${tmdbGenre}` : "18";
-    const without = `${TMDB_GENERO_ANIMACAO},${TMDB_GENERO_REALITY},${TMDB_GENERO_TALK}`;
-
-    const [porGeneroNovela, porPaises] = await Promise.all([
-      this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
-        with_genres: soapGenres,
-        without_genres: without,
-        sort_by: "popularity.desc",
-        language: idioma
-      }),
-      this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
-        with_origin_country: PAISES_NOVELA.join("|"),
-        with_genres: dramaGenres,
-        without_genres: without,
-        sort_by: "popularity.desc",
-        language: idioma
-      })
-    ]);
-
-    const vistos = new Set<number>();
-    const combinados: TmdbItem[] = [];
-    for (const item of [...(porGeneroNovela?.results ?? []), ...(porPaises?.results ?? [])]) {
-      if (!vistos.has(item.id) && !item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
-        vistos.add(item.id);
-        combinados.push(item);
-      }
-    }
-
-    return combinados.slice(0, LIMITE_POR_FONTE).map((item) => mapearTmdb(item, "SERIES", "NOVELA"));
-  }
-
-  private async listarDoramas(query?: string, genero?: GeneroCatalogo, idioma = "pt-BR"): Promise<ItemCatalogo[]> {
-    const tmdbGenre = genero ? MAPA_GENEROS[genero].tmdbTv : undefined;
-    if (genero && !tmdbGenre) {
-      return [];
-    }
-
-    if (query) {
-      const data = await this.tmdb<{ results: TmdbItem[] }>("/search/tv", { query, language: idioma });
-      const paisesSet = new Set<string>(PAISES_DORAMA);
-      const idiomasSet = new Set<string>(IDIOMAS_DORAMA);
-      return (data?.results ?? [])
-        .filter((item) => {
-          if (item.genre_ids?.includes(TMDB_GENERO_ANIMACAO)) {
-            return false;
-          }
-          if (tmdbGenre && !item.genre_ids?.includes(tmdbGenre)) {
-            return false;
-          }
-          const ehPaisAsiatico = item.origin_country?.some((c) => paisesSet.has(c));
-          const ehIdiomaAsiatico = item.original_language ? idiomasSet.has(item.original_language) : false;
-          return Boolean(ehPaisAsiatico || ehIdiomaAsiatico);
-        })
-        .slice(0, LIMITE_POR_FONTE)
-        .map((item) => mapearTmdb(item, "SERIES", "DORAMA"));
-    }
-
-    const withGenres = tmdbGenre ? String(tmdbGenre) : "18";
-    const without = `${TMDB_GENERO_ANIMACAO},${TMDB_GENERO_REALITY},${TMDB_GENERO_TALK}`;
-
-    const data = await this.tmdb<{ results: TmdbItem[] }>("/discover/tv", {
-      with_origin_country: PAISES_DORAMA.join("|"),
-      with_genres: withGenres,
-      without_genres: without,
-      sort_by: "popularity.desc",
-      language: idioma
-    });
-
-    return (data?.results ?? [])
-      .filter((item) => !item.genre_ids?.includes(TMDB_GENERO_ANIMACAO))
-      .slice(0, LIMITE_POR_FONTE)
-      .map((item) => mapearTmdb(item, "SERIES", "DORAMA"));
-  }
-
-  private async listarRawg(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
-    const rawgGenre = genero ? MAPA_GENEROS[genero].rawg : undefined;
-    if (genero && !rawgGenre) {
-      return [];
-    }
-    const params: Record<string, string> = query
-      ? { page_size: String(LIMITE_POR_FONTE), search: query }
-      : { page_size: String(LIMITE_POR_FONTE), ordering: "-added" };
-    if (rawgGenre) {
-      params.genres = rawgGenre;
-    }
-
-    const data = await this.rawg<{ results: RawgItem[] }>("/games", params);
-
-    // A listagem do RAWG nao traz descricao. Se IGDB ou SteamGridDB estiverem ativas, busca capas verticais 2:3 nítidas.
-    const brutos = (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
-    if (!this.igdbService.isConfigurado() && !process.env.STEAMGRIDDB_API_KEY?.trim()) {
-      return brutos;
-    }
-    return Promise.all(
-      brutos.map(async (jogo) => ({
-        ...jogo,
-        coverUrl: (await this.capaJogoVertical(jogo.title)) ?? jogo.coverUrl
-      }))
-    );
-  }
-
-  private mesclarLivros(
-    hardcover: ItemCatalogo[],
-    gbooks: ItemCatalogo[],
-    openLibrary: ItemCatalogo[],
-    limite = LIMITE_POR_FONTE
-  ): ItemCatalogo[] {
-    const mapaTitulos = new Map<string, ItemCatalogo>();
-    const ordem: ItemCatalogo[] = [];
-
-    const registrarOuFundir = (item: ItemCatalogo) => {
-      const chave = chaveDeduplicacaoLivro(item.title);
-      if (!chave) {
-        return;
-      }
-      const existente = mapaTitulos.get(chave);
-      if (!existente) {
-        const clone = { ...item };
-        mapaTitulos.set(chave, clone);
-        ordem.push(clone);
-        return;
-      }
-
-      // Funde dados: prioriza sinopse em PT-BR do Google Books ou a mais completa disponivel
-      if (!existente.synopsis && item.synopsis) {
-        existente.synopsis = item.synopsis;
-      } else if (item.source === "gbooks" && item.synopsis && item.synopsis.length >= 40 && existente.source !== "gbooks") {
-        existente.synopsis = item.synopsis;
-      } else if (existente.synopsis && item.synopsis && existente.synopsis.length < 50 && item.synopsis.length > 50) {
-        existente.synopsis = item.synopsis;
-      }
-
-      // Preserva melhor capa: prioriza capas oficiais da Hardcover (arte de editora em alta resolução)
-      // e depois Google Books sobre capas da Open Library
-      if (!existente.coverUrl && item.coverUrl) {
-        existente.coverUrl = item.coverUrl;
-      } else if (
-        item.source === "hardcover" &&
-        item.coverUrl &&
-        !existente.coverUrl?.includes("assets.hardcover.app")
-      ) {
-        existente.coverUrl = item.coverUrl;
-      } else if (
-        item.source === "gbooks" &&
-        item.coverUrl &&
-        existente.coverUrl?.includes("covers.openlibrary.org")
-      ) {
-        existente.coverUrl = item.coverUrl;
-      }
-
-      if (!existente.releaseYear && item.releaseYear) {
-        existente.releaseYear = item.releaseYear;
-      }
-      if (!existente.pageCount && item.pageCount) {
-        existente.pageCount = item.pageCount;
-      }
-    };
-
-    // Intercala as tres fontes para equilibrar o catálogo entre titulos enriquecidos, nacionais e internacionais
-    const maxLen = Math.max(hardcover.length, gbooks.length, openLibrary.length);
-    for (let i = 0; i < maxLen; i++) {
-      if (i < hardcover.length) {
-        registrarOuFundir(hardcover[i]);
-      }
-      if (i < gbooks.length) {
-        registrarOuFundir(gbooks[i]);
-      }
-      if (i < openLibrary.length) {
-        registrarOuFundir(openLibrary[i]);
-      }
-    }
-
-    // Itens com capa primeiro.
-    return ordem
-      .sort((a, b) => (b.coverUrl ? 1 : 0) - (a.coverUrl ? 1 : 0))
-      .slice(0, limite);
-  }
-
-  private async listarLivros(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
-    const subject = genero ? MAPA_GENEROS[genero].openLibrary : undefined;
-    if (genero && !subject) {
-      return [];
-    }
-
-    const ehManga = genero === "manga";
-    const ehHq = genero === "quadrinhos" || genero === "hq";
-
-    // 1. Busca com termo digitado pelo usuário: consulta as 3 APIs em paralelo (Hardcover, Google Books, OpenLibrary)
-    if (query) {
-      const gbooksTerm = ehManga ? `${query} manga` : (ehHq ? `${query} comics` : (subject ? `${query} subject:${subject}` : query));
-      const hcTerm = ehManga ? `${query} manga` : (ehHq ? `${query} graphic novel` : query);
-      const olTerm = ehManga ? `${query} manga` : (ehHq ? `${query} comic books` : (subject ? `${query} subject:${subject}` : query));
-
-      const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.buscar(hcTerm, LIMITE_POR_FONTE),
-        this.googleBooksService.buscar(gbooksTerm, LIMITE_POR_FONTE),
-        this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
-          q: olTerm,
-          limit: String(LIMITE_POR_FONTE),
-          fields: "key,title,cover_i,first_publish_year,description"
-        })
-      ]);
-
-      const hardcoverItens = hardcoverResult.status === "fulfilled" ? hardcoverResult.value : [];
-      const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
-      const openLibItens =
-        openLibResult.status === "fulfilled"
-          ? (openLibResult.value?.docs ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
-          : [];
-
-      return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
-    }
-
-    // 2. Filtro por gênero sem termo específico:
-    if (subject) {
-      const hcTerm = ehManga ? "manga" : (ehHq ? "graphic novel" : (genero ?? subject));
-      const gbooksTerm = ehManga ? "manga" : (ehHq ? 'subject:"comics"' : `subject:${subject}`);
-
-      const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.buscar(hcTerm, LIMITE_POR_FONTE),
-        this.googleBooksService.buscar(gbooksTerm, LIMITE_POR_FONTE),
-        this.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
-          limit: String(LIMITE_POR_FONTE)
-        })
-      ]);
-
-      const hardcoverItens = hardcoverResult.status === "fulfilled" ? hardcoverResult.value : [];
-      const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
-      const openLibItens =
-        openLibResult.status === "fulfilled"
-          ? (openLibResult.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
-          : [];
-
-      return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
-    }
-
-    // 3. Vitrine inicial da aba Livros: combina populares da Hardcover, tendências da OpenLibrary e populares da Google Books
-    const [hardcoverPopular, openLibTrending, gbooksPopular] = await Promise.allSettled([
-      this.hardcoverService.buscar("", LIMITE_POR_FONTE),
-      this.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
-        limit: String(LIMITE_POR_FONTE)
-      }),
-      this.googleBooksService.buscar("ficcao fantasia romance bestseller", LIMITE_POR_FONTE)
-    ]);
-
-    const hardcoverItens = hardcoverPopular.status === "fulfilled" ? hardcoverPopular.value : [];
-    const openLibItens =
-      openLibTrending.status === "fulfilled"
-        ? (openLibTrending.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
-        : [];
-    const gbooksItens = gbooksPopular.status === "fulfilled" ? gbooksPopular.value : [];
-
-    return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
-  }
-
-  async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
-    const item = await this.carregarItem(id, lang);
-
-    if (!item) {
-      throw new NotFoundException("Item nao encontrado.");
-    }
-
-    return item;
   }
 
   private async mediaTrak(mediaItemId: string) {
@@ -748,979 +173,6 @@ export class CatalogoService implements OnModuleInit {
     }
   }
 
-  private async notasOmdb(imdbId: string): Promise<NotaExterna[]> {
-    const data = await this.omdb<{
-      imdbRating?: string;
-      Metascore?: string;
-      Ratings?: Array<{ Source: string; Value: string }>;
-    }>({ i: imdbId });
-
-    if (!data) {
-      return [];
-    }
-
-    const notas: NotaExterna[] = [];
-    if (data.imdbRating && data.imdbRating !== "N/A") {
-      notas.push({ source: "IMDb", value: `${data.imdbRating}/10` });
-    }
-    const rt = data.Ratings?.find((r) => r.Source === "Rotten Tomatoes");
-    if (rt?.Value && rt.Value !== "N/A") {
-      notas.push({ source: "Rotten Tomatoes", value: rt.Value });
-    }
-    const mc = data.Ratings?.find((r) => r.Source === "Metacritic")?.Value;
-    if (mc && mc !== "N/A") {
-      notas.push({ source: "Metacritic", value: mc });
-    } else if (data.Metascore && data.Metascore !== "N/A") {
-      notas.push({ source: "Metacritic", value: `${data.Metascore}/100` });
-    }
-    return notas;
-  }
-
-  async extras(id: string): Promise<ExtrasCatalogo> {
-    const parsed = parsearId(id);
-    if (!parsed) {
-      throw new NotFoundException("Item nao encontrado.");
-    }
-
-    const trakPromise = this.mediaTrak(id);
-
-    if (parsed.source === "tmdb") {
-      const mediaPath = parsed.type === "MOVIE" ? "movie" : "tv";
-      const [item, providersData, externalIds] = await Promise.all([
-        this.tmdb<TmdbItem>(`/${mediaPath}/${parsed.externalId}`),
-        this.tmdb<{
-          results?: Record<
-            string,
-            {
-              link?: string;
-              flatrate?: Array<{ provider_name: string }>;
-              ads?: Array<{ provider_name: string }>;
-              free?: Array<{ provider_name: string }>;
-              rent?: Array<{ provider_name: string }>;
-              buy?: Array<{ provider_name: string }>;
-            }
-          >;
-        }>(`/${mediaPath}/${parsed.externalId}/watch/providers`),
-        parsed.type === "SERIES"
-          ? this.tmdb<{ imdb_id?: string | null }>(`/tv/${parsed.externalId}/external_ids`)
-          : Promise.resolve(null)
-      ]);
-
-      const imdbId = item?.imdb_id ?? externalIds?.imdb_id ?? null;
-      const [omdbRatings, trakRating] = await Promise.all([
-        imdbId ? this.notasOmdb(imdbId) : Promise.resolve([]),
-        trakPromise
-      ]);
-
-      const externalRatings: NotaExterna[] = [...omdbRatings];
-      if (item?.vote_average && item.vote_average > 0) {
-        externalRatings.push({
-          source: "TMDB",
-          value: `${item.vote_average.toFixed(1)}/10`
-        });
-      }
-
-      const br = providersData?.results?.BR ?? providersData?.results?.US;
-      const tituloMidia = item?.title ?? item?.name ?? "";
-      const vistos = new Set<string>();
-      const watchProviders: ProvedorOndeAssistir[] = [];
-      const adicionar = (lista: Array<{ provider_name: string }> | undefined, category: ProvedorOndeAssistir["category"]) => {
-        for (const p of lista ?? []) {
-          if (!vistos.has(p.provider_name)) {
-            vistos.add(p.provider_name);
-            watchProviders.push({
-              name: p.provider_name,
-              category,
-              url: urlProvedorStreaming(p.provider_name, tituloMidia, br?.link ?? null)
-            });
-          }
-        }
-      };
-      adicionar(br?.flatrate, "STREAMING");
-      adicionar(br?.free, "STREAMING");
-      adicionar(br?.ads, "STREAMING");
-      adicionar(br?.rent, "RENT");
-      adicionar(br?.buy, "BUY");
-
-      const seriesInfo = parsed.type === "SERIES" ? await this.infoEpisodiosSerie(id).catch(() => null) : null;
-
-      return {
-        genres: (item?.genres ?? []).map((g) => g.name),
-        watchProviders,
-        watchLink: watchProviders[0]?.url ?? br?.link ?? null,
-        trakRating,
-        externalRatings,
-        seriesInfo
-      };
-    }
-
-    if (parsed.source === "rawg") {
-      const [jogo, lojasData, trakRating] = await Promise.all([
-        this.rawg<RawgItem>(`/games/${parsed.externalId}`),
-        this.rawg<{ results?: Array<{ url?: string; store_id?: number }> }>(`/games/${parsed.externalId}/stores`),
-        trakPromise
-      ]);
-
-      const externalRatings: NotaExterna[] = [];
-      if (jogo?.metacritic) {
-        externalRatings.push({ source: "Metacritic", value: `${jogo.metacritic}/100` });
-      }
-      if (jogo?.rating && jogo.rating > 0) {
-        externalRatings.push({ source: "RAWG", value: `${jogo.rating.toFixed(1)}/5` });
-      }
-
-      const urlPorStoreId = new Map<number, string>();
-      for (const s of lojasData?.results ?? []) {
-        if (s.store_id && s.url) {
-          urlPorStoreId.set(s.store_id, s.url);
-        }
-      }
-
-      const tituloJogo = jogo?.name ?? "";
-      const watchProviders: ProvedorOndeAssistir[] = (jogo?.stores ?? [])
-        .filter((s) => s.store?.name)
-        .map((s) => {
-          const directUrl = (s.store?.id ? urlPorStoreId.get(s.store.id) : undefined) || s.url || null;
-          return {
-            name: s.store!.name,
-            category: "STORE" as const,
-            url: urlLojaJogo(s.store!.name, tituloJogo, directUrl, s.store?.domain)
-          };
-        });
-
-      return {
-        genres: (jogo?.genres ?? []).map((g) => g.name),
-        watchProviders,
-        watchLink: watchProviders[0]?.url ?? null,
-        trakRating,
-        externalRatings
-      };
-    }
-
-    if (parsed.source === "igdb") {
-      const [jogo, trakRating] = await Promise.all([
-        this.igdbService.getGameRaw(parsed.externalId),
-        trakPromise
-      ]);
-
-      const externalRatings: NotaExterna[] = [];
-      if (jogo?.rating && jogo.rating > 0) {
-        externalRatings.push({ source: "IGDB", value: `${Math.round(jogo.rating)}/100` });
-      }
-
-      const tituloJogo = jogo?.name ?? "";
-      const watchProviders: ProvedorOndeAssistir[] = tituloJogo
-        ? [
-            {
-              name: "Steam",
-              category: "STORE" as const,
-              url: urlLojaJogo("Steam", tituloJogo, null)
-            }
-          ]
-        : [];
-
-      return {
-        genres: (jogo?.genres ?? []).map((g) => g.name),
-        watchProviders,
-        watchLink: watchProviders[0]?.url ?? null,
-        trakRating,
-        externalRatings
-      };
-    }
-
-    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
-      const [book, trakRating] = await Promise.all([
-        this.hardcoverService.getBookRaw(parsed?.externalId ?? id),
-        trakPromise
-      ]);
-
-      const externalRatings: NotaExterna[] = [];
-      if (book?.rating && Number.isFinite(book.rating) && book.rating > 0) {
-        externalRatings.push({
-          source: "Hardcover",
-          value: `${(Math.round(book.rating * 10) / 10).toFixed(1)}/5`
-        });
-      }
-
-      const genres: string[] = [];
-      if (book?.cached_tags?.Genre && Array.isArray(book.cached_tags.Genre)) {
-        for (const g of book.cached_tags.Genre) {
-          if (g.tag?.trim()) {
-            genres.push(g.tag.trim());
-          }
-        }
-      }
-
-      const watchProviders: ProvedorOndeAssistir[] = [];
-      const watchLink = book?.slug ? `https://hardcover.app/books/${book.slug}` : null;
-      if (watchLink) {
-        watchProviders.push({
-          name: "Hardcover",
-          category: "READ",
-          url: watchLink
-        });
-      }
-
-      const tituloLivro = book?.title ?? "";
-      if (tituloLivro) {
-        watchProviders.push(
-          {
-            name: "Amazon Livros",
-            category: "STORE",
-            url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
-          },
-          {
-            name: "Google Livros",
-            category: "READ",
-            url: `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(tituloLivro)}`
-          }
-        );
-      }
-
-      return {
-        genres: Array.from(new Set(genres)).slice(0, 5),
-        watchProviders,
-        watchLink,
-        trakRating,
-        externalRatings,
-        pageCount: typeof book?.pages === "number" && book.pages > 0 ? book.pages : null
-      };
-    }
-
-    if (parsed?.source === "gbooks") {
-      const [volume, trakRating] = await Promise.all([
-        this.googleBooksService.getVolumeRaw(parsed.externalId),
-        trakPromise
-      ]);
-
-      const externalRatings: NotaExterna[] = [];
-      const info = volume?.volumeInfo;
-      if (info?.averageRating && info.averageRating > 0) {
-        externalRatings.push({ source: "Google Books", value: `${info.averageRating.toFixed(1)}/5` });
-      }
-
-      const googleBooksUrl = info?.infoLink ?? `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(info?.title ?? "")}`;
-      const tituloLivro = info?.title ?? "";
-      const watchProviders: ProvedorOndeAssistir[] = [
-        { name: "Google Livros", category: "READ", url: googleBooksUrl },
-        ...(tituloLivro
-          ? [
-              {
-                name: "Amazon Livros",
-                category: "STORE" as const,
-                url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
-              }
-            ]
-          : [])
-      ];
-
-      return {
-        genres: (info?.categories ?? []).slice(0, 5),
-        watchProviders,
-        watchLink: googleBooksUrl,
-        trakRating,
-        externalRatings,
-        pageCount: typeof info?.pageCount === "number" && info.pageCount > 0 ? info.pageCount : null
-      };
-    }
-
-    const [livro, ratingsData, trakRating] = await Promise.all([
-      this.openLibrary<OpenLibraryDoc>(`/works/${parsed.externalId}.json`),
-      this.openLibrary<{ summary?: { average?: number; count?: number } }>(`/works/${parsed.externalId}/ratings.json`),
-      trakPromise
-    ]);
-
-    const externalRatings: NotaExterna[] = [];
-    const olMedia = ratingsData?.summary?.average ?? livro?.ratings_average;
-    if (olMedia && olMedia > 0) {
-      externalRatings.push({ source: "Open Library", value: `${olMedia.toFixed(1)}/5` });
-    }
-
-    const openLibraryUrl = `https://openlibrary.org/works/${parsed.externalId}`;
-    const tituloLivro = livro?.title ?? "";
-    const watchProviders: ProvedorOndeAssistir[] = [
-      { name: "Open Library", category: "READ", url: openLibraryUrl },
-      ...(tituloLivro
-        ? [
-            {
-              name: "Amazon Livros",
-              category: "STORE" as const,
-              url: `https://www.amazon.com.br/s?k=${encodeURIComponent(tituloLivro)}&i=stripbooks`
-            },
-            {
-              name: "Google Livros",
-              category: "READ" as const,
-              url: `https://www.google.com.br/search?tbm=bks&q=${encodeURIComponent(tituloLivro)}`
-            }
-          ]
-        : [])
-    ];
-    let olPages: number | null = null;
-    try {
-      const edicoes = await this.openLibrary<{ entries?: Array<{ number_of_pages?: number }> }>(
-        `/works/${parsed.externalId}/editions.json`,
-        { limit: "10" }
-      );
-      const paginas = (edicoes?.entries ?? [])
-        .map((e) => e.number_of_pages ?? 0)
-        .filter((p) => p > 0)
-        .sort((a, b) => a - b);
-      if (paginas.length > 0) {
-        olPages = paginas[Math.floor(paginas.length / 2)];
-      }
-    } catch {
-      // ignora falha de edicoes
-    }
-
-    return {
-      genres: (livro?.subjects ?? []).slice(0, 5),
-      watchProviders,
-      watchLink: openLibraryUrl,
-      trakRating,
-      externalRatings,
-      pageCount: olPages
-    };
-  }
-
-  private async traduzirParaPtBr(texto: string | null): Promise<string | null> {
-    if (!texto) {
-      return null;
-    }
-    // A chave usa o texto inteiro: sinopses com o mesmo inicio nao podem dividir traducao.
-    return this.comCache(`tr:${createHash("sha1").update(texto).digest("hex")}`, async () => {
-      try {
-        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt-BR&dt=t&q=${encodeURIComponent(texto)}`;
-        const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
-        if (!response.ok) {
-          return texto;
-        }
-        const data = (await response.json()) as unknown[];
-        const partes = Array.isArray(data?.[0]) ? (data[0] as Array<[string]>) : [];
-        const traduzido = partes.map((p) => p?.[0] ?? "").join("").trim();
-        return traduzido || texto;
-      } catch {
-        return texto;
-      }
-    });
-  }
-
-  private async carregarItem(id: string, lang?: string): Promise<ItemCatalogo | null> {
-    const idioma = lang === "en-US" ? "en-US" : "pt-BR";
-    const parsed = parsearId(id);
-
-    if (parsed?.source === "tmdb") {
-      const item = await this.tmdb<TmdbItem>(`/${parsed.type === "MOVIE" ? "movie" : "tv"}/${parsed.externalId}`, {
-        language: idioma
-      });
-      return item ? mapearTmdb(item, parsed.type) : null;
-    }
-
-    if (parsed?.source === "rawg") {
-      const item = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
-      if (!item) {
-        return null;
-      }
-      const mapeado = mapearRawg(item);
-      const [synopsis, capaVertical] = await Promise.all([
-        idioma === "pt-BR" ? this.traduzirParaPtBr(mapeado.synopsis) : mapeado.synopsis,
-        this.capaJogoVertical(mapeado.title)
-      ]);
-      return {
-        ...mapeado,
-        coverUrl: capaVertical ?? mapeado.coverUrl,
-        synopsis
-      };
-    }
-
-    const provedorFonte = parsed?.source ? this.provedoresPorFonte[parsed.source] : undefined;
-    if (provedorFonte && parsed) {
-      const item = await provedorFonte.buscarPorId(id);
-      if (!item) {
-        return null;
-      }
-
-      if (parsed.source === "igdb") {
-        const synopsis = idioma === "pt-BR" ? await this.traduzirParaPtBr(item.synopsis) : item.synopsis;
-        return { ...item, synopsis };
-      }
-
-      if (parsed.source === "hardcover") {
-        let sinopse = item.synopsis;
-        if (idioma === "pt-BR") {
-          const sinopseGoogle = await this.googleBooksBuscarSinopse(item.title, "pt-BR");
-          if (sinopseGoogle) {
-            sinopse = sinopseGoogle;
-          } else if (sinopse) {
-            sinopse = await this.traduzirParaPtBr(sinopse);
-          }
-        }
-        let coverUrl = item.coverUrl;
-        if (!coverUrl) {
-          const gbooks = await this.googleBooksService.buscar(item.title, 1);
-          if (gbooks[0]?.coverUrl) {
-            coverUrl = gbooks[0].coverUrl;
-          }
-        }
-        return { ...item, coverUrl, synopsis: sinopse };
-      }
-
-      if (parsed.source === "gbooks") {
-        if (!item.coverUrl) {
-          const olSearch = await this.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
-            q: item.title,
-            limit: "1",
-            fields: "key,cover_i"
-          });
-          const coverId = olSearch?.docs?.[0]?.cover_i;
-          if (coverId) {
-            item.coverUrl = `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`;
-          }
-        }
-        return item;
-      }
-    }
-
-    if (parsed?.source === "openlibrary") {
-      const item = await this.openLibrary<OpenLibraryDoc>(`/works/${parsed.externalId}.json`);
-      if (!item) {
-        return null;
-      }
-      const mapeado = mapearOpenLibrary(item);
-      let sinopse = mapeado.synopsis;
-
-      if (idioma === "pt-BR") {
-        // Complementa com sinopse oficial da Google Books em portugues (langRestrict=pt)
-        const sinopseGoogle = await this.googleBooksBuscarSinopse(mapeado.title, "pt-BR");
-        if (sinopseGoogle) {
-          sinopse = sinopseGoogle;
-        } else if (sinopse) {
-          sinopse = await this.traduzirParaPtBr(sinopse);
-        }
-      }
-
-      return {
-        ...mapeado,
-        synopsis: sinopse
-      };
-    }
-
-    return null;
-  }
-
-  // Temporadas e episodios (somente series do TMDB)
-
-  private async tvDetalhe(id: string) {
-    const parsed = parsearId(id);
-    if (parsed?.source !== "tmdb" || parsed.type !== "SERIES") {
-      throw new NotFoundException("Temporadas so existem para series.");
-    }
-    const tv = await this.tmdb<TmdbTv>(`/tv/${parsed.externalId}`);
-    if (!tv) {
-      throw new NotFoundException("Serie nao encontrada.");
-    }
-    return { tv, externalId: parsed.externalId };
-  }
-
-  async listarTemporadas(id: string): Promise<Temporada[]> {
-    const { tv } = await this.tvDetalhe(id);
-
-    return (tv.seasons ?? [])
-      .filter((season) => season.episode_count > 0)
-      .map((season) => ({
-        seasonNumber: season.season_number,
-        name: season.name,
-        episodeCount: season.episode_count,
-        airDate: season.air_date
-      }))
-      // Especiais (temporada 0) por ultimo.
-      .sort((a, b) => (a.seasonNumber || 1000) - (b.seasonNumber || 1000));
-  }
-
-  async listarEpisodios(id: string, temporada: number): Promise<Episodio[]> {
-    const { externalId } = await this.tvDetalhe(id);
-    const data = await this.tmdb<{ episodes: TmdbEpisodio[] }>(`/tv/${externalId}/season/${temporada}`);
-
-    if (!data) {
-      throw new NotFoundException("Temporada nao encontrada.");
-    }
-
-    return data.episodes.map((episode) => ({
-      episodeNumber: episode.episode_number,
-      name: episode.name,
-      airDate: episode.air_date,
-      overview: episode.overview || null,
-      runtime: episode.runtime ?? null
-    }));
-  }
-
-  // Elenco de um episodio, usado na escolha de quem "roubou a cena".
-  async creditosEpisodio(id: string, temporada: number, episodio: number): Promise<PersonagemEpisodio[]> {
-    const { externalId } = await this.tvDetalhe(id);
-    const data = await this.tmdb<{ cast?: MembroElenco[]; guest_stars?: MembroElenco[] }>(
-      `/tv/${externalId}/season/${temporada}/episode/${episodio}/credits`
-    );
-    if (!data) {
-      return [];
-    }
-    return this.montarPersonagens(id, [...(data.cast ?? []), ...(data.guest_stars ?? [])], 24);
-  }
-
-  // Elenco principal da obra, usado no Panteao.
-  async creditosObra(id: string): Promise<PersonagemEpisodio[]> {
-    const parsed = parsearId(id);
-    if (parsed?.source !== "tmdb") {
-      return [];
-    }
-
-    if (parsed.type === "MOVIE") {
-      const data = await this.tmdb<{ cast?: MembroElenco[] }>(`/movie/${parsed.externalId}/credits`);
-      return this.montarPersonagens(id, data?.cast ?? [], 30);
-    }
-
-    // aggregate_credits junta o elenco de todas as temporadas; o papel fica em roles[].
-    const agregado = await this.tmdb<{ cast?: Array<MembroElenco & { roles?: Array<{ character?: string }> }> }>(
-      `/tv/${parsed.externalId}/aggregate_credits`
-    );
-    const membros = agregado?.cast?.length
-      ? agregado.cast.map((c) => ({ ...c, character: c.roles?.[0]?.character || c.character }))
-      : ((await this.tmdb<{ cast?: MembroElenco[] }>(`/tv/${parsed.externalId}/credits`))?.cast ?? []);
-    return this.montarPersonagens(id, membros, 30);
-  }
-
-  // Em animacoes, a foto do dublador nao representa o personagem: busca a arte do AniList.
-  private async montarPersonagens(id: string, membros: MembroElenco[], limite: number) {
-    const obra = await this.buscarPorId(id).catch(() => null);
-    const temDublagem = membros.some((m) => /\((?:voice|voz)\)/i.test(m.character ?? ""));
-    const ehAnimacao = obra?.subtype === "ANIME" || obra?.subtype === "ANIMACAO" || temDublagem;
-    const artes = ehAnimacao && obra?.title ? await this.buscarPersonagensAniList(obra.title) : [];
-
-    const unicos = new Map<string, PersonagemEpisodio>();
-    for (const m of membros) {
-      const personagem = (m.character ?? "")
-        .replace(/\s*\((?:voice|voz|japanese|english)\)/gi, "")
-        .replace(/["']/g, "")
-        .trim();
-      const chave = personagem.toLowerCase();
-      if (!personagem || unicos.has(chave)) {
-        continue;
-      }
-      const foto = m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null;
-      unicos.set(chave, {
-        id: String(m.id),
-        name: m.name,
-        character: personagem,
-        avatarUrl: arteDoPersonagem(personagem, artes) ?? foto
-      });
-    }
-    return Array.from(unicos.values()).slice(0, limite);
-  }
-
-  /**
-   * Consulta a GraphQL da AniList para buscar artes oficiais dos personagens de animes/animações.
-   */
-  private async buscarPersonagensAniList(titulo: string): Promise<ArteAniList[]> {
-    const busca = titulo.trim();
-    if (!busca) {
-      return [];
-    }
-
-    const query = `
-      query ($search: String) {
-        Media(search: $search, type: ANIME) {
-          characters(sort: ROLE, perPage: 25) {
-            edges { node { name { full userPreferred } image { medium large } } }
-          }
-        }
-      }
-    `;
-
-    type RespostaAniList = {
-      data?: {
-        Media?: {
-          characters?: {
-            edges?: Array<{
-              node?: { name?: { full?: string; userPreferred?: string }; image?: { medium?: string; large?: string } };
-            }>;
-          };
-        };
-      };
-    };
-
-    // Falha volta null para nao ficar em cache; o chamador recebe lista vazia.
-    const artes = await this.comCache(`anilist:chars:${normalizarTitulo(busca)}`, async () => {
-      try {
-        const res = await fetch("https://graphql.anilist.co", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ query, variables: { search: busca } }),
-          signal: AbortSignal.timeout(4000)
-        });
-        if (!res.ok) {
-          return null;
-        }
-        const json = (await res.json()) as RespostaAniList;
-        return (json.data?.Media?.characters?.edges ?? []).flatMap((e) => {
-          const imagem = e.node?.image?.medium || e.node?.image?.large;
-          const nomes = [e.node?.name?.full, e.node?.name?.userPreferred].flatMap((n) => (n ? [palavras(n)] : []));
-          return imagem && nomes.length ? [{ nomes, imagem }] : [];
-        });
-      } catch {
-        return null;
-      }
-    });
-    return artes ?? [];
-  }
-
-  // Total de episodios ja exibidos, sem contar especiais.
-  async totalEpisodiosExibidos(id: string) {
-    const { tv } = await this.tvDetalhe(id);
-    const ultimo = tv.last_episode_to_air;
-    const temporadas = (tv.seasons ?? []).filter((season) => season.season_number > 0);
-
-    if (!ultimo) {
-      return 0;
-    }
-
-    return temporadas.reduce((total, season) => {
-      if (season.season_number < ultimo.season_number) {
-        return total + season.episode_count;
-      }
-      if (season.season_number === ultimo.season_number) {
-        return total + ultimo.episode_number;
-      }
-      return total;
-    }, 0);
-  }
-
-  // Informações completas de episódios e status da série (para cálculo de progresso real e status "Em dia")
-  async infoEpisodiosSerie(id: string): Promise<SeriesInfo | null> {
-    const parsed = parsearId(id);
-    if (!parsed || parsed.source !== "tmdb" || parsed.type !== "SERIES") {
-      return null;
-    }
-
-    try {
-      const { tv } = await this.tvDetalhe(id);
-      const temporadas = (tv.seasons ?? []).filter((season) => season.season_number > 0);
-      const somaTemporadas = temporadas.reduce((total, season) => total + (season.episode_count || 0), 0);
-      const totalEpisodes = tv.number_of_episodes || somaTemporadas || 0;
-      const airedEpisodes = await this.totalEpisodiosExibidos(id).catch(() => 0);
-
-      const statusLower = (tv.status ?? "").toLowerCase();
-      const isEnded = statusLower === "ended" || statusLower === "canceled";
-      const hasNext = Boolean(tv.next_episode_to_air);
-      const hasUnreleased = totalEpisodes > 0 && airedEpisodes < totalEpisodes;
-      const isOngoing = !isEnded || hasNext || hasUnreleased;
-
-      return {
-        totalEpisodes,
-        airedEpisodes,
-        isOngoing,
-        nextEpisodeAirDate: tv.next_episode_to_air?.air_date ?? null
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  // Recomendacoes e novidades
-
-  async relacionados(id: string): Promise<ItemCatalogo[]> {
-    const parsed = parsearId(id);
-
-    if (parsed?.source === "tmdb") {
-      const mediaType = parsed.type === "MOVIE" ? "movie" : "tv";
-      const data = await this.tmdb<{ results: TmdbItem[] }>(`/${mediaType}/${parsed.externalId}/recommendations`);
-      return (data?.results ?? []).slice(0, 8).map((item) => mapearTmdb(item, parsed.type));
-    }
-
-    if (parsed?.source === "rawg") {
-      const jogo = await this.rawg<{ genres?: Array<{ slug: string }> }>(`/games/${parsed.externalId}`);
-      const genero = jogo?.genres?.[0]?.slug;
-      if (!genero) {
-        return [];
-      }
-      const data = await this.rawg<{ results: RawgItem[] }>("/games", {
-        genres: genero,
-        ordering: "-rating",
-        page_size: "8"
-      });
-      return (data?.results ?? []).map((item) => ({ ...mapearRawg(item), synopsis: null }));
-    }
-
-    if (parsed?.source === "igdb" || id.startsWith("igdb_game_")) {
-      const jogo = await this.igdbService.getGameRaw(parsed?.externalId ?? id);
-      const termoBusca = jogo?.genres?.[0]?.name || jogo?.name;
-      if (!termoBusca) {
-        return [];
-      }
-      const resultados = await this.igdbService.buscar(termoBusca, 8);
-      return resultados.filter((item) => item.id !== id);
-    }
-
-    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
-      const book = await this.hardcoverService.getBookRaw(parsed?.externalId ?? id);
-      const termoBusca = book?.cached_tags?.Genre?.[0]?.tag || book?.title;
-      if (!termoBusca) {
-        return [];
-      }
-      const resultados = await this.hardcoverService.buscar(termoBusca, 8);
-      return resultados.filter((item) => item.id !== id);
-    }
-
-    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
-      const volume = await this.googleBooksService.getVolumeRaw(id);
-      const categoria = volume?.volumeInfo?.categories?.[0] ?? volume?.volumeInfo?.title;
-      if (!categoria) {
-        return [];
-      }
-      const resultados = await this.googleBooksService.buscar(categoria, 8);
-      return resultados.filter((item) => item.id !== id);
-    }
-
-    if (parsed?.source === "openlibrary") {
-      const livro = await this.openLibrary<{ title?: string; subjects?: string[] }>(`/works/${parsed.externalId}.json`);
-      const termoBusca = livro?.title || livro?.subjects?.[0];
-      if (!termoBusca) {
-        return [];
-      }
-
-      // Prioriza busca de relacionados no Google Books para garantir capas oficiais de editora e sinopses em PT-BR
-      const relacionadosGbooks = await this.googleBooksService.buscar(termoBusca, 8);
-      const filtradosGbooks = relacionadosGbooks.filter((item) => item.id !== id);
-      if (filtradosGbooks.length > 0) {
-        return filtradosGbooks;
-      }
-
-      const assunto = livro?.subjects?.[0];
-      if (assunto) {
-        const slug = normalizarTitulo(assunto).replace(/ /g, "_");
-        const data = await this.openLibrary<{ works: OpenLibraryDoc[] }>(`/subjects/${slug}.json`, { limit: "16" });
-        return (data?.works ?? [])
-          .map(mapearOpenLibrary)
-          .filter((item) => item.coverUrl !== null && item.id !== id)
-          .slice(0, 8);
-      }
-
-      return [];
-    }
-
-    return [];
-  }
-
-  /**
-   * Retorna opções de capas/posters alternativos para uma obra
-   * (TMDB para filmes/séries, IGDB/RAWG para jogos, Google Books/Open Library para livros).
-   */
-  async capas(id: string): Promise<{ capas: string[] }> {
-    const parsed = parsearId(id);
-    const item = await this.buscarPorId(id);
-    const capasSet = new Set<string>();
-
-    if (item?.coverUrl) {
-      capasSet.add(item.coverUrl);
-    }
-
-    if (parsed?.source === "tmdb") {
-      const mediaType = parsed.type === "MOVIE" ? "movie" : "tv";
-      const data = await this.tmdb<{
-        posters?: Array<{ file_path: string }>;
-        backdrops?: Array<{ file_path: string }>;
-      }>(`/${mediaType}/${parsed.externalId}/images`, { include_image_language: "pt,en,null" });
-
-      if (data?.posters?.length) {
-        for (const p of data.posters.slice(0, 30)) {
-          if (p.file_path) {
-            capasSet.add(`https://image.tmdb.org/t/p/w780${p.file_path}`);
-          }
-        }
-      }
-    } else if (parsed?.source === "rawg" || parsed?.source === "igdb") {
-      if (item?.title && this.igdbService.isConfigurado()) {
-        const igdbCapas = await this.igdbService.buscarCapasAlternativas(item.title);
-        for (const c of igdbCapas) {
-          capasSet.add(c);
-        }
-      }
-      // Usa capturas do RAWG apenas se a IGDB nao tiver retornado capas verticais alternativas
-      if (parsed?.source === "rawg" && capasSet.size <= 1) {
-        const rawgScreens = await this.rawg<{ results?: Array<{ image: string }> }>(
-          `/games/${parsed.externalId}/screenshots`
-        );
-        if (rawgScreens?.results?.length) {
-          for (const s of rawgScreens.results.slice(0, 8)) {
-            if (s.image) {
-              capasSet.add(s.image);
-            }
-          }
-        }
-      }
-    } else if (parsed?.source === "openlibrary") {
-      const editions = await this.openLibrary<{ entries?: Array<{ covers?: number[] }> }>(
-        `/works/${parsed.externalId}/editions.json`,
-        { limit: "15" }
-      );
-      if (editions?.entries?.length) {
-        for (const ed of editions.entries) {
-          if (ed.covers?.length) {
-            for (const c of ed.covers) {
-              if (c > 0) {
-                capasSet.add(`https://covers.openlibrary.org/b/id/${c}-L.jpg`);
-              }
-            }
-          }
-        }
-      }
-    } else if (parsed?.source === "gbooks" && item?.title) {
-      const outros = await this.googleBooksService.buscar(item.title, 8);
-      for (const b of outros) {
-        if (b.coverUrl) {
-          capasSet.add(b.coverUrl);
-        }
-      }
-    } else if (parsed?.source === "hardcover" && item?.title) {
-      const outros = await this.hardcoverService.buscar(item.title, 8);
-      for (const b of outros) {
-        if (b.coverUrl) {
-          capasSet.add(b.coverUrl);
-        }
-      }
-    }
-
-    return { capas: Array.from(capasSet) };
-  }
-
-  async novidades(id: string, agora = new Date()): Promise<Novidade | null> {
-    const parsed = parsearId(id);
-    const hoje = agora.getTime();
-    const dentroDe = (data: string | null | undefined, antes: number, depois: number) => {
-      if (!data) {
-        return false;
-      }
-      const dias = (new Date(`${data}T00:00:00Z`).getTime() - hoje) / DIA_MS;
-      return dias >= -antes && dias <= depois;
-    };
-
-    if (parsed?.source === "tmdb" && parsed.type === "SERIES") {
-      const tv = await this.tmdb<TmdbTv>(`/tv/${parsed.externalId}`);
-      const proximo = tv?.next_episode_to_air;
-      const ultimo = tv?.last_episode_to_air;
-
-      if (proximo?.air_date && dentroDe(proximo.air_date, 0, 30)) {
-        return {
-          kind: "UPCOMING_EPISODE",
-          date: proximo.air_date,
-          label: `T${proximo.season_number}E${proximo.episode_number} estreia em breve`
-        };
-      }
-      if (ultimo?.air_date && dentroDe(ultimo.air_date, 7, 0)) {
-        return {
-          kind: "NEW_EPISODE",
-          date: ultimo.air_date,
-          label: `Novo episódio: T${ultimo.season_number}E${ultimo.episode_number}`
-        };
-      }
-      return null;
-    }
-
-    if (parsed?.source === "tmdb" && parsed.type === "MOVIE") {
-      const filme = await this.tmdb<TmdbItem>(`/movie/${parsed.externalId}`);
-      return filme?.release_date && dentroDe(filme.release_date, 7, 60)
-        ? { kind: "UPCOMING_RELEASE", date: filme.release_date, label: "Estreia nos cinemas" }
-        : null;
-    }
-
-    if (parsed?.source === "rawg") {
-      const jogo = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
-      return jogo?.released && dentroDe(jogo.released, 7, 60)
-        ? { kind: "UPCOMING_RELEASE", date: jogo.released, label: "Lançamento do jogo" }
-        : null;
-    }
-
-    return null;
-  }
-
-  // Usado pela importacao
-
-  async buscarFilmePorTitulo(titulo: string, ano?: number | null): Promise<ItemCatalogo | null> {
-    const params: Record<string, string> = { query: titulo };
-    if (ano) {
-      params.year = String(ano);
-    }
-    const data = await this.tmdb<{ results: TmdbItem[] }>("/search/movie", params);
-    const primeiro = data?.results?.[0];
-    return primeiro ? mapearTmdb(primeiro, "MOVIE") : null;
-  }
-
-  async buscarJogoPorNome(nome: string): Promise<ItemCatalogo | null> {
-    const data = await this.rawg<{ results: RawgItem[] }>("/games", {
-      search: nome,
-      search_precise: "true",
-      page_size: "5"
-    });
-    const alvo = normalizarTitulo(nome);
-    const resultados = data?.results ?? [];
-    const melhor = resultados.find((jogo) => normalizarTitulo(jogo.name) === alvo) ?? resultados[0];
-    return melhor ? { ...mapearRawg(melhor), synopsis: null } : null;
-  }
-
-  // Persistencia
-
-  // Duracao estimada da obra inteira, em minutos (null quando a fonte nao informa).
-  async duracaoMinutos(id: string): Promise<number | null> {
-    const parsed = parsearId(id);
-
-    if (parsed?.source === "tmdb" && parsed.type === "MOVIE") {
-      const filme = await this.tmdb<TmdbItem>(`/movie/${parsed.externalId}`);
-      return filme?.runtime && filme.runtime > 0 ? filme.runtime : null;
-    }
-
-    if (parsed?.source === "tmdb" && parsed.type === "SERIES") {
-      const tv = await this.tmdb<TmdbTv>(`/tv/${parsed.externalId}`);
-      if (!tv) {
-        return null;
-      }
-      const porEpisodio = tv.episode_run_time?.find((m) => m > 0) ?? tv.last_episode_to_air?.runtime ?? null;
-      const episodios = await this.totalEpisodiosExibidos(id).catch(() => tv.number_of_episodes ?? 0);
-      return porEpisodio && episodios > 0 ? porEpisodio * episodios : null;
-    }
-
-    if (parsed?.source === "rawg") {
-      const jogo = await this.rawg<RawgItem>(`/games/${parsed.externalId}`);
-      return jogo?.playtime && jogo.playtime > 0 ? jogo.playtime * 60 : null;
-    }
-
-    if (parsed?.source === "hardcover" || id.startsWith("media_hardcover_") || id.startsWith("hardcover_book_")) {
-      const book = await this.hardcoverService.getBookRaw(parsed?.externalId ?? id);
-      const paginas = book?.pages;
-      return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
-    }
-
-    if (parsed?.source === "gbooks" || id.startsWith("media_gbooks_")) {
-      const volume = await this.googleBooksService.getVolumeRaw(id);
-      const paginas = volume?.volumeInfo?.pageCount;
-      return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
-    }
-
-    if (parsed?.source === "openlibrary") {
-      const edicoes = await this.openLibrary<{ entries?: Array<{ number_of_pages?: number }> }>(
-        `/works/${parsed.externalId}/editions.json`,
-        { limit: "20" }
-      );
-      const paginas = (edicoes?.entries ?? [])
-        .map((e) => e.number_of_pages ?? 0)
-        .filter((p) => p > 0)
-        .sort((a, b) => a - b);
-      if (paginas.length === 0) {
-        return null;
-      }
-      const mediana = paginas[Math.floor(paginas.length / 2)];
-      return Math.round(mediana * MINUTOS_POR_PAGINA);
-    }
-
-    return null;
-  }
-
   // Duracao de varios itens salvos. Itens ainda sem duracao sao calculados
   // (no maximo `limiteNovos` por chamada) e gravados em MediaItem; quando a
   // fonte nao informa, grava 0 para nao consultar de novo.
@@ -1736,7 +188,7 @@ export class CatalogoService implements OnModuleInit {
     if (error) {
       await Promise.all(
         unicos.slice(0, limiteNovos).map(async (id) => {
-          const minutos = (await this.comCache(`dur:${id}`, () => this.duracaoMinutos(id)).catch(() => null)) ?? 0;
+          const minutos = (await this.http.comCache(`dur:${id}`, () => this.duracaoMinutos(id)).catch(() => null)) ?? 0;
           resultado.set(id, minutos);
         })
       );
@@ -1827,12 +279,6 @@ export class CatalogoService implements OnModuleInit {
     throw new InternalServerErrorException(insertError.message);
   }
 
-  // { subtipo } quando o TMDB respondeu (subtipo pode ser null: filme comum); null quando falhou.
-  private async obterSubtipoOficialTmdb(type: "MOVIE" | "SERIES", externalId: string) {
-    const tmdbItem = await this.tmdb<TmdbItem>(type === "MOVIE" ? `/movie/${externalId}` : `/tv/${externalId}`);
-    return tmdbItem ? { subtipo: detectarSubtipoTmdb(tmdbItem, type) } : null;
-  }
-
   // Le itens salvos. Itens antigos ainda nao enriquecidos (sem subtipo do TMDB, jogos com
   // capa horizontal do RAWG) sao completados uma unica vez e marcados com enrichedAt.
   async buscarSalvos(ids: string[], limiteBackfill = 20) {
@@ -1875,7 +321,7 @@ export class CatalogoService implements OnModuleInit {
       if (!process.env.TMDB_API_KEY?.trim()) {
         return;
       }
-      const resposta = await this.obterSubtipoOficialTmdb(item.type, item.externalId).catch(() => null);
+      const resposta = await this.tmdb.subtipo(item.type, item.externalId).catch(() => null);
       if (!resposta) {
         return;
       }
@@ -1887,7 +333,7 @@ export class CatalogoService implements OnModuleInit {
       if (!this.igdbService.isConfigurado() && !process.env.STEAMGRIDDB_API_KEY?.trim()) {
         return;
       }
-      const capa = await this.capaJogoVertical(item.title).catch(() => null);
+      const capa = await this.http.capaJogoVertical(item.title).catch(() => null);
       if (capa && capa !== item.coverUrl) {
         item.coverUrl = capa;
         alteracoes.coverUrl = capa;
