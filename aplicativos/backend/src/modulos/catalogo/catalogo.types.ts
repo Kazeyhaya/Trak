@@ -4,8 +4,6 @@ export type SubtipoMidia = "ANIME" | "ANIMACAO" | "NOVELA" | "DORAMA" | "MANGA" 
 
 export type FonteCatalogo = "tmdb" | "rawg" | "openlibrary" | "gbooks" | "hardcover" | "igdb";
 
-export type { ProvedorCatalogo, IProvedorCatalogo } from "./provedor-catalogo.interface";
-
 export interface ItemCatalogo {
   id: string;
   externalId: string;
@@ -18,9 +16,6 @@ export interface ItemCatalogo {
   releaseYear: number | null;
   pageCount?: number | null;
 }
-
-export type CatalogItem = ItemCatalogo;
-export type MediaType = TipoMidia;
 
 export interface Temporada {
   seasonNumber: number;

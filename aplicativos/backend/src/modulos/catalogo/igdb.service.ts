@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CatalogItem } from "./catalogo.types";
+import { ItemCatalogo } from "./catalogo.types";
 import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
 export interface IgdbCover {
@@ -44,7 +44,7 @@ export function formatarUrlCapaIgdb(
   return `https://images.igdb.com/igdb/image/upload/t_${tamanho}/${imageId}.jpg`;
 }
 
-export function mapIgdbGame(game: IgdbGame): CatalogItem {
+export function mapIgdbGame(game: IgdbGame): ItemCatalogo {
   let releaseYear: number | null = null;
   if (typeof game.first_release_date === "number" && game.first_release_date > 0) {
     const year = new Date(game.first_release_date * 1000).getUTCFullYear();
@@ -194,9 +194,9 @@ export class IgdbService implements ProvedorCatalogo {
   }
 
   /**
-   * Busca jogos na IGDB e devolve no formato unificado CatalogItem[].
+   * Busca jogos na IGDB e devolve no formato unificado ItemCatalogo[].
    */
-  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
     const nomeLimpo = (query ?? "").replace(/[^\w\s-]/gi, "").trim();
 
@@ -215,9 +215,9 @@ export class IgdbService implements ProvedorCatalogo {
   }
 
   /**
-   * Busca um jogo específico pelo ID na IGDB (ex: "igdb_game_1020" ou "1020") e devolve CatalogItem.
+   * Busca um jogo específico pelo ID na IGDB (ex: "igdb_game_1020" ou "1020") e devolve ItemCatalogo.
    */
-  async buscarPorId(id: string): Promise<CatalogItem | null> {
+  async buscarPorId(id: string): Promise<ItemCatalogo | null> {
     if (!id?.trim()) {
       return null;
     }

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CatalogItem } from "./catalogo.types";
+import { ItemCatalogo } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
 import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
@@ -51,7 +51,7 @@ export function sanitizeGoogleBooksCoverUrl(rawUrl: string | null | undefined): 
   }
 }
 
-export function mapGoogleBooksVolume(volume: GoogleBooksVolume): CatalogItem {
+export function mapGoogleBooksVolume(volume: GoogleBooksVolume): ItemCatalogo {
   const info = volume.volumeInfo;
   const rawCover =
     info?.imageLinks?.extraLarge ??
@@ -109,15 +109,15 @@ export class GoogleBooksService implements ProvedorCatalogo {
     return process.env.GOOGLE_BOOKS_API_KEY?.trim() || undefined;
   }
 
-  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
     return this.searchBooks(query, limit);
   }
 
-  async buscarPorId(id: string): Promise<CatalogItem | null> {
+  async buscarPorId(id: string): Promise<ItemCatalogo | null> {
     return this.getBookById(id);
   }
 
-  async searchBooks(query: string, maxResults = 20): Promise<CatalogItem[]> {
+  async searchBooks(query: string, maxResults = 20): Promise<ItemCatalogo[]> {
     const cleanQuery = query?.trim() || "ficcao";
     try {
       const params = new URLSearchParams({
@@ -166,7 +166,7 @@ export class GoogleBooksService implements ProvedorCatalogo {
     }
   }
 
-  async getBookById(id: string): Promise<CatalogItem | null> {
+  async getBookById(id: string): Promise<ItemCatalogo | null> {
     if (!id?.trim()) {
       return null;
     }

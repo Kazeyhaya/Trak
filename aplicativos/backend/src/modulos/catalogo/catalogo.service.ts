@@ -5,6 +5,7 @@ import {
   NotFoundException,
   OnModuleInit
 } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { GoogleBooksService } from "./google-books.service";
 import { HardcoverService } from "./hardcover.service";
@@ -35,7 +36,6 @@ import {
   urlProvedorStreaming
 } from "./catalogo.fontes";
 import {
-  CatalogItem,
   Episodio,
   ExtrasCatalogo,
   FonteCatalogo,
@@ -79,6 +79,32 @@ const STEAMGRIDDB = "https://www.steamgriddb.com/api/v2";
 const DIA_MS = 24 * 60 * 60 * 1000;
 const LIMITE_POR_FONTE = 20;
 
+type MembroElenco = {
+  id: number;
+  name: string;
+  character?: string;
+  profile_path?: string | null;
+};
+
+type ArteAniList = { nomes: string[][]; imagem: string };
+
+function palavras(nome: string) {
+  return normalizarTitulo(nome).split(" ").filter(Boolean);
+}
+
+// "Goku" casa com "Son Goku" (todas as palavras de um estao no outro), mas
+// "Jason" nao casa com "Son Goku": compara palavras inteiras, nunca trechos.
+export function arteDoPersonagem(personagem: string, artes: ArteAniList[]): string | null {
+  const alvo = palavras(personagem);
+  if (alvo.length === 0) {
+    return null;
+  }
+  const contido = (menor: string[], maior: string[]) => menor.every((p) => maior.includes(p));
+  const exata = artes.find((a) => a.nomes.some((n) => n.join(" ") === alvo.join(" ")));
+  const parcial = artes.find((a) => a.nomes.some((n) => contido(alvo, n) || contido(n, alvo)));
+  return (exata ?? parcial)?.imagem ?? null;
+}
+
 function dicaDeErro(status: number) {
   if (status === 401 || status === 403) {
     return " (chave de API invalida; no TMDB use a \"API Key\" v3, nao o token de leitura v4)";
@@ -90,7 +116,6 @@ function dicaDeErro(status: number) {
 export class CatalogoService implements OnModuleInit {
   private readonly logger = new Logger(CatalogoService.name);
   private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
-  private provedores: Record<string, ProvedorCatalogo>;
   private readonly provedoresPorFonte: Partial<Record<FonteCatalogo, ProvedorCatalogo>>;
 
   constructor(
@@ -99,44 +124,12 @@ export class CatalogoService implements OnModuleInit {
     private readonly hardcoverService: HardcoverService,
     private readonly igdbService: IgdbService
   ) {
-    // O mapa que liga o tipo de mídia ao serviço responsável
-    this.provedores = {
-      GAME: this.igdbService,
-      BOOK: this.googleBooksService,
-      GBOOKS: this.googleBooksService,
-      HARDCOVER: this.hardcoverService,
-      IGDB: this.igdbService
-    };
-
-    // Mapeamento por fonte de ID para buscarPorId unificado
+    // Fontes cujo detalhe vem de um servico dedicado (as demais sao tratadas aqui).
     this.provedoresPorFonte = {
       gbooks: this.googleBooksService,
       hardcover: this.hardcoverService,
       igdb: this.igdbService
     };
-  }
-
-  /**
-   * Roteia a busca de mídia diretamente para o provedor configurado no mapa Strategy (`ProvedorCatalogo`).
-   */
-  async buscar(query: string, tipo: string): Promise<CatalogItem[]> {
-    const provedor = this.provedores[tipo?.trim().toUpperCase()];
-    if (!provedor) {
-      throw new Error(`Provedor não configurado para o tipo: ${tipo}`);
-    }
-    return provedor.buscar(query);
-  }
-
-  /**
-   * Despacha a busca de mídia de forma polimórfica pelo mapa de provedores (`ProvedorCatalogo`).
-   */
-  async buscarMidia(tipo: string, query: string, limit = LIMITE_POR_FONTE): Promise<ItemCatalogo[]> {
-    const chave = tipo?.trim().toUpperCase();
-    const provedor = chave ? this.provedores[chave] : undefined;
-    if (!provedor) {
-      return [];
-    }
-    return provedor.buscar(query, limit);
   }
 
   private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
@@ -641,7 +634,7 @@ export class CatalogoService implements OnModuleInit {
       }
     }
 
-    // Prioriza itens com capa para que a vitrine seja limpa e profissional
+    // Itens com capa primeiro.
     return ordem
       .sort((a, b) => (b.coverUrl ? 1 : 0) - (a.coverUrl ? 1 : 0))
       .slice(0, limite);
@@ -1093,7 +1086,8 @@ export class CatalogoService implements OnModuleInit {
     if (!texto) {
       return null;
     }
-    return this.comCache(`tr:${texto.slice(0, 120)}`, async () => {
+    // A chave usa o texto inteiro: sinopses com o mesmo inicio nao podem dividir traducao.
+    return this.comCache(`tr:${createHash("sha1").update(texto).digest("hex")}`, async () => {
       try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt-BR&dt=t&q=${encodeURIComponent(texto)}`;
         const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
@@ -1138,7 +1132,6 @@ export class CatalogoService implements OnModuleInit {
       };
     }
 
-    // Roteamento via Strategy (mapa de provedores por fonte: igdb, hardcover, gbooks)
     const provedorFonte = parsed?.source ? this.provedoresPorFonte[parsed.source] : undefined;
     if (provedorFonte && parsed) {
       const item = await provedorFonte.buscarPorId(id);
@@ -1260,235 +1253,122 @@ export class CatalogoService implements OnModuleInit {
     }));
   }
 
-  /**
-   * Retorna os personagens/elenco que atuaram em um episódio específico (para "Roubou a Cena").
-   */
+  // Elenco de um episodio, usado na escolha de quem "roubou a cena".
   async creditosEpisodio(id: string, temporada: number, episodio: number): Promise<PersonagemEpisodio[]> {
     const { externalId } = await this.tvDetalhe(id);
-    const rota = `/tv/${externalId}/season/${temporada}/episode/${episodio}/credits`;
-
-    type TmdbCreditMember = {
-      id: number;
-      name: string;
-      character?: string;
-      profile_path?: string | null;
-      order?: number;
-    };
-
-    const data = await this.tmdb<{ cast?: TmdbCreditMember[]; guest_stars?: TmdbCreditMember[] }>(rota);
+    const data = await this.tmdb<{ cast?: MembroElenco[]; guest_stars?: MembroElenco[] }>(
+      `/tv/${externalId}/season/${temporada}/episode/${episodio}/credits`
+    );
     if (!data) {
       return [];
     }
-
-    const membros = [...(data.cast ?? []), ...(data.guest_stars ?? [])];
-    const unicos = new Map<string, PersonagemEpisodio>();
-
-    // Verifica se a série é animação / anime para enriquecer com avatares desenhados 2D da AniList
-    const parsed = parsearId(id);
-    let mapaAvataresAniList = new Map<string, string>();
-    const itemSerie = await this.buscarPorId(id).catch(() => null);
-    const ehAnimacao =
-      itemSerie?.subtype === "ANIME" ||
-      itemSerie?.subtype === "ANIMACAO" ||
-      itemSerie?.title?.toLowerCase().includes("dragon ball") ||
-      itemSerie?.title?.toLowerCase().includes("naruto") ||
-      itemSerie?.title?.toLowerCase().includes("one piece") ||
-      itemSerie?.title?.toLowerCase().includes("bleach") ||
-      itemSerie?.title?.toLowerCase().includes("attack on titan") ||
-      membros.some((m) => m.character?.toLowerCase().includes("(voice)") || m.character?.toLowerCase().includes("(voz)"));
-
-    if (ehAnimacao && itemSerie?.title) {
-      mapaAvataresAniList = await this.buscarPersonagensAniList(itemSerie.title);
-    }
-
-    for (const m of membros) {
-      // Limpa sufixos de voz como "(voice)", "(voz)" e títulos duplicados
-      const cleanCharName = (m.character ?? "")
-        .replace(/\s*\((?:voice|voz|japanese|english)\)/gi, "")
-        .replace(/["']/g, "")
-        .trim();
-
-      if (!cleanCharName || unicos.has(cleanCharName.toLowerCase())) {
-        continue;
-      }
-
-      // Procura primeiro pelo nome na AniList para obter a arte 2D desenhada do personagem
-      const avatar2d =
-        mapaAvataresAniList.get(cleanCharName.toLowerCase()) ||
-        this.encontrarCorrespondenciaPersonagem(cleanCharName.toLowerCase(), mapaAvataresAniList);
-
-      const avatarFinal = avatar2d || (m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null);
-
-      unicos.set(cleanCharName.toLowerCase(), {
-        id: String(m.id),
-        name: m.name,
-        character: cleanCharName,
-        avatarUrl: avatarFinal
-      });
-    }
-
-    return Array.from(unicos.values()).slice(0, 24);
+    return this.montarPersonagens(id, [...(data.cast ?? []), ...(data.guest_stars ?? [])], 24);
   }
 
-  /**
-   * Retorna os personagens/elenco principais de uma obra (filme ou série) para o Panteão.
-   */
+  // Elenco principal da obra, usado no Panteao.
   async creditosObra(id: string): Promise<PersonagemEpisodio[]> {
     const parsed = parsearId(id);
-    if (!parsed || parsed.source !== "tmdb") {
+    if (parsed?.source !== "tmdb") {
       return [];
     }
 
-    type TmdbCreditMember = {
-      id: number;
-      name: string;
-      character?: string;
-      roles?: Array<{ character?: string }>;
-      profile_path?: string | null;
-    };
-
-    let membros: TmdbCreditMember[] = [];
-    const itemObra = await this.buscarPorId(id).catch(() => null);
-
     if (parsed.type === "MOVIE") {
-      const data = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/movie/${parsed.externalId}/credits`);
-      membros = data?.cast ?? [];
-    } else if (parsed.type === "SERIES") {
-      const data = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/tv/${parsed.externalId}/aggregate_credits`).catch(
-        () => null
-      );
-      if (data?.cast && data.cast.length > 0) {
-        membros = data.cast.map((c) => ({
-          ...c,
-          character: c.roles?.[0]?.character || c.character
-        }));
-      } else {
-        const fallback = await this.tmdb<{ cast?: TmdbCreditMember[] }>(`/tv/${parsed.externalId}/credits`);
-        membros = fallback?.cast ?? [];
-      }
+      const data = await this.tmdb<{ cast?: MembroElenco[] }>(`/movie/${parsed.externalId}/credits`);
+      return this.montarPersonagens(id, data?.cast ?? [], 30);
     }
+
+    // aggregate_credits junta o elenco de todas as temporadas; o papel fica em roles[].
+    const agregado = await this.tmdb<{ cast?: Array<MembroElenco & { roles?: Array<{ character?: string }> }> }>(
+      `/tv/${parsed.externalId}/aggregate_credits`
+    );
+    const membros = agregado?.cast?.length
+      ? agregado.cast.map((c) => ({ ...c, character: c.roles?.[0]?.character || c.character }))
+      : ((await this.tmdb<{ cast?: MembroElenco[] }>(`/tv/${parsed.externalId}/credits`))?.cast ?? []);
+    return this.montarPersonagens(id, membros, 30);
+  }
+
+  // Em animacoes, a foto do dublador nao representa o personagem: busca a arte do AniList.
+  private async montarPersonagens(id: string, membros: MembroElenco[], limite: number) {
+    const obra = await this.buscarPorId(id).catch(() => null);
+    const temDublagem = membros.some((m) => /\((?:voice|voz)\)/i.test(m.character ?? ""));
+    const ehAnimacao = obra?.subtype === "ANIME" || obra?.subtype === "ANIMACAO" || temDublagem;
+    const artes = ehAnimacao && obra?.title ? await this.buscarPersonagensAniList(obra.title) : [];
 
     const unicos = new Map<string, PersonagemEpisodio>();
-    let mapaAvataresAniList = new Map<string, string>();
-    const ehAnimacao =
-      itemObra?.subtype === "ANIME" ||
-      itemObra?.subtype === "ANIMACAO" ||
-      itemObra?.title?.toLowerCase().includes("dragon ball") ||
-      itemObra?.title?.toLowerCase().includes("naruto") ||
-      itemObra?.title?.toLowerCase().includes("one piece") ||
-      itemObra?.title?.toLowerCase().includes("bleach") ||
-      itemObra?.title?.toLowerCase().includes("attack on titan") ||
-      membros.some((m) => m.character?.toLowerCase().includes("(voice)") || m.character?.toLowerCase().includes("(voz)"));
-
-    if (ehAnimacao && itemObra?.title) {
-      mapaAvataresAniList = await this.buscarPersonagensAniList(itemObra.title);
-    }
-
     for (const m of membros) {
-      const cleanCharName = (m.character ?? "")
+      const personagem = (m.character ?? "")
         .replace(/\s*\((?:voice|voz|japanese|english)\)/gi, "")
         .replace(/["']/g, "")
         .trim();
-
-      if (!cleanCharName || unicos.has(cleanCharName.toLowerCase())) {
+      const chave = personagem.toLowerCase();
+      if (!personagem || unicos.has(chave)) {
         continue;
       }
-
-      const avatar2d =
-        mapaAvataresAniList.get(cleanCharName.toLowerCase()) ||
-        this.encontrarCorrespondenciaPersonagem(cleanCharName.toLowerCase(), mapaAvataresAniList);
-
-      const avatarFinal = avatar2d || (m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null);
-
-      unicos.set(cleanCharName.toLowerCase(), {
+      const foto = m.profile_path ? `https://image.tmdb.org/t/p/w185${m.profile_path}` : null;
+      unicos.set(chave, {
         id: String(m.id),
         name: m.name,
-        character: cleanCharName,
-        avatarUrl: avatarFinal
+        character: personagem,
+        avatarUrl: arteDoPersonagem(personagem, artes) ?? foto
       });
     }
-
-    return Array.from(unicos.values()).slice(0, 30);
-  }
-
-  private encontrarCorrespondenciaPersonagem(nome: string, mapa: Map<string, string>): string | null {
-    for (const [chave, url] of mapa.entries()) {
-      if (nome.includes(chave) || chave.includes(nome)) {
-        return url;
-      }
-    }
-    return null;
+    return Array.from(unicos.values()).slice(0, limite);
   }
 
   /**
    * Consulta a GraphQL da AniList para buscar artes oficiais dos personagens de animes/animações.
    */
-  private async buscarPersonagensAniList(titulo: string): Promise<Map<string, string>> {
-    const mapa = new Map<string, string>();
-    const limpo = titulo.replace(/[^\w\s-]/gi, "").trim();
-    if (!limpo) return mapa;
+  private async buscarPersonagensAniList(titulo: string): Promise<ArteAniList[]> {
+    const busca = titulo.trim();
+    if (!busca) {
+      return [];
+    }
 
     const query = `
       query ($search: String) {
         Media(search: $search, type: ANIME) {
           characters(sort: ROLE, perPage: 25) {
-            edges {
-              node {
-                name { full userPreferred }
-                image { medium large }
-              }
-            }
+            edges { node { name { full userPreferred } image { medium large } } }
           }
         }
       }
     `;
 
-    return this.comCache(`anilist:chars:${normalizarTitulo(limpo)}`, async () => {
+    type RespostaAniList = {
+      data?: {
+        Media?: {
+          characters?: {
+            edges?: Array<{
+              node?: { name?: { full?: string; userPreferred?: string }; image?: { medium?: string; large?: string } };
+            }>;
+          };
+        };
+      };
+    };
+
+    // Falha volta null para nao ficar em cache; o chamador recebe lista vazia.
+    const artes = await this.comCache(`anilist:chars:${normalizarTitulo(busca)}`, async () => {
       try {
         const res = await fetch("https://graphql.anilist.co", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ query, variables: { search: limpo } }),
+          body: JSON.stringify({ query, variables: { search: busca } }),
           signal: AbortSignal.timeout(4000)
         });
-        if (!res.ok) return mapa;
-        const json = (await res.json()) as {
-          data?: {
-            Media?: {
-              characters?: {
-                edges?: Array<{
-                  node?: {
-                    name?: { full?: string; userPreferred?: string };
-                    image?: { medium?: string; large?: string };
-                  };
-                }>;
-              };
-            };
-          };
-        };
-
-        const edges = json.data?.Media?.characters?.edges ?? [];
-        for (const e of edges) {
-          const nomeFull = e.node?.name?.full?.toLowerCase().trim();
-          const nomePref = e.node?.name?.userPreferred?.toLowerCase().trim();
-          const img = e.node?.image?.medium || e.node?.image?.large;
-          if (img) {
-            if (nomeFull) mapa.set(nomeFull, img);
-            if (nomePref) mapa.set(nomePref, img);
-            // Também adiciona partes do nome para matching (ex: "goku" para "son goku")
-            const partes = (nomeFull || "").split(/\s+/);
-            for (const p of partes) {
-              if (p.length >= 3 && !mapa.has(p)) {
-                mapa.set(p, img);
-              }
-            }
-          }
+        if (!res.ok) {
+          return null;
         }
-        return mapa;
+        const json = (await res.json()) as RespostaAniList;
+        return (json.data?.Media?.characters?.edges ?? []).flatMap((e) => {
+          const imagem = e.node?.image?.medium || e.node?.image?.large;
+          const nomes = [e.node?.name?.full, e.node?.name?.userPreferred].flatMap((n) => (n ? [palavras(n)] : []));
+          return imagem && nomes.length ? [{ nomes, imagem }] : [];
+        });
       } catch {
-        return mapa;
+        return null;
       }
     });
+    return artes ?? [];
   }
 
   // Total de episodios ja exibidos, sem contar especiais.
@@ -1887,100 +1767,74 @@ export class CatalogoService implements OnModuleInit {
   }
 
   // Garante que o item exista em "MediaItem" antes de ser referenciado por
-  // tracking, favoritos ou comentarios, gravando tambem o subtipo oficial vindo da API.
+  // tracking, favoritos ou comentarios.
   async garantirNoBanco(id: string, itemConhecido?: ItemCatalogo) {
     const supabase = this.supabaseService.getClient();
 
-    const { data: existente, error } = await supabase
-      .from("MediaItem")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
-
+    const { data: existente, error } = await supabase.from("MediaItem").select("id").eq("id", id).maybeSingle();
     if (error) {
-      this.logger.warn(`Nao foi possivel consultar MediaItem ${id}: ${error.message}`);
       throw new InternalServerErrorException(error.message);
     }
-
     if (existente) {
       return;
     }
 
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
-    const { subtype, pageCount: _pageCount, ...itemParaSalvar } = item;
+    const { pageCount: _pageCount, ...campos } = item;
     void _pageCount;
 
-    const tentarSalvar = async (incluirSubtipo: boolean) => {
-      const payload = {
-        ...itemParaSalvar,
-        ...(incluirSubtipo && subtype ? { subtype } : {}),
-        createdAt: agora,
-        updatedAt: agora
-      };
-      return supabase.from("MediaItem").upsert(payload, { onConflict: "id", ignoreDuplicates: true });
-    };
+    // O item acabou de vir da API, com subtipo e capa ja resolvidos: nao precisa de backfill.
+    const { error: insertError } = await supabase
+      .from("MediaItem")
+      .upsert(
+        { ...campos, subtype: campos.subtype ?? null, enrichedAt: agora, createdAt: agora, updatedAt: agora },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
 
-    let { error: insertError } = await tentarSalvar(true);
-
-    // Caso a migracao da coluna "subtype" ainda nao tenha sido aplicada no banco, salva sem ela.
-    if (insertError && subtype && insertError.message?.includes("subtype")) {
-      const retry = await tentarSalvar(false);
-      insertError = retry.error;
+    if (!insertError) {
+      return;
     }
 
-    // Se ja existir uma linha legada com a mesma chave (externalId, source, type) mas id diferente,
-    // renomeia o externalId legado para liberar a constraint unica e insere o item com o id canonico.
-    if (
-      insertError &&
-      (insertError.message?.includes("MediaItem_externalId_source_type_key") ||
-        insertError.message?.includes("duplicate key"))
-    ) {
+    // A mesma obra ja existe com um id antigo (chave unica externalId+source+type).
+    // Une as duas no id canonico; renomear a antiga deixaria trackings orfaos e duplicaria a obra.
+    if (insertError.code === "23505") {
       const { data: conflito } = await supabase
         .from("MediaItem")
         .select("id")
-        .eq("externalId", itemParaSalvar.externalId)
-        .eq("source", itemParaSalvar.source)
-        .eq("type", itemParaSalvar.type)
+        .eq("externalId", campos.externalId)
+        .eq("source", campos.source)
+        .eq("type", campos.type)
         .maybeSingle();
 
+      if (conflito?.id && conflito.id !== id) {
+        const { error: uniaoError } = await supabase.rpc("trak_unir_media_item", {
+          legado: conflito.id,
+          canonico: id,
+          external_id: campos.externalId
+        });
+        if (!uniaoError) {
+          this.logger.log(`MediaItem ${conflito.id} unido em ${id}`);
+          return;
+        }
+        throw new InternalServerErrorException(uniaoError.message);
+      }
       if (conflito?.id === id) {
         return;
       }
-
-      if (conflito?.id) {
-        await supabase
-          .from("MediaItem")
-          .update({ externalId: `legacy_${conflito.id}` })
-          .eq("id", conflito.id);
-
-        const retry = await tentarSalvar(true);
-        insertError = retry.error;
-        if (insertError && subtype && insertError.message?.includes("subtype")) {
-          const retrySemSubtipo = await tentarSalvar(false);
-          insertError = retrySemSubtipo.error;
-        }
-      }
     }
 
-    if (insertError) {
-      this.logger.warn(`Nao foi possivel salvar MediaItem ${id}: ${insertError.message}`);
-      throw new InternalServerErrorException(insertError.message);
-    }
+    throw new InternalServerErrorException(insertError.message);
   }
 
-  private async obterSubtipoOficialTmdb(
-    id: string,
-    type: "MOVIE" | "SERIES",
-    externalId: string
-  ) {
-    return this.comCache(`subtipo:${id}`, async () => {
-      const rota = type === "MOVIE" ? `/movie/${externalId}` : `/tv/${externalId}`;
-      const tmdbItem = await this.tmdb<TmdbItem>(rota);
-      return tmdbItem ? detectarSubtipoTmdb(tmdbItem, type) : null;
-    });
+  // { subtipo } quando o TMDB respondeu (subtipo pode ser null: filme comum); null quando falhou.
+  private async obterSubtipoOficialTmdb(type: "MOVIE" | "SERIES", externalId: string) {
+    const tmdbItem = await this.tmdb<TmdbItem>(type === "MOVIE" ? `/movie/${externalId}` : `/tv/${externalId}`);
+    return tmdbItem ? { subtipo: detectarSubtipoTmdb(tmdbItem, type) } : null;
   }
 
+  // Le itens salvos. Itens antigos ainda nao enriquecidos (sem subtipo do TMDB, jogos com
+  // capa horizontal do RAWG) sao completados uma unica vez e marcados com enrichedAt.
   async buscarSalvos(ids: string[], limiteBackfill = 20) {
     const unicos = [...new Set(ids)];
     if (unicos.length === 0) {
@@ -1988,114 +1842,66 @@ export class CatalogoService implements OnModuleInit {
     }
 
     const db = this.supabaseService.getClient();
-    let colunaSubtipoDisponivel = true;
-
-    let { data, error } = await db
+    const { data, error } = await db
       .from("MediaItem")
-      .select("id,externalId,source,type,subtype,title,coverUrl,synopsis,releaseYear")
+      .select("id,externalId,source,type,subtype,title,coverUrl,synopsis,releaseYear,enrichedAt")
       .in("id", unicos);
-
-    if (error && error.message?.includes("subtype")) {
-      colunaSubtipoDisponivel = false;
-      const fallback = await db
-        .from("MediaItem")
-        .select("id,externalId,source,type,title,coverUrl,synopsis,releaseYear")
-        .in("id", unicos);
-      data = fallback.data as typeof data;
-      error = fallback.error;
-    }
 
     if (error) {
       this.logger.warn(`Nao foi possivel ler MediaItem: ${error.message}`);
     }
 
-    const linhas = (data ?? []) as Array<ItemCatalogo & { subtype?: ItemCatalogo["subtype"] | null }>;
+    const linhas = (data ?? []) as Array<ItemCatalogo & { enrichedAt?: string | null }>;
+    const pendentes = linhas.filter((item) => !item.enrichedAt).slice(0, limiteBackfill);
+    await Promise.all(pendentes.map((item) => this.enriquecer(item)));
 
-    // Para itens antigos salvos antes da coluna `subtype`, consulta a API oficial do TMDB
-    // usando os genre_ids / origin_country / original_language oficiais e grava no banco.
-    if (process.env.TMDB_API_KEY?.trim()) {
-      const pendentesTmdb = linhas
-        .filter(
-          (item) =>
-            !item.subtype &&
-            item.source === "tmdb" &&
-            (item.type === "MOVIE" || item.type === "SERIES") &&
-            Boolean(item.externalId)
-        )
-        .slice(0, limiteBackfill);
+    return new Map(
+      linhas.map(({ enrichedAt: _enrichedAt, ...item }) => {
+        void _enrichedAt;
+        const coverUrl = item.coverUrl?.includes("media.rawg.io/media/games/")
+          ? item.coverUrl.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
+          : (item.coverUrl ?? null);
+        return [item.id, { ...item, coverUrl, subtype: item.subtype ?? null }];
+      })
+    );
+  }
 
-      await Promise.all(
-        pendentesTmdb.map(async (item) => {
-          const subtipo = await this.obterSubtipoOficialTmdb(
-            item.id,
-            item.type as "MOVIE" | "SERIES",
-            String(item.externalId)
-          ).catch(() => null);
+  // Completa um item salvo (altera o objeto recebido) e grava o resultado com enrichedAt.
+  // So deixa de marcar quando a fonte falhou, para tentar de novo numa proxima leitura.
+  private async enriquecer(item: ItemCatalogo) {
+    const alteracoes: Record<string, unknown> = {};
 
-          if (subtipo) {
-            item.subtype = subtipo;
-            if (colunaSubtipoDisponivel) {
-              await db
-                .from("MediaItem")
-                .update({ subtype: subtipo })
-                .eq("id", item.id);
-            }
-          }
-        })
-      );
-    }
-
-    // Auto-atualização de capas de jogos salvas antes da IGDB:
-    // Se o jogo estiver salvo com a imagem horizontal padrão do RAWG (media.rawg.io) ou sem capa,
-    // consulta a IGDB / SteamGridDB em paralelo para obter a capa vertical oficial e atualiza no banco.
-    if (this.igdbService.isConfigurado() || process.env.STEAMGRIDDB_API_KEY?.trim()) {
-      const jogosComCapaHorizontal = linhas
-        .filter(
-          (item) =>
-            (item.type === "GAME" || item.source === "rawg") &&
-            Boolean(item.title) &&
-            (!item.coverUrl || item.coverUrl.includes("rawg.io"))
-        )
-        .slice(0, limiteBackfill);
-
-      if (jogosComCapaHorizontal.length > 0) {
-        await Promise.all(
-          jogosComCapaHorizontal.map(async (jogo) => {
-            try {
-              const capaVertical = await this.capaJogoVertical(jogo.title);
-              if (capaVertical && capaVertical !== jogo.coverUrl) {
-                jogo.coverUrl = capaVertical;
-                // Atualiza no banco de dados para que as próximas consultas já tenham a capa vertical oficial
-                await db
-                  .from("MediaItem")
-                  .update({ coverUrl: capaVertical, updatedAt: new Date().toISOString() })
-                  .eq("id", jogo.id);
-              }
-            } catch (err) {
-              this.logger.warn(`Falha ao auto-atualizar capa vertical de ${jogo.title}: ${(err as Error).message}`);
-            }
-          })
-        );
+    if (item.source === "tmdb" && (item.type === "MOVIE" || item.type === "SERIES")) {
+      if (!process.env.TMDB_API_KEY?.trim()) {
+        return;
+      }
+      const resposta = await this.obterSubtipoOficialTmdb(item.type, item.externalId).catch(() => null);
+      if (!resposta) {
+        return;
+      }
+      if (resposta.subtipo) {
+        item.subtype = resposta.subtipo;
+        alteracoes.subtype = resposta.subtipo;
+      }
+    } else if (item.type === "GAME" && (!item.coverUrl || item.coverUrl.includes("rawg.io"))) {
+      if (!this.igdbService.isConfigurado() && !process.env.STEAMGRIDDB_API_KEY?.trim()) {
+        return;
+      }
+      const capa = await this.capaJogoVertical(item.title).catch(() => null);
+      if (capa && capa !== item.coverUrl) {
+        item.coverUrl = capa;
+        alteracoes.coverUrl = capa;
       }
     }
 
-    return new Map(
-      linhas.map((item) => {
-        const coverUrl =
-          typeof item.coverUrl === "string"
-            ? item.coverUrl.includes("media.rawg.io/media/games/")
-              ? item.coverUrl.replace("media.rawg.io/media/games/", "media.rawg.io/media/resize/640/-/games/")
-              : item.coverUrl
-            : null;
-        return [
-          item.id as string,
-          {
-            ...item,
-            coverUrl,
-            ...(item.subtype ? { subtype: item.subtype } : {})
-          }
-        ];
-      })
-    );
+    const agora = new Date().toISOString();
+    const { error } = await this.supabaseService
+      .getClient()
+      .from("MediaItem")
+      .update({ ...alteracoes, enrichedAt: agora, ...(Object.keys(alteracoes).length ? { updatedAt: agora } : {}) })
+      .eq("id", item.id);
+    if (error) {
+      this.logger.warn(`Nao foi possivel marcar ${item.id} como enriquecido: ${error.message}`);
+    }
   }
 }

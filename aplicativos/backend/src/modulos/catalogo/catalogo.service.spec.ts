@@ -556,7 +556,73 @@ describe("CatalogoService.extras", () => {
       expect(mapa.get("tmdb_series_30981")?.subtype).toBe("ANIME");
 
       const update = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
-      expect(update?.payload).toEqual({ subtype: "ANIME" });
+      expect(update?.payload).toMatchObject({ subtype: "ANIME" });
+      expect(update?.payload).toHaveProperty("enrichedAt");
+    });
+
+    it("buscarSalvos marca filme comum como enriquecido e nao consulta o TMDB de novo", async () => {
+      const fetchMock = mockFetch({ "/movie/603": { id: 603, title: "Matrix", genres: [{ id: 28, name: "Action" }] } });
+      const linha = {
+        id: "tmdb_movie_603",
+        externalId: "603",
+        source: "tmdb",
+        type: "MOVIE",
+        subtype: null,
+        title: "Matrix",
+        coverUrl: null,
+        synopsis: null,
+        releaseYear: 1999,
+        enrichedAt: null as string | null
+      };
+      const supabase = criarSupabaseServiceMock((op) => {
+        if (op.action === "update") {
+          linha.enrichedAt = (op.payload as { enrichedAt: string }).enrichedAt;
+        }
+        return op.action === "select" ? { data: [{ ...linha }] } : { data: null };
+      });
+      const servico = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService(),
+        new IgdbService()
+      );
+
+      const mapa = await servico.buscarSalvos(["tmdb_movie_603"]);
+      expect(mapa.get("tmdb_movie_603")).not.toHaveProperty("enrichedAt");
+      expect(linha.enrichedAt).not.toBeNull();
+      const consultasDepoisDaPrimeira = fetchMock.mock.calls.length;
+
+      // Instancia nova: sem o cache em memoria, so o enrichedAt evita a consulta.
+      const outraInstancia = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService(),
+        new IgdbService()
+      );
+      await outraInstancia.buscarSalvos(["tmdb_movie_603"]);
+      expect(fetchMock.mock.calls.length).toBe(consultasDepoisDaPrimeira);
+    });
+
+    it("buscarSalvos tenta de novo quando o TMDB falhou", async () => {
+      mockFetch({});
+      const supabase = criarSupabaseServiceMock((op) =>
+        op.action === "select"
+          ? {
+              data: [
+                { id: "tmdb_movie_9", externalId: "9", source: "tmdb", type: "MOVIE", title: "X", enrichedAt: null }
+              ]
+            }
+          : { data: null }
+      );
+      const servico = new CatalogoService(
+        supabase.service as unknown as SupabaseService,
+        new GoogleBooksService(),
+        new HardcoverService(),
+        new IgdbService()
+      );
+
+      await servico.buscarSalvos(["tmdb_movie_9"]);
+      expect(supabase.chamadas.some((c) => c.action === "update")).toBe(false);
     });
   });
 
@@ -639,8 +705,7 @@ describe("CatalogoService.extras", () => {
       expect(resultado.capas).not.toContain("https://media.rawg.io/screenshot1.jpg");
     });
 
-    it("garantirNoBanco resolve conflito legado MediaItem_externalId_source_type_key", async () => {
-      let tentativasUpsert = 0;
+    it("garantirNoBanco une o registro antigo no id canonico em vez de renomea-lo", async () => {
       const supabase = criarSupabaseServiceMock((op) => {
         if (op.table === "MediaItem" && op.action === "select") {
           const filtroId = op.filtros.find((f) => f[1] === "id");
@@ -648,14 +713,13 @@ describe("CatalogoService.extras", () => {
           return { data: { id: "media_legado_3498" } };
         }
         if (op.table === "MediaItem" && op.action === "upsert") {
-          tentativasUpsert++;
-          if (tentativasUpsert === 1) {
-            return {
-              data: null,
-              error: { message: 'duplicate key value violates unique constraint "MediaItem_externalId_source_type_key"' }
-            };
-          }
-          return { data: null, error: null };
+          return {
+            data: null,
+            error: {
+              code: "23505",
+              message: 'duplicate key value violates unique constraint "MediaItem_externalId_source_type_key"'
+            }
+          };
         }
         return { data: null, error: null };
       });
@@ -680,63 +744,12 @@ describe("CatalogoService.extras", () => {
         })
       ).resolves.toBeUndefined();
 
-      expect(tentativasUpsert).toBe(2);
-      const updateLegado = supabase.chamadas.find((c) => c.table === "MediaItem" && c.action === "update");
-      expect(updateLegado?.payload).toEqual({ externalId: "legacy_media_legado_3498" });
-    });
-
-    it("buscarMidia despacha polimorficamente para o provedor registrado via IProvedorCatalogo", async () => {
-      const gbooks = new GoogleBooksService();
-      const igdb = new IgdbService();
-
-      const spyBooks = jest.spyOn(gbooks, "buscar").mockResolvedValue([
-        {
-          id: "media_gbooks_1",
-          externalId: "1",
-          source: "gbooks",
-          type: "BOOK",
-          title: "Duna",
-          coverUrl: null,
-          synopsis: null,
-          releaseYear: 1965
-        }
-      ]);
-
-      const spyGames = jest.spyOn(igdb, "buscar").mockResolvedValue([
-        {
-          id: "igdb_game_1020",
-          externalId: "1020",
-          source: "igdb",
-          type: "GAME",
-          title: "GTA V",
-          coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co2lbd.jpg",
-          synopsis: null,
-          releaseYear: 2013
-        }
-      ]);
-
-      const servico = criarServico(gbooks, new HardcoverService(), igdb);
-
-      const livros = await servico.buscarMidia("BOOK", "Duna", 10);
-      expect(spyBooks).toHaveBeenCalledWith("Duna", 10);
-      expect(livros).toHaveLength(1);
-      expect(livros[0].title).toBe("Duna");
-
-      const jogos = await servico.buscarMidia("GAME", "GTA V", 5);
-      expect(spyGames).toHaveBeenCalledWith("GTA V", 5);
-      expect(jogos).toHaveLength(1);
-      expect(jogos[0].id).toBe("igdb_game_1020");
-
-      const desconhecido = await servico.buscarMidia("INVALIDO", "teste");
-      expect(desconhecido).toEqual([]);
-
-      const jogosViaBuscar = await servico.buscar("GTA V", "game");
-      expect(jogosViaBuscar).toHaveLength(1);
-      expect(jogosViaBuscar[0].id).toBe("igdb_game_1020");
-
-      await expect(servico.buscar("teste", "INVALIDO")).rejects.toThrow(
-        "Provedor não configurado para o tipo: INVALIDO"
-      );
+      const uniao = supabase.chamadas.find((c) => c.action === "rpc");
+      expect(uniao).toMatchObject({
+        table: "trak_unir_media_item",
+        payload: { legado: "media_legado_3498", canonico: "rawg_game_3498", external_id: "3498" }
+      });
+      expect(supabase.chamadas.some((c) => c.table === "MediaItem" && c.action === "update")).toBe(false);
     });
   });
 });
