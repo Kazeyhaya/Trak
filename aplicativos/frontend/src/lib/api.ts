@@ -462,7 +462,8 @@ export type Report = {
   status: ReportStatus;
   createdAt: string;
   reportsForComment: number;
-  comment: { id: string; content: string; mediaItemId: string; createdAt: string } | null;
+  // `content` e o texto original mesmo depois de ocultado; `removed` diz se saiu do ar.
+  comment: { id: string; content: string; mediaItemId: string; createdAt: string; removed: boolean } | null;
   item: CatalogItem | null;
 };
 
