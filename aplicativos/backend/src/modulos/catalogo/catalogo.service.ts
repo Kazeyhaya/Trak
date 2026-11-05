@@ -57,13 +57,21 @@ export class CatalogoService implements OnModuleInit {
     return this.listagem.listar(query, tipo, genero, lang);
   }
 
+  // Com a fonte fora do ar (ex.: RAWG respondendo 522), usa o que ja esta salvo em
+  // MediaItem: a ficha de quem tem a obra na estante continua abrindo.
   async buscarPorId(id: string, lang?: string): Promise<ItemCatalogo> {
     const alvo = this.fonte(id);
-    const item = alvo ? await alvo.fonte.item(alvo.p, id, lang === "en-US" ? "en-US" : "pt-BR") : null;
-    if (!item) {
+    const item = alvo
+      ? await alvo.fonte.item(alvo.p, id, lang === "en-US" ? "en-US" : "pt-BR").catch((error: Error) => {
+          this.logger.warn(`Fonte de ${id} falhou: ${error.message}`);
+          return null;
+        })
+      : null;
+    const salvo = item || !alvo ? null : (await this.buscarSalvos([id])).get(id);
+    if (!item && !salvo) {
       throw new NotFoundException("Item nao encontrado.");
     }
-    return item;
+    return (item ?? salvo)!;
   }
 
   async extras(id: string): Promise<ExtrasCatalogo> {
