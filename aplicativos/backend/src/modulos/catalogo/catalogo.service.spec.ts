@@ -779,3 +779,42 @@ describe("jogos com o RAWG fora do ar", () => {
     expect(itens.map((i) => i.id)).toEqual(["igdb_game_1"]);
   });
 });
+
+describe("ficha com a fonte fora do ar", () => {
+  it("abre com os dados salvos em MediaItem quando o RAWG nao responde", async () => {
+    process.env.RAWG_API_KEY = "k";
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response("error code: 522", { status: 522 }));
+    const salvo = {
+      id: "rawg_game_56184",
+      externalId: "56184",
+      source: "rawg",
+      type: "GAME",
+      subtype: null,
+      title: "Resident Evil 4",
+      coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/re4.jpg",
+      synopsis: null,
+      releaseYear: 2005,
+      enrichedAt: "2026-11-01T00:00:00Z"
+    };
+    const supabase = criarSupabaseServiceMock((op) =>
+      op.table === "MediaItem" && op.action === "select" ? { data: [salvo] } : { data: null }
+    );
+    const servico = new CatalogoService(
+      supabase.service as unknown as SupabaseService,
+      new GoogleBooksService(),
+      new HardcoverService(),
+      new IgdbService()
+    );
+
+    const item = await servico.buscarPorId("rawg_game_56184");
+
+    expect(item).toMatchObject({ id: "rawg_game_56184", title: "Resident Evil 4", releaseYear: 2005 });
+    expect(item).not.toHaveProperty("enrichedAt");
+  });
+
+  it("continua 404 para o que nao existe nem na fonte nem no banco", async () => {
+    process.env.RAWG_API_KEY = "k";
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response("", { status: 404 }));
+    await expect(criarServico().buscarPorId("rawg_game_1")).rejects.toThrow("Item nao encontrado.");
+  });
+});
