@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuard
 import { SupabaseAuthGuard } from "../../comum/autenticacao/supabase-auth.guard";
 import { UsuarioAuth, UsuarioLogado } from "../../comum/autenticacao/usuario-auth.decorator";
 import { AvaliarEpisodioDto } from "./dto/avaliar-episodio.dto";
+import { DefinirVezesEpisodioDto } from "./dto/definir-vezes-episodio.dto";
 import { MarcarEpisodiosDto } from "./dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
 import { TrackingService } from "./tracking.service";
@@ -65,6 +66,15 @@ export class TrackingController {
     @Body() payload: AvaliarEpisodioDto
   ) {
     return this.trackingService.avaliarEpisodio(usuario.id, mediaItemId, payload);
+  }
+
+  @Put("items/:mediaItemId/episodios/vezes")
+  definirVezesEpisodio(
+    @UsuarioLogado() usuario: UsuarioAuth,
+    @Param("mediaItemId") mediaItemId: string,
+    @Body() payload: DefinirVezesEpisodioDto
+  ) {
+    return this.trackingService.definirVezesEpisodio(usuario.id, mediaItemId, payload);
   }
 
   @Get("items/:mediaItemId/destaques-amigos")

@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
+import { parsearId } from "../catalogo/catalogo.fontes";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { ItemCatalogo } from "../catalogo/catalogo.types";
 import { AtividadesService } from "../social/atividades.service";
 import { AvaliarEpisodioDto } from "./dto/avaliar-episodio.dto";
+import { DefinirVezesEpisodioDto } from "./dto/definir-vezes-episodio.dto";
 import { MarcarEpisodiosDto } from "./dto/marcar-episodios.dto";
 import { SalvarTrackingDto } from "./dto/salvar-tracking.dto";
 import {
@@ -27,6 +29,13 @@ type OpcoesSalvar = {
 function falha(error: { message: string } | null) {
   if (error) {
     throw new InternalServerErrorException(error.message);
+  }
+}
+
+function exigirSerie(mediaItemId: string) {
+  const parsed = parsearId(mediaItemId);
+  if (parsed?.source !== "tmdb" || parsed.type !== "SERIES") {
+    throw new BadRequestException("Episodios so existem para series.");
   }
 }
 
@@ -89,7 +98,7 @@ export class TrackingService {
     const userId = await this.supabaseService.resolverUserId(authUserId);
 
     if (payload.status === "COMPLETED") {
-      const infoSerie = await this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null);
+      const infoSerie = await this.catalogoService.infoEpisodiosSerie(mediaItemId).catch(() => null);
       if (infoSerie?.isOngoing) {
         throw new BadRequestException(
           "Esta série ainda está em lançamento e não pode ser marcada como concluída."
@@ -112,6 +121,10 @@ export class TrackingService {
     const alteracoes = normalizarAlteracao(
       Object.fromEntries(Object.entries(payload).filter(([, valor]) => valor !== undefined)) as SalvarTrackingDto
     );
+
+    if (alteracoes.timesConsumed !== undefined && (alteracoes.status ?? existente?.status) !== "COMPLETED") {
+      throw new BadRequestException("Conclua a obra antes de contar outra vez.");
+    }
 
     let linha: LinhaUserMedia;
 
@@ -168,15 +181,15 @@ export class TrackingService {
 
     const salvo = deBanco(linha);
 
-      if (alteracoes.rating === null && existente?.rating) {
-        const { error: ratingActError } = await this.db
-          .from("Activity")
-          .delete()
-          .eq("userId", userId)
-          .eq("mediaItemId", mediaItemId)
-          .eq("type", "RATING");
-        falha(ratingActError);
-      }
+    if (alteracoes.rating === null && existente?.rating) {
+      const { error: ratingActError } = await this.db
+        .from("Activity")
+        .delete()
+        .eq("userId", userId)
+        .eq("mediaItemId", mediaItemId)
+        .eq("type", "RATING");
+      falha(ratingActError);
+    }
 
     if (registrarAtividade) {
       if (salvo.status !== existente?.status) {
@@ -218,7 +231,7 @@ export class TrackingService {
   private async episodiosDoUsuario(userId: string, mediaItemId: string) {
     const { data, error } = await this.db
       .from("EpisodeProgress")
-      .select("season,episode,rating,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
+      .select("season,episode,timesWatched,rating,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
       .eq("userId", userId)
       .eq("mediaItemId", mediaItemId)
       .order("season")
@@ -227,6 +240,7 @@ export class TrackingService {
     return (data ?? []) as Array<{
       season: number;
       episode: number;
+      timesWatched?: number;
       rating?: number | null;
       highlightCharacterId?: string | null;
       highlightCharacterName?: string | null;
@@ -246,31 +260,13 @@ export class TrackingService {
     );
     falha(error);
 
-    const [assistidos, infoSerie] = await Promise.all([
-      this.episodiosDoUsuario(userId, mediaItemId),
-      this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null)
-    ]);
-    const total =
-      infoSerie?.totalEpisodes && infoSerie.totalEpisodes > 0
-        ? infoSerie.totalEpisodes
-        : (infoSerie?.airedEpisodes ?? 0);
-    const isOngoing = infoSerie?.isOngoing ?? false;
-    const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
-    await this.salvarParaUsuario(
-      userId,
-      mediaItemId,
-      { progress: progresso, status: statusAposEpisodios("WATCHING", progresso, isOngoing) },
-      { registrarAtividade: false }
-    );
+    await this.recalcularProgresso(userId, mediaItemId);
   }
 
   async marcarEpisodios(authUserId: string, mediaItemId: string, payload: MarcarEpisodiosDto) {
+    exigirSerie(mediaItemId);
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    // Valida que e uma serie e garante que o MediaItem exista no banco antes de gravar EpisodeProgress.
-    const [infoSerie] = await Promise.all([
-      this.catalogoService?.infoEpisodiosSerie?.(mediaItemId).catch(() => null),
-      this.catalogoService.garantirNoBanco(mediaItemId)
-    ]);
+    await this.catalogoService.garantirNoBanco(mediaItemId);
     const episodios = [...new Set(payload.episodes)];
 
     if (payload.watched) {
@@ -290,33 +286,18 @@ export class TrackingService {
       falha(error);
     }
 
-    const assistidos = await this.episodiosDoUsuario(userId, mediaItemId);
+    const { assistidos, tracking } = await this.recalcularProgresso(userId, mediaItemId);
     const assistidosNaTemporada = assistidos.filter((e) => e.season === payload.season);
-    const total =
-      infoSerie?.totalEpisodes && infoSerie.totalEpisodes > 0
-        ? infoSerie.totalEpisodes
-        : (infoSerie?.airedEpisodes ?? 0);
-    const isOngoing = infoSerie?.isOngoing ?? false;
-    // Especiais (temporada 0) nao contam para o progresso.
-    const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
-    const atual = await this.buscarLinha(userId, mediaItemId);
-    const tracking = await this.salvarParaUsuario(
-      userId,
-      mediaItemId,
-      { progress: progresso, status: statusAposEpisodios(atual ? deBanco(atual).status : undefined, progresso, isOngoing) },
-      { registrarAtividade: false }
-    );
 
-    // Gerenciamento limpo da atividade de episódios no feed:
-    // Remove qualquer registro anterior de episódios dessa mídia para evitar duplicação ou spam no feed
-    await this.db
+    // Uma atividade de episodios por obra: a nova substitui a anterior.
+    const { error: atividadeError } = await this.db
       .from("Activity")
       .delete()
       .eq("userId", userId)
       .eq("mediaItemId", mediaItemId)
       .eq("type", "EPISODES");
+    falha(atividadeError);
 
-    // Registra atividade apenas se o usuário marcou como assistido e ainda possui episódios na temporada
     if (payload.watched && assistidosNaTemporada.length > 0) {
       await this.atividadesService.registrar(userId, "EPISODES", mediaItemId, {
         season: payload.season,
@@ -327,16 +308,12 @@ export class TrackingService {
     return { episodes: assistidos, tracking };
   }
 
-  /**
-   * Avalia um episódio específico com nota fracionada (0.5 - 5.0) e/ou coroa o personagem que "Roubou a Cena".
-   * Garante que o episódio esteja marcado como assistido.
-   */
+  // Nota do episodio e/ou quem roubou a cena. Avaliar tambem marca o episodio como assistido,
+  // por isso o progresso da obra e recalculado.
   async avaliarEpisodio(authUserId: string, mediaItemId: string, dto: AvaliarEpisodioDto) {
+    exigirSerie(mediaItemId);
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    await Promise.all([
-      this.catalogoService.totalEpisodiosExibidos(mediaItemId),
-      this.catalogoService.garantirNoBanco(mediaItemId)
-    ]);
+    await this.catalogoService.garantirNoBanco(mediaItemId);
 
     const payloadAtualizacao: Record<string, unknown> = {
       userId,
@@ -363,13 +340,64 @@ export class TrackingService {
     });
     falha(error);
 
-    const assistidos = await this.episodiosDoUsuario(userId, mediaItemId);
-    return { episodes: assistidos };
+    const { assistidos, tracking } = await this.recalcularProgresso(userId, mediaItemId);
+    return { episodes: assistidos, tracking };
   }
 
-  /**
-   * Busca quem os amigos/seguidos destacaram em episódios dessa mídia (Social Íntimo, sem efeito manada).
-   */
+  // Rever um episodio: grava quantas vezes ele foi assistido. So para episodios ja marcados;
+  // desmarcar o episodio continua sendo o jeito de tira-lo de vez.
+  async definirVezesEpisodio(authUserId: string, mediaItemId: string, dto: DefinirVezesEpisodioDto) {
+    exigirSerie(mediaItemId);
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { data, error } = await this.db
+      .from("EpisodeProgress")
+      .update({ timesWatched: dto.times })
+      .eq("userId", userId)
+      .eq("mediaItemId", mediaItemId)
+      .eq("season", dto.season)
+      .eq("episode", dto.episode)
+      .select("episode");
+    falha(error);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new BadRequestException("Marque o episodio como assistido antes de contar outra vez.");
+    }
+
+    const { assistidos, tracking } = await this.recalcularProgresso(userId, mediaItemId);
+    return { episodes: assistidos, tracking };
+  }
+
+  // Recalcula progresso e status a partir dos episodios gravados. Sem o total de episodios
+  // (TMDB fora do ar, chave ausente), mantem o progresso salvo em vez de zera-lo.
+  private async recalcularProgresso(userId: string, mediaItemId: string) {
+    const [assistidos, infoSerie, linha] = await Promise.all([
+      this.episodiosDoUsuario(userId, mediaItemId),
+      this.catalogoService.infoEpisodiosSerie(mediaItemId).catch(() => null),
+      this.buscarLinha(userId, mediaItemId)
+    ]);
+    const atual = linha ? deBanco(linha) : null;
+    const total = infoSerie?.totalEpisodes || infoSerie?.airedEpisodes || 0;
+
+    if (total <= 0) {
+      const tracking =
+        atual ??
+        (await this.salvarParaUsuario(userId, mediaItemId, { status: "WATCHING" }, { registrarAtividade: false }));
+      return { assistidos, tracking };
+    }
+
+    // Especiais (temporada 0) nao contam para o progresso.
+    const progresso = calcularProgresso(assistidos.filter((e) => e.season > 0).length, total);
+    const tracking = await this.salvarParaUsuario(
+      userId,
+      mediaItemId,
+      { progress: progresso, status: statusAposEpisodios(atual?.status, progresso, infoSerie?.isOngoing ?? false) },
+      { registrarAtividade: false }
+    );
+    return { assistidos, tracking };
+  }
+
+  // Quem as pessoas que o usuario segue destacaram nos episodios desta obra.
+  // Perfis privados ficam de fora: seguir alguem nao exige aprovacao.
   async destaquesAmigos(authUserId: string, mediaItemId: string, season?: number) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const { data: seguindo, error: followErr } = await this.db
@@ -378,8 +406,20 @@ export class TrackingService {
       .eq("followerId", userId);
     falha(followErr);
 
-    const amigosIds = (seguindo ?? []).map((f) => f.followingId as string);
-    if (amigosIds.length === 0) {
+    const seguidosIds = (seguindo ?? []).map((f) => f.followingId as string);
+    if (seguidosIds.length === 0) {
+      return [];
+    }
+
+    const { data: perfis, error: perfisErr } = await this.db
+      .from("User")
+      .select("id,username,displayName,avatarUrl")
+      .in("id", seguidosIds)
+      .eq("isPublic", true);
+    falha(perfisErr);
+
+    const perfisMap = new Map((perfis ?? []).map((p) => [p.id as string, p]));
+    if (perfisMap.size === 0) {
       return [];
     }
 
@@ -387,42 +427,36 @@ export class TrackingService {
       .from("EpisodeProgress")
       .select("userId,season,episode,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
       .eq("mediaItemId", mediaItemId)
-      .in("userId", amigosIds)
+      .in("userId", [...perfisMap.keys()])
       .not("highlightCharacterName", "is", null);
 
-    if (season !== undefined && season !== null) {
+    if (season !== undefined) {
       query = query.eq("season", season);
     }
 
     const { data: destaques, error: epErr } = await query;
     falha(epErr);
 
-    if (!destaques || destaques.length === 0) {
-      return [];
-    }
-
-    const perfis = await this.db
-      .from("User")
-      .select("id,username,displayName,avatarUrl")
-      .in("id", [...new Set(destaques.map((d) => d.userId as string))]);
-
-    const perfisMap = new Map((perfis.data ?? []).map((p) => [p.id as string, p]));
-
-    return destaques.map((d) => {
+    return (destaques ?? []).flatMap((d) => {
       const perfil = perfisMap.get(d.userId as string);
-      return {
-        season: d.season as number,
-        episode: d.episode as number,
-        characterId: d.highlightCharacterId as string | null,
-        characterName: d.highlightCharacterName as string,
-        characterAvatar: d.highlightCharacterAvatar as string | null,
-        user: {
-          id: d.userId as string,
-          username: perfil?.username ?? "amigo",
-          displayName: perfil?.displayName ?? null,
-          avatarUrl: perfil?.avatarUrl ?? null
+      if (!perfil) {
+        return [];
+      }
+      return [
+        {
+          season: d.season as number,
+          episode: d.episode as number,
+          characterId: d.highlightCharacterId as string | null,
+          characterName: d.highlightCharacterName as string,
+          characterAvatar: d.highlightCharacterAvatar as string | null,
+          user: {
+            id: d.userId as string,
+            username: perfil.username as string,
+            displayName: (perfil.displayName as string | null) ?? null,
+            avatarUrl: (perfil.avatarUrl as string | null) ?? null
+          }
         }
-      };
+      ];
     });
   }
 }

@@ -46,6 +46,7 @@ describe("deBanco", () => {
       customCoverUrl: "https://example.com/custom-cover.jpg",
       favoriteCharacterName: null,
       favoriteCharacterAvatar: null,
+      timesConsumed: 0,
       startedAt: "2026-01-01T00:00:00.000Z",
       finishedAt: null,
       updatedAt: "2026-01-02T00:00:00.000Z"

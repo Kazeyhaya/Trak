@@ -114,6 +114,28 @@
   cursor: not-allowed;
 }
 
+.tracking-remove-confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--danger-soft);
+  border-left: 3px solid var(--danger);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.tracking-remove-confirm p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.tracking-remove-confirm-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .series-progress-inline {
   display: flex;
   align-items: center;
@@ -713,4 +735,130 @@
   display: flex;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Contador de rever (obra e episodio) */
+.rewatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rewatch-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.rewatch-again:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+.rewatch-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--primary-border);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  animation: rewatch-pulse 420ms ease-out;
+}
+
+.rewatch-step {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rewatch-step:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+.rewatch button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rewatch.is-compact .rewatch-again {
+  padding: 3px 9px;
+  font-size: var(--text-xs);
+}
+
+.rewatch.is-compact .rewatch-count {
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+}
+
+.rewatch.is-compact .rewatch-step {
+  width: 22px;
+  height: 22px;
+}
+
+/* Na lista de episodios o botao "Vi de novo" so aparece ao passar o mouse ou focar. */
+.episode-list li .rewatch.is-compact:not(.is-repeated) {
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.episode-list li:hover .rewatch.is-compact,
+.episode-list li:focus-within .rewatch.is-compact {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .episode-list li .rewatch.is-compact:not(.is-repeated) {
+    opacity: 1;
+  }
+}
+
+.item-rewatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.item-rewatch .panel-note {
+  margin: 0;
+}
+
+@keyframes rewatch-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 6px var(--primary-soft);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rewatch-count {
+    animation: none;
+  }
 }

@@ -233,6 +233,50 @@ describe("TrackingService.marcarEpisodios", () => {
     );
   });
 
+  it("sem o total de episodios (TMDB fora do ar) mantem o progresso salvo", async () => {
+    const { service, chamadas, catalogo } = montar((op) => {
+      if (op.table === "EpisodeProgress" && op.action === "select") {
+        return { data: [{ season: 1, episode: 1 }] };
+      }
+      return { data: op.table === "UserMedia" ? { ...existente, status: "COMPLETED", progressCurrent: 100 } : null };
+    });
+    catalogo.infoEpisodiosSerie.mockRejectedValueOnce(new Error("timeout"));
+
+    const resultado = await service.marcarEpisodios("u1", "tmdb_series_1", { season: 1, episodes: [1], watched: true });
+
+    expect(chamadas.some((c) => c.table === "UserMedia" && c.action === "update")).toBe(false);
+    expect(resultado.tracking).toMatchObject({ status: "COMPLETED", progress: 100 });
+  });
+
+  it("recusa episodios de itens que nao sao series", async () => {
+    const { service } = montar(() => ({ data: null }));
+    await expect(
+      service.marcarEpisodios("u1", "tmdb_movie_1", { season: 1, episodes: [1], watched: true })
+    ).rejects.toThrow("Episodios so existem para series.");
+    await expect(service.avaliarEpisodio("u1", "tmdb_movie_1", { season: 1, episode: 1, rating: 4 })).rejects.toThrow(
+      "Episodios so existem para series."
+    );
+  });
+
+  it("avaliar um episodio recalcula o progresso da serie", async () => {
+    const { service, chamadas } = montar((op) => {
+      if (op.table === "EpisodeProgress" && op.action === "select") {
+        return { data: [{ season: 1, episode: 1, rating: 4 }] };
+      }
+      if (op.table === "UserMedia" && op.action === "update") {
+        return { data: { ...existente, progressCurrent: 25 } };
+      }
+      return { data: op.table === "UserMedia" ? existente : null };
+    }, 4);
+
+    const resultado = await service.avaliarEpisodio("u1", "tmdb_series_1", { season: 1, episode: 1, rating: 4 });
+
+    expect(chamadas.find((c) => c.table === "UserMedia" && c.action === "update")!.payload).toMatchObject({
+      progressCurrent: 25
+    });
+    expect(resultado.tracking).toMatchObject({ progress: 25 });
+  });
+
   it("remover tracking tambem apaga episodios e atividades do item no feed", async () => {
     const { service, chamadas } = montar(() => ({ data: null }));
 
@@ -240,5 +284,77 @@ describe("TrackingService.marcarEpisodios", () => {
 
     const tabelasApagadas = chamadas.filter((c) => c.action === "delete").map((c) => c.table);
     expect(tabelasApagadas).toEqual(["UserMedia", "EpisodeProgress", "Activity"]);
+  });
+});
+
+describe("TrackingService.destaquesAmigos", () => {
+  it("so consulta destaques de quem tem perfil publico", async () => {
+    const { service, chamadas } = montar((op) => {
+      if (op.table === "Follow") {
+        return { data: [{ followingId: "publico" }, { followingId: "privado" }] };
+      }
+      if (op.table === "User") {
+        return { data: [{ id: "publico", username: "ana", displayName: null, avatarUrl: null }] };
+      }
+      return {
+        data: [{ userId: "publico", season: 1, episode: 2, highlightCharacterName: "Bill", highlightCharacterId: null }]
+      };
+    });
+
+    const resultado = await service.destaquesAmigos("u1", "tmdb_series_1");
+
+    const perfis = chamadas.find((c) => c.table === "User")!;
+    expect(perfis.filtros).toEqual(expect.arrayContaining([["eq", "isPublic", true]]));
+    const episodios = chamadas.find((c) => c.table === "EpisodeProgress")!;
+    expect(episodios.filtros).toEqual(expect.arrayContaining([["in", "userId", ["publico"]]]));
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].user.username).toBe("ana");
+  });
+});
+
+describe("rewatch", () => {
+  it("conta quantas vezes um episodio foi visto", async () => {
+    const { service, chamadas } = montar((op) => {
+      if (op.table === "EpisodeProgress" && op.action === "update") {
+        return { data: [{ episode: 2 }] };
+      }
+      if (op.table === "EpisodeProgress") {
+        return { data: [{ season: 1, episode: 2, timesWatched: 3 }] };
+      }
+      return { data: op.table === "UserMedia" ? existente : null };
+    }, 4);
+
+    const resultado = await service.definirVezesEpisodio("u1", "tmdb_series_1", { season: 1, episode: 2, times: 3 });
+
+    const update = chamadas.find((c) => c.table === "EpisodeProgress" && c.action === "update")!;
+    expect(update.payload).toEqual({ timesWatched: 3 });
+    expect(update.filtros).toEqual(expect.arrayContaining([["eq", "season", 1], ["eq", "episode", 2]]));
+    expect(resultado.episodes[0].timesWatched).toBe(3);
+  });
+
+  it("nao conta outra vez um episodio que nao foi marcado", async () => {
+    const { service } = montar((op) => (op.action === "update" ? { data: [] } : { data: null }));
+    await expect(
+      service.definirVezesEpisodio("u1", "tmdb_series_1", { season: 1, episode: 9, times: 2 })
+    ).rejects.toThrow("Marque o episodio como assistido antes de contar outra vez.");
+  });
+
+  it("vi de novo grava timesConsumed em obra concluida", async () => {
+    const concluida = { ...existente, status: "COMPLETED", timesConsumed: 1 };
+    const { service, chamadas } = montar((op) =>
+      op.action === "update" ? { data: { ...concluida, timesConsumed: 2 } } : { data: concluida }
+    );
+
+    const resultado = await service.salvar("u1", "tmdb_movie_1", { timesConsumed: 2 });
+
+    expect(chamadas.find((c) => c.action === "update")!.payload).toMatchObject({ timesConsumed: 2 });
+    expect(resultado.timesConsumed).toBe(2);
+  });
+
+  it("recusa contar outra vez obra que nao esta concluida", async () => {
+    const { service } = montar(() => ({ data: existente }));
+    await expect(service.salvar("u1", "tmdb_movie_1", { timesConsumed: 2 })).rejects.toThrow(
+      "Conclua a obra antes de contar outra vez."
+    );
   });
 });

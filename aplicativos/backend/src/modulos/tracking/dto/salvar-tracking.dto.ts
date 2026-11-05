@@ -62,4 +62,11 @@ export class SalvarTrackingDto {
   @IsString()
   @MaxLength(2000)
   favoriteCharacterAvatar?: string | null;
+
+  // Vezes que a obra foi concluida (rewatch, rejogar, reler). So vale para obra concluida.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  timesConsumed?: number;
 }

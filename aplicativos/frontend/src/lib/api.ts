@@ -81,6 +81,8 @@ export type TrackingEntry = {
   finishedAt?: string | null;
   favoriteCharacterName?: string | null;
   favoriteCharacterAvatar?: string | null;
+  // Vezes que a obra foi concluida (0 enquanto nunca foi).
+  timesConsumed?: number;
   updatedAt: string;
   item?: CatalogItem | null;
 };
@@ -91,6 +93,7 @@ export type TrackingPayload = Partial<Pick<TrackingEntry, "status" | "progress" 
   customCoverUrl?: string | null;
   favoriteCharacterName?: string | null;
   favoriteCharacterAvatar?: string | null;
+  timesConsumed?: number;
 };
 
 // Limites compartilhados com a validacao da API (SalvarTrackingDto).
@@ -175,6 +178,8 @@ export type Episode = {
 export type WatchedEpisode = {
   season: number;
   episode: number;
+  // Vezes que o episodio foi assistido (1 = so a primeira).
+  timesWatched?: number;
   rating?: number | null;
   highlightCharacterId?: string | null;
   highlightCharacterName?: string | null;
@@ -225,6 +230,12 @@ export const markEpisodes = (mediaItemId: string, season: number, episodes: numb
     { method: "PUT", body: json({ season, episodes, watched }) }
   );
 
+export const setEpisodeTimes = (mediaItemId: string, season: number, episode: number, times: number) =>
+  request<{ episodes: WatchedEpisode[]; tracking: TrackingEntry }>(
+    `/tracking/items/${encodeURIComponent(mediaItemId)}/episodios/vezes`,
+    { method: "PUT", body: json({ season, episode, times }) }
+  );
+
 export const rateEpisode = (
   mediaItemId: string,
   payload: {
@@ -236,7 +247,7 @@ export const rateEpisode = (
     highlightCharacterAvatar?: string | null;
   }
 ) =>
-  request<{ episodes: WatchedEpisode[] }>(`/tracking/items/${encodeURIComponent(mediaItemId)}/episodios`, {
+  request<{ episodes: WatchedEpisode[]; tracking: TrackingEntry }>(`/tracking/items/${encodeURIComponent(mediaItemId)}/episodios`, {
     method: "PATCH",
     body: json(payload)
   });
