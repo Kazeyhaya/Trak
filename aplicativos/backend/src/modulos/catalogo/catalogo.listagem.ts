@@ -271,6 +271,12 @@ export class ListagemCatalogo {
 
     const data = await this.http.rawg<{ results: RawgItem[] }>("/games", params);
 
+    // RAWG fora do ar ou sem chave (null, diferente de lista vazia): a IGDB cobre a busca e a
+    // vitrine. Filtro por genero fica de fora, porque a IGDB nao usa os mesmos generos.
+    if (data === null) {
+      return !genero && this.igdbService.isConfigurado() ? this.igdbService.buscar(query ?? "", LIMITE_POR_FONTE) : [];
+    }
+
     // A listagem do RAWG nao traz descricao. Se IGDB ou SteamGridDB estiverem ativas, busca capas verticais 2:3 nítidas.
     const brutos = (data?.results ?? []).slice(0, LIMITE_POR_FONTE).map((item) => ({ ...mapearRawg(item), synopsis: null }));
     if (!this.igdbService.isConfigurado() && !process.env.STEAMGRIDDB_API_KEY?.trim()) {

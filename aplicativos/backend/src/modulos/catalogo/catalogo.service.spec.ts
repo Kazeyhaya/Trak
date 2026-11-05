@@ -753,3 +753,29 @@ describe("CatalogoService.extras", () => {
     });
   });
 });
+
+describe("jogos com o RAWG fora do ar", () => {
+  it("usa a IGDB na vitrine quando o RAWG nao responde", async () => {
+    process.env.RAWG_API_KEY = "k";
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response("error code: 522", { status: 522 }));
+    const igdb = new IgdbService();
+    jest.spyOn(igdb, "isConfigurado").mockReturnValue(true);
+    const buscar = jest.spyOn(igdb, "buscar").mockResolvedValue([
+      {
+        id: "igdb_game_1",
+        externalId: "1",
+        source: "igdb",
+        type: "GAME",
+        title: "Hollow Knight",
+        coverUrl: null,
+        synopsis: null,
+        releaseYear: 2017
+      }
+    ]);
+
+    const itens = await criarServico(new GoogleBooksService(), new HardcoverService(), igdb).listar(undefined, "game");
+
+    expect(buscar).toHaveBeenCalledWith("", 20);
+    expect(itens.map((i) => i.id)).toEqual(["igdb_game_1"]);
+  });
+});
