@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookOpen, Clapperboard, Crown, MessageCircle, Star, Tv } from "lucide-react";
+import { Clapperboard } from "lucide-react";
 
 import { HomeHeroCta } from "./home-hero-cta";
+import { LandingDemo } from "./landing-demo";
 import { MediaGrid } from "./media-grid";
 import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
@@ -19,30 +20,6 @@ type HomeShellProps = {
   destaques: CatalogItem[];
   initialLoggedIn: boolean;
 };
-
-const diferenciais = [
-  {
-    icon: Crown,
-    eyebrow: "Assinatura pessoal",
-    title: "Panteão da Obra",
-    description:
-      "Concluiu uma série, filme, jogo ou livro? Destrave a coroação do seu personagem favorito — ele acompanha suas críticas no feed."
-  },
-  {
-    icon: MessageCircle,
-    eyebrow: "Social íntimo",
-    title: "Quem roubou a cena",
-    description:
-      "Dê notas de 0.5 a 5 estrelas por episódio e veja quem seus amigos destacaram, sem porcentagens globais de desconhecidos."
-  },
-  {
-    icon: BookOpen,
-    eyebrow: "Progresso fiel",
-    title: "Do episódio à página da edição",
-    description:
-      "Séries e animes com controle por temporada, livros pela paginação exata do seu exemplar e jogos por horas e marcos."
-  }
-];
 
 export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
   const { user, profile, loading } = useAuth();
@@ -172,7 +149,7 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
     <main className="home-shell">
       <SiteHeader />
 
-      <section className="hero-card hero-card--editorial">
+      <section className="hero-card">
         <div className="hero-copy">
           <span className="hero-eyebrow">Diário cultural sem ruído</span>
           <h1>Seu caderno de filmes, séries, jogos e livros.</h1>
@@ -183,35 +160,9 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
 
           <HomeHeroCta initialLoggedIn={false} />
         </div>
-
-        <aside className="hero-specimen" aria-label="Exemplo de ficha no Trak">
-          <div className="hero-specimen-header">
-            <span className="hero-specimen-tag">
-              <Tv size={13} aria-hidden="true" />
-              Série · T1 Ep. 3
-            </span>
-            <span className="hero-specimen-rating">
-              <Star size={13} fill="currentColor" aria-hidden="true" />
-              4.5
-            </span>
-          </div>
-
-          <strong className="hero-specimen-title">The Last of Us — &ldquo;Long, Long Time&rdquo;</strong>
-
-          <div className="hero-specimen-highlight">
-            <Crown size={14} className="pantheon-crown-icon" aria-hidden="true" />
-            <div>
-              <span>Roubou a cena no episódio</span>
-              <strong>Bill · destacado por você e @melissa</strong>
-            </div>
-          </div>
-
-          <div className="hero-specimen-pantheon">
-            <span className="hero-specimen-pantheon-badge">Panteão desbloqueado ao concluir</span>
-            <p>&ldquo;Obra concluída — Joel coroado no perfil.&rdquo;</p>
-          </div>
-        </aside>
       </section>
+
+      <LandingDemo destaques={destaques} />
 
       {destaques.length > 0 && (
         <section className="roadmap-block">
@@ -222,30 +173,6 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
           <MediaGrid items={destaques} label="Em alta na semana" />
         </section>
       )}
-
-      <section className="roadmap-block">
-        <SectionHeading
-          title="Por que o Trak é diferente"
-          description="Construído para conversas reais entre amigos, não para métricas de vaidade."
-        />
-        <div className="landing-pillars">
-          {diferenciais.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article key={item.title} className="landing-pillar">
-                <div className="landing-pillar-top">
-                  <span className="landing-pillar-icon" aria-hidden="true">
-                    <Icon size={16} />
-                  </span>
-                  <span className="landing-pillar-eyebrow">{item.eyebrow}</span>
-                </div>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
     </main>
   );
 }

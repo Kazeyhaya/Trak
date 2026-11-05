@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Check, Crown, Lock, Star, User } from "lucide-react";
 
+import { RewatchCounter } from "./rewatch-counter";
 import { CommentsSection } from "./comments-section";
 import { CustomCoverModal } from "./custom-cover-modal";
 import { PantheonModal } from "./pantheon-modal";
@@ -369,6 +370,8 @@ function PersonalTracking({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showPantheonModal, setShowPantheonModal] = useState(false);
+  // Remover apaga status, nota, anotacoes e episodios: pede confirmacao antes.
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const pendingMetaRef = useRef<CheckpointMeta | null>(null);
   const onTrackingLoadedRef = useRef(onTrackingLoaded);
 
@@ -513,11 +516,11 @@ function PersonalTracking({
   }
 
   async function handleStatusSelect(option: TrackingStatus) {
-    // Se clicar no mesmo status que já está ativo, remove do tracking (toggle)
     if (draft.status === option) {
-      await handleRemoveTracking();
+      setConfirmRemove(true);
       return;
     }
+    setConfirmRemove(false);
 
     if (option === "COMPLETED" && isSeries && seriesInfo?.isOngoing) {
       setError(
@@ -536,7 +539,6 @@ function PersonalTracking({
           ? 0
           : draft.progress;
 
-    // Atualização otimista: acende o botão de status instantaneamente
     updateDraft({ status: option, progress: nextProgress });
     setError(null);
 
@@ -551,7 +553,6 @@ function PersonalTracking({
       setDraft(draftFromEntry(entry));
       setNotice(t("tracking.saved", "Status salvo!"));
     } catch (err) {
-      // Reverte para o estado anterior e avisa o usuário com mensagem de erro
       setDraft(previousDraft);
       setTracking(previousTracking);
       setError(errorMessage(err, "Falha ao salvar status. Ação desfeita."));
@@ -562,7 +563,7 @@ function PersonalTracking({
     const previousDraft = draft;
     const previousTracking = tracking;
 
-    // Atualização otimista imediata
+
     updateDraft({ progress: nextProgress, status: nextStatus });
     setError(null);
 
@@ -590,7 +591,7 @@ function PersonalTracking({
     const previousDraft = draft;
     const previousTracking = tracking;
 
-    // Atualização otimista imediata: pinta as estrelas instantaneamente
+
     updateDraft({ rating: nextRating });
     setError(null);
 
@@ -653,7 +654,7 @@ function PersonalTracking({
     const previousDraft = draft;
     const previousTracking = tracking;
 
-    // Atualização otimista imediata: desmarca o status na interface
+    setConfirmRemove(false);
     setDraft(draftFromEntry(null));
     setTracking(null);
     pendingMetaRef.current = null;
@@ -666,12 +667,30 @@ function PersonalTracking({
       setNotice(t("tracking.removed", "Removido do tracking."));
       onTrackingLoadedRef.current?.(null);
     } catch (err) {
-      // Em caso de falha de rede, reverte o estado anterior
       setDraft(previousDraft);
       setTracking(previousTracking);
       setError(errorMessage(err, "Falha ao remover do tracking. Ação desfeita."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  // "Vi de novo" da obra inteira: grava o total de vezes concluida.
+  async function handleRewatchWork(times: number) {
+    if (!tracking) {
+      return;
+    }
+    const anterior = tracking;
+    setTracking({ ...tracking, timesConsumed: times });
+    setError(null);
+    try {
+      const entry = await saveTrackingItem(item.id, { timesConsumed: times });
+      setTracking(entry);
+      onTrackingLoadedRef.current?.(entry);
+      setNotice(times > (anterior.timesConsumed ?? 1) ? `${times}ª vez registrada.` : `Agora são ${times} ${times === 1 ? "vez" : "vezes"}.`);
+    } catch (err) {
+      setTracking(anterior);
+      setError(errorMessage(err));
     }
   }
 
@@ -741,6 +760,40 @@ function PersonalTracking({
             );
           })}
         </div>
+
+        {confirmRemove && (
+          <div className="tracking-remove-confirm" role="alert">
+            <p>
+              {t(
+                "tracking.confirmRemove",
+                "Tirar esta obra do seu tracking? Status, nota, anotações e episódios marcados serão apagados."
+              )}
+            </p>
+            <div className="tracking-remove-confirm-actions">
+              <UiButton onClick={() => void handleRemoveTracking()} disabled={saving}>
+                {t("tracking.remove", "Remover do tracking")}
+              </UiButton>
+              <UiButton variant="secondary" onClick={() => setConfirmRemove(false)}>
+                {t("tracking.keep", "Manter")}
+              </UiButton>
+            </div>
+          </div>
+        )}
+
+        {tracking?.status === "COMPLETED" && draft.status === "COMPLETED" && (
+          <div className="item-rewatch">
+            <p className="panel-note">
+              {item.type === "GAME" ? "Zerado" : item.type === "BOOK" ? "Lido" : "Visto"}{" "}
+              {Math.max(1, tracking.timesConsumed ?? 1) === 1 ? "uma vez" : `${tracking.timesConsumed} vezes`}
+            </p>
+            <RewatchCounter
+              count={tracking.timesConsumed ?? 1}
+              againLabel={item.type === "GAME" ? "Joguei de novo" : item.type === "BOOK" ? "Li de novo" : "Vi de novo"}
+              disabled={saving}
+              onChange={(vezes) => void handleRewatchWork(vezes)}
+            />
+          </div>
+        )}
 
         {isSeries && (
           <div className="series-progress-inline">

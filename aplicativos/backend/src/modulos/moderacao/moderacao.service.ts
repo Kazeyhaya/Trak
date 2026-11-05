@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
-import { ComentariosService } from "../comentarios/comentarios.service";
+import { ComentariosService, CONTEUDO_REMOVIDO } from "../comentarios/comentarios.service";
 import { ModerarDenunciaDto, StatusDenuncia } from "./dto/moderar-denuncia.dto";
 
 const CAMPOS = "id,commentId,reporterUserId,reason,details,status,createdAt";
@@ -35,7 +35,13 @@ export class ModeracaoService {
   }
 
   async listar(status?: StatusDenuncia) {
-    let consulta = this.db.from("CommentReport").select(CAMPOS).order("createdAt", { ascending: true }).limit(100);
+    // Filtrando por status, a lista e uma fila (mais antiga primeiro). Sem filtro, mostra as
+    // mais recentes: em ordem crescente, denuncias novas sumiriam atras das 100 primeiras.
+    let consulta = this.db
+      .from("CommentReport")
+      .select(CAMPOS)
+      .order("createdAt", { ascending: Boolean(status) })
+      .limit(100);
     if (status) {
       consulta = consulta.eq("status", status);
     }
@@ -46,7 +52,7 @@ export class ModeracaoService {
     const { data: comentarios, error: comentariosError } = denuncias.length
       ? await this.db
           .from("Comment")
-          .select("id,userId,mediaItemId,content,createdAt")
+          .select("id,userId,mediaItemId,content,originalContent,createdAt")
           .in("id", [...new Set(denuncias.map((d) => d.commentId))])
       : { data: [], error: null };
     falha(comentariosError);
@@ -60,11 +66,22 @@ export class ModeracaoService {
     }, {});
 
     return denuncias.map((denuncia) => {
-      const comentario = porId.get(denuncia.commentId);
+      const linha = porId.get(denuncia.commentId);
+      // O moderador ve o texto denunciado mesmo depois de ocultado; `removed` indica que saiu do ar.
+      const comentario = linha
+        ? {
+            id: linha.id,
+            userId: linha.userId,
+            mediaItemId: linha.mediaItemId,
+            createdAt: linha.createdAt,
+            content: (linha.originalContent as string | null) ?? linha.content,
+            removed: linha.content === CONTEUDO_REMOVIDO
+          }
+        : null;
       return {
         ...denuncia,
         reportsForComment: contagem[denuncia.commentId],
-        comment: comentario ?? null,
+        comment: comentario,
         item: comentario ? (itens.get(comentario.mediaItemId as string) ?? null) : null
       };
     });

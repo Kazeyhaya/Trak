@@ -1,6 +1,6 @@
 import { ExecutionContext, ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
-import { AdminGuard, AutenticacaoOpcionalGuard, ehAdmin, SupabaseAuthGuard } from "./supabase-auth.guard";
+import { AdminGuard, AutenticacaoOpcionalGuard, ehAdmin, limparCacheDeTokens, SupabaseAuthGuard } from "./supabase-auth.guard";
 
 function contexto(request: Record<string, unknown>) {
   return { switchToHttp: () => ({ getRequest: () => request }) } as unknown as ExecutionContext;
@@ -11,6 +11,7 @@ function servico(getUser: jest.Mock) {
 }
 
 describe("guards de autenticacao", () => {
+  beforeEach(() => limparCacheDeTokens());
   const usuarioValido = jest.fn(async () => ({ data: { user: { id: "u1", email: "a@b.com" } }, error: null }));
   const tokenInvalido = jest.fn(async () => ({ data: { user: null }, error: { message: "expirado" } }));
 
@@ -39,6 +40,17 @@ describe("guards de autenticacao", () => {
       true
     );
     expect(request.usuarioAuth).toBeUndefined();
+  });
+
+  it("reaproveita um token ja validado sem chamar o Supabase de novo", async () => {
+    const getUser = jest.fn(async () => ({ data: { user: { id: "u9", email: "c@d.com" } }, error: null }));
+    const guard = new SupabaseAuthGuard(servico(getUser));
+    for (let i = 0; i < 3; i++) {
+      const request: Record<string, unknown> = { headers: { authorization: "Bearer mesmo-token" } };
+      await guard.canActivate(contexto(request));
+      expect(request.usuarioAuth).toEqual({ id: "u9", email: "c@d.com" });
+    }
+    expect(getUser).toHaveBeenCalledTimes(1);
   });
 
   it("SupabaseAuthGuard recusa token invalido", async () => {

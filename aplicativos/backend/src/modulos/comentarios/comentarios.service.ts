@@ -139,17 +139,17 @@ export class ComentariosService {
           .limit(20);
 
         const destinatarios = [...new Set((outros ?? []).map((c) => c.userId as string))];
-        for (const destId of destinatarios) {
-          await this.notificacoesService.criar({
+        await this.notificacoesService.criarVarias(
+          destinatarios.map((destId) => ({
             userId: destId,
             actorId: userId,
-            type: "COMMENT",
+            type: "COMMENT" as const,
             title: `${autorNome} comentou em uma obra que você acompanha`,
             body: content.slice(0, 120),
             mediaItemId,
             link: `/itens/${mediaItemId}`
-          });
-        }
+          }))
+        );
       } catch {
         // Notificação não interrompe a criação do comentário
       }
@@ -258,16 +258,29 @@ export class ComentariosService {
     return { ok: true };
   }
 
-  // Apaga o comentario; se o banco impedir (ex.: denuncia vinculada por chave
-  // estrangeira), oculta o conteudo para preservar o historico de moderacao.
+  // Apaga o comentario; se o banco impedir (denuncia vinculada por chave estrangeira),
+  // oculta o conteudo e guarda o texto em originalContent para a moderacao ainda ver
+  // o que foi denunciado.
   async apagarOuOcultar(comentarioId: string) {
     const supabase = this.supabaseService.getClient();
     const { error } = await supabase.from("Comment").delete().eq("id", comentarioId);
 
     if (error?.code === "23503") {
+      const { data: atual, error: leituraError } = await supabase
+        .from("Comment")
+        .select("content,originalContent")
+        .eq("id", comentarioId)
+        .maybeSingle();
+      if (leituraError) {
+        throw new InternalServerErrorException(leituraError.message);
+      }
+      // Ocultar duas vezes nao pode trocar o original pelo marcador de removido.
+      const original =
+        atual?.originalContent ?? (atual?.content !== CONTEUDO_REMOVIDO ? (atual?.content as string | null) : null);
+
       const { error: updateError } = await supabase
         .from("Comment")
-        .update({ content: CONTEUDO_REMOVIDO, updatedAt: new Date().toISOString() })
+        .update({ content: CONTEUDO_REMOVIDO, originalContent: original, updatedAt: new Date().toISOString() })
         .eq("id", comentarioId);
 
       if (updateError) {

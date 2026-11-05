@@ -1,5 +1,6 @@
 import {
   converterNota,
+  importacaoCompleta,
   interpretarPerfilSteam,
   itensTrakt,
   jogosSteam,
@@ -26,13 +27,13 @@ describe("parseCsv", () => {
 });
 
 describe("converterNota", () => {
-  it("converte escalas para 1..5", () => {
-    expect(converterNota(0.5, 5)).toBe(1);
-    expect(converterNota(3.5, 5)).toBe(4);
+  it("converte escalas para 0.5..5 preservando meias estrelas", () => {
+    expect(converterNota(0.5, 5)).toBe(0.5);
+    expect(converterNota(3.5, 5)).toBe(3.5);
     expect(converterNota(5, 5)).toBe(5);
     expect(converterNota(10, 10)).toBe(5);
-    expect(converterNota(7, 10)).toBe(4);
-    expect(converterNota(1, 10)).toBe(1);
+    expect(converterNota(7, 10)).toBe(3.5);
+    expect(converterNota(1, 10)).toBe(0.5);
   });
 
   it("retorna null para nota ausente ou invalida", () => {
@@ -51,7 +52,7 @@ describe("linhasLetterboxd", () => {
 
   it("le titulo, ano e nota, sem duplicar filmes", () => {
     expect(linhasLetterboxd(ratings, "ratings")).toEqual([
-      { titulo: "Parasite", ano: 2019, rating: 5, status: "COMPLETED" },
+      { titulo: "Parasite", ano: 2019, rating: 4.5, status: "COMPLETED" },
       { titulo: "Clube da Luta", ano: 1999, rating: null, status: "COMPLETED" }
     ]);
   });
@@ -146,5 +147,14 @@ describe("Steam", () => {
       { nome: "A", minutos: 10 }
     ]);
     expect(jogosSteam({})).toEqual([]);
+  });
+});
+
+describe("importacaoCompleta", () => {
+  it("so considera completo com Trakt, Steam e todas as listas do Letterboxd", () => {
+    const listas = ["watched", "ratings", "diary", "watchlist"].map((l) => `letterboxd:${l}`);
+    expect(importacaoCompleta(["letterboxd", "trakt", "steam"])).toBe(false);
+    expect(importacaoCompleta(["trakt", "steam", ...listas.slice(1)])).toBe(false);
+    expect(importacaoCompleta(["letterboxd", "trakt", "steam", ...listas])).toBe(true);
   });
 });

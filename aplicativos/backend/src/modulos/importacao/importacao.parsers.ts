@@ -3,6 +3,15 @@ import { StatusTracking } from "../tracking/dto/salvar-tracking.dto";
 export const LISTAS_LETTERBOXD = ["watched", "ratings", "diary", "watchlist"] as const;
 export type ListaLetterboxd = (typeof LISTAS_LETTERBOXD)[number];
 
+// Nada mais a importar: Trakt, Steam e todas as listas do Letterboxd.
+export function importacaoCompleta(fontes: string[]) {
+  return (
+    fontes.includes("trakt") &&
+    fontes.includes("steam") &&
+    LISTAS_LETTERBOXD.every((lista) => fontes.includes(`letterboxd:${lista}`))
+  );
+}
+
 export type LinhaLetterboxd = {
   titulo: string;
   ano: number | null;
@@ -69,12 +78,12 @@ export function parseCsv(texto: string): string[][] {
   return linhas.filter((l) => l.some((valor) => valor.trim() !== ""));
 }
 
-// Converte uma nota de outra escala para 1..5 (sem zero).
+// Converte uma nota de outra escala para 0.5..5, em meias estrelas como no Trak.
 export function converterNota(valor: number, maximo: number) {
   if (!Number.isFinite(valor) || valor <= 0) {
     return null;
   }
-  return Math.min(5, Math.max(1, Math.round((valor / maximo) * 5)));
+  return Math.min(5, Math.max(0.5, Math.round((valor / maximo) * 10) / 2));
 }
 
 // Exportacao do Letterboxd: watched.csv, ratings.csv, diary.csv ou watchlist.csv.

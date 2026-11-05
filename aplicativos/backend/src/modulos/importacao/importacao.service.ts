@@ -6,6 +6,7 @@ import { ItemCatalogo } from "../catalogo/catalogo.types";
 import { StatusTracking } from "../tracking/dto/salvar-tracking.dto";
 import { TrackingService } from "../tracking/tracking.service";
 import {
+  importacaoCompleta,
   interpretarPerfilSteam,
   itensTrakt,
   jogosSteam,
@@ -85,12 +86,13 @@ export class ImportacaoService {
   private async registrarFonteImportada(
     userId: string,
     fonte: FonteImportacao,
+    chave: string,
     atuais: string[],
     metaLegado: Record<string, unknown>
   ) {
     const db = this.supabaseService.getClient();
-    const novasFontes = [...new Set([...atuais, fonte])];
-    const todasImportadas = ["letterboxd", "trakt", "steam"].every((f) => novasFontes.includes(f));
+    const novasFontes = [...new Set([...atuais, fonte, chave])];
+    const todasImportadas = importacaoCompleta(novasFontes);
 
     const { error } = await db
       .from("User")
@@ -114,10 +116,13 @@ export class ImportacaoService {
     }
   }
 
+  // `chave` identifica o que ja foi importado. No Letterboxd cada lista (watched, ratings...)
+  // e um arquivo separado, entao a chave inclui a lista.
   private async importar(
     authUserId: string,
     fonte: FonteImportacao,
-    candidatos: Candidato[]
+    candidatos: Candidato[],
+    chave: string = fonte
   ): Promise<ResultadoImportacao> {
     if (candidatos.length === 0) {
       throw new BadRequestException("Nenhum item encontrado no arquivo.");
@@ -126,11 +131,13 @@ export class ImportacaoService {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const { fontes, metaLegado } = await this.lerFontesImportadas(userId);
 
-    if (fontes.includes(fonte)) {
-      throw new BadRequestException(`A importacao de ${fonte} ja foi realizada para esta conta.`);
+    if (fontes.includes(chave)) {
+      throw new BadRequestException(`A importacao de ${chave} ja foi realizada para esta conta.`);
     }
 
-    const existentes = new Set((await this.trackingService.listarDoUsuario(userId)).map((r) => r.mediaItemId));
+    const existentes = new Map(
+      (await this.trackingService.listarDoUsuario(userId)).map((r) => [r.mediaItemId, r.rating] as const)
+    );
     const lote = candidatos.slice(0, MAX_ITENS);
     const resultado: ResultadoImportacao = { total: candidatos.length, imported: 0, skipped: 0, notFound: [] };
 
@@ -141,12 +148,24 @@ export class ImportacaoService {
         resultado.notFound.push(candidato.titulo);
         return;
       }
-      // Nao sobrescreve o que o usuario ja registrou no Trak.
+      // Nao sobrescreve o que o usuario ja registrou no Trak; so preenche a nota que faltava
+      // (ex.: ratings.csv enviado depois do watched.csv).
       if (existentes.has(item.id)) {
-        resultado.skipped++;
+        if (candidato.rating && !existentes.get(item.id)) {
+          await this.trackingService.salvarParaUsuario(
+            userId,
+            item.id,
+            { rating: candidato.rating },
+            { registrarAtividade: false, item }
+          );
+          existentes.set(item.id, candidato.rating);
+          resultado.imported++;
+        } else {
+          resultado.skipped++;
+        }
         return;
       }
-      existentes.add(item.id);
+      existentes.set(item.id, candidato.rating);
 
       await this.trackingService.salvarParaUsuario(
         userId,
@@ -163,7 +182,7 @@ export class ImportacaoService {
     // So marca a fonte como concluida se ao menos um item foi reconhecido,
     // para nao bloquear o usuario caso envie um arquivo vazio ou incorreto.
     if (resultado.imported > 0 || resultado.skipped > 0) {
-      await this.registrarFonteImportada(userId, fonte, fontes, metaLegado);
+      await this.registrarFonteImportada(userId, fonte, chave, fontes, metaLegado);
     }
 
     resultado.skipped += Math.max(0, candidatos.length - MAX_ITENS);
@@ -187,7 +206,8 @@ export class ImportacaoService {
         status: linha.status,
         rating: linha.rating,
         resolver: () => this.catalogoService.buscarFilmePorTitulo(linha.titulo, linha.ano)
-      }))
+      })),
+      `letterboxd:${lista}`
     );
   }
 

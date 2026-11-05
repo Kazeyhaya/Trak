@@ -10,12 +10,13 @@ if (existsSync(envFilePath)) {
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { json } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { origensPermitidas } from "./comum/cors";
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   const corsOrigins = origensPermitidas(process.env.CORS_ORIGIN);
 
   // Atras de um proxy (Render, Railway, Fly...), o IP real vem do X-Forwarded-For.
@@ -25,8 +26,10 @@ async function bootstrap() {
   }
 
   app.use(helmet());
-  // Arquivos de importacao (Letterboxd/Trakt) podem passar do limite padrao de 100kb.
-  app.useBodyParser("json", { limit: "6mb" });
+  // So a importacao recebe arquivos grandes (CSV do Letterboxd, JSON do Trakt). As demais
+  // rotas ficam no limite padrao, para um corpo enorme nao ocupar memoria a toa.
+  app.use("/api/importacao", json({ limit: "6mb" }));
+  app.use(json({ limit: "100kb" }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({ origin: corsOrigins });
   app.setGlobalPrefix("api");

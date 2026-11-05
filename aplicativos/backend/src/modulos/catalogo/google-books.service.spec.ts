@@ -14,7 +14,7 @@ describe("GoogleBooksService", () => {
   });
 
   describe("searchBooks", () => {
-    it("busca livros com langRestrict=pt e mapeia para CatalogItem", async () => {
+    it("busca livros com langRestrict=pt e mapeia para ItemCatalogo", async () => {
       const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValueOnce(
         new Response(
           JSON.stringify({

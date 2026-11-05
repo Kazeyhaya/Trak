@@ -12,6 +12,7 @@ import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { NotificacoesService } from "../notificacoes/notificacoes.service";
+import { importacaoCompleta } from "../importacao/importacao.parsers";
 import { statusDoBanco, TABELA_TRACKING } from "../tracking/tracking.banco";
 import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
@@ -22,7 +23,6 @@ const CAMPOS_PERFIL_LEGADO = "id,username,displayName,bio,isPublic,createdAt";
 
 const TEMA_PADRAO = "emerald";
 const IDIOMA_PADRAO: "pt-BR" | "en-US" = "pt-BR";
-const FONTES_IMPORTACAO = ["letterboxd", "trakt", "steam"] as const;
 
 type LinhaUser = Omit<Perfil, "userId" | "hasImported"> & { id: string };
 
@@ -49,7 +49,7 @@ function perfilDe(linha: LinhaUser, meta?: MetaPerfil | null): Perfil {
     : Array.isArray(meta?.importedSources)
       ? meta.importedSources
       : [];
-  const todasImportadas = FONTES_IMPORTACAO.every((f) => importedSources.includes(f));
+  const todasImportadas = importacaoCompleta(importedSources);
 
   return {
     ...resto,
@@ -550,11 +550,11 @@ export class SocialService {
       .filter((r) => r.mediaItemId && statusDoBanco(r.status) !== "WANT")
       .map((r) => r.mediaItemId!);
 
+    // Duracoes que faltam so sao buscadas nas fontes externas quando a pessoa ve o proprio
+    // perfil: uma visita anonima nao pode disparar chamadas ao TMDB nem gravar no banco.
     const [itensMapa, duracoes] = await Promise.all([
       this.catalogoService.buscarSalvos([...new Set([...idsFavoritos, ...idsTracking])]),
-      typeof this.catalogoService.duracoes === "function"
-        ? this.catalogoService.duracoes(idsComDuracao)
-        : Promise.resolve(new Map<string, number>())
+      this.catalogoService.duracoes(idsComDuracao, isMe ? 15 : 0)
     ]);
 
     const summary = resumoCultural(
@@ -647,7 +647,11 @@ export class SocialService {
       .upsert({ followerId: userId, followingId: alvo.userId }, { onConflict: "followerId,followingId", ignoreDuplicates: true });
     falha(error);
 
-    if (this.notificacoesService) {
+    const umDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (
+      this.notificacoesService &&
+      !(await this.notificacoesService.existeRecente(alvo.userId, userId, "FOLLOW", umDiaAtras))
+    ) {
       try {
         const { data: seguidor } = await this.db
           .from("User")

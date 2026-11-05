@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CatalogItem } from "./catalogo.types";
+import { ItemCatalogo } from "./catalogo.types";
 import { detectarSubtipoLivro } from "./catalogo.fontes";
 import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 
@@ -82,7 +82,7 @@ export interface HardcoverBookDetailResponse {
   books_by_pk?: HardcoverBook | null;
 }
 
-export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocument): CatalogItem {
+export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocument): ItemCatalogo {
   const numericId = typeof book.id === "number" ? book.id : parseInt(String(book.id), 10);
   const coverUrl =
     ("cached_image" in book && book.cached_image?.url) ||
@@ -122,11 +122,11 @@ export class HardcoverService implements ProvedorCatalogo {
     return process.env.HARDCOVER_API_KEY?.trim() || undefined;
   }
 
-  async buscar(query: string, limit = 20): Promise<CatalogItem[]> {
+  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
     return this.searchBooks(query, limit);
   }
 
-  async buscarPorId(id: string): Promise<CatalogItem | null> {
+  async buscarPorId(id: string): Promise<ItemCatalogo | null> {
     return this.getBookById(id);
   }
 
@@ -168,7 +168,7 @@ export class HardcoverService implements ProvedorCatalogo {
     }
   }
 
-  async searchBooks(query: string, limit = 20): Promise<CatalogItem[]> {
+  async searchBooks(query: string, limit = 20): Promise<ItemCatalogo[]> {
     const cleanQuery = query?.trim();
     if (!cleanQuery) {
       return this.getPopularBooks(limit);
@@ -198,7 +198,7 @@ export class HardcoverService implements ProvedorCatalogo {
       .filter((item) => Boolean(item.id && item.title));
   }
 
-  async getPopularBooks(limit = 20): Promise<CatalogItem[]> {
+  async getPopularBooks(limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
     const gql = `
       query GetPopularBooks($limit: Int!) {
@@ -226,7 +226,7 @@ export class HardcoverService implements ProvedorCatalogo {
     return books.map(mapHardcoverBook).filter((item) => Boolean(item.id && item.title));
   }
 
-  async getBookById(id: string | number): Promise<CatalogItem | null> {
+  async getBookById(id: string | number): Promise<ItemCatalogo | null> {
     const raw = await this.getBookRaw(id);
     if (!raw) {
       return null;

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Crown, Star } from "lucide-react";
 
 import { EpisodeReviewModal } from "./episode-review-modal";
+import { RewatchCounter } from "./rewatch-counter";
 import { SectionHeading } from "./section-heading";
 import {
   Episode,
@@ -17,6 +18,7 @@ import {
   getWatchedEpisodes,
   markEpisodes,
   rateEpisode,
+  setEpisodeTimes,
   Season,
   TrackingEntry,
   WatchedEpisode
@@ -43,6 +45,37 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
   const [chunkIndex, setChunkIndex] = useState<number>(0);
   const [reverseOrder, setReverseOrder] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  // Gravacoes vao ao servidor uma de cada vez, na ordem dos cliques. So a resposta da
+  // ultima vale: uma resposta antiga sobrescreveria cliques que vieram depois.
+  const filaRef = useRef<Promise<unknown>>(Promise.resolve());
+  const ultimaRef = useRef(0);
+
+  function gravar(
+    tarefa: () => Promise<{ episodes: WatchedEpisode[]; tracking: TrackingEntry }>,
+    mensagemErro: string
+  ) {
+    const numero = ++ultimaRef.current;
+    const execucao = filaRef.current.then(tarefa);
+    filaRef.current = execucao.catch(() => undefined);
+    execucao.then(
+      (resultado) => {
+        if (numero === ultimaRef.current) {
+          setWatched(resultado.episodes);
+          onTrackingChange(resultado.tracking);
+        }
+      },
+      async (err) => {
+        setError(errorMessage(err, mensagemErro));
+        // Volta ao que o servidor tem, em vez de um retrato anterior a outros cliques.
+        if (numero === ultimaRef.current) {
+          const atuais = await getWatchedEpisodes(mediaItemId).catch(() => null);
+          if (atuais) {
+            setWatched(atuais);
+          }
+        }
+      }
+    );
+  }
 
   // Modal de avaliação do episódio e destaque de quem roubou a cena
   const [reviewModalEpisode, setReviewModalEpisode] = useState<Episode | null>(null);
@@ -147,14 +180,11 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
     return result;
   }, [episodes, shouldChunk, chunkSize]);
 
-  async function toggle(episodeNumbers: number[], value: boolean) {
+  function toggle(episodeNumbers: number[], value: boolean) {
     if (selected === null || episodeNumbers.length === 0) {
       return;
     }
 
-    const previousWatched = watched;
-
-    // Atualização Otimista: acende o visto instantaneamente na tela
     setWatched((prev) => {
       const epSet = new Set(episodeNumbers);
       if (value) {
@@ -168,16 +198,24 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
       }
     });
 
-    try {
-      const result = await markEpisodes(mediaItemId, selected, episodeNumbers, value);
-      // Sincroniza com a resposta oficial do backend
-      setWatched(result.episodes);
-      onTrackingChange(result.tracking);
-    } catch (err) {
-      // Em caso de falha, desfaz a ação e avisa o usuário com mensagem de erro
-      setWatched(previousWatched);
-      setError(errorMessage(err, "Falha ao salvar episódio. As alterações foram revertidas."));
-    }
+    const temporada = selected;
+    gravar(
+      () => markEpisodes(mediaItemId, temporada, episodeNumbers, value),
+      "Não foi possível salvar o episódio. A lista voltou ao que está salvo."
+    );
+  }
+
+  function handleRewatch(episodeNum: number, times: number) {
+    if (selected === null) return;
+    const temporada = selected;
+
+    setWatched((prev) =>
+      prev.map((w) => (w.season === temporada && w.episode === episodeNum ? { ...w, timesWatched: times } : w))
+    );
+    gravar(
+      () => setEpisodeTimes(mediaItemId, temporada, episodeNum, times),
+      "Não foi possível salvar quantas vezes você viu o episódio."
+    );
   }
 
   function handleOpenReviewModal(episode: Episode) {
@@ -198,42 +236,32 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
     }
   }
 
-  async function handleRateEpisode(episodeNum: number, nextRating: number | null) {
+  function handleRateEpisode(episodeNum: number, nextRating: number | null) {
     if (selected === null) return;
-    const previousWatched = watched;
+    const temporada = selected;
 
-    // Atualização otimista imediata
     setWatched((prev) =>
-      prev.map((w) => (w.season === selected && w.episode === episodeNum ? { ...w, rating: nextRating } : w))
+      prev.map((w) => (w.season === temporada && w.episode === episodeNum ? { ...w, rating: nextRating } : w))
     );
-
-    try {
-      const res = await rateEpisode(mediaItemId, {
-        season: selected,
-        episode: episodeNum,
-        rating: nextRating
-      });
-      setWatched(res.episodes);
-    } catch (err) {
-      setWatched(previousWatched);
-      setError(errorMessage(err, "Falha ao salvar nota do episódio."));
-    }
+    gravar(
+      () => rateEpisode(mediaItemId, { season: temporada, episode: episodeNum, rating: nextRating }),
+      "Não foi possível salvar a nota do episódio."
+    );
   }
 
-  async function handleSelectHighlight(episodeNum: number, character: EpisodeCharacter) {
+  function handleSelectHighlight(episodeNum: number, character: EpisodeCharacter) {
     if (selected === null) return;
     const current = watched.find((w) => w.season === selected && w.episode === episodeNum);
     const isSame = current?.highlightCharacterName === character.character;
-    const previousWatched = watched;
+    const temporada = selected;
 
     const nextId = isSame ? null : character.id;
     const nextName = isSame ? null : character.character;
     const nextAvatar = isSame ? null : character.avatarUrl;
 
-    // Atualização otimista imediata
     setWatched((prev) =>
       prev.map((w) =>
-        w.season === selected && w.episode === episodeNum
+        w.season === temporada && w.episode === episodeNum
           ? {
               ...w,
               highlightCharacterId: nextId,
@@ -244,19 +272,17 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
       )
     );
 
-    try {
-      const res = await rateEpisode(mediaItemId, {
-        season: selected,
-        episode: episodeNum,
-        highlightCharacterId: nextId,
-        highlightCharacterName: nextName,
-        highlightCharacterAvatar: nextAvatar
-      });
-      setWatched(res.episodes);
-    } catch (err) {
-      setWatched(previousWatched);
-      setError(errorMessage(err, "Falha ao salvar personagem em destaque."));
-    }
+    gravar(
+      () =>
+        rateEpisode(mediaItemId, {
+          season: temporada,
+          episode: episodeNum,
+          highlightCharacterId: nextId,
+          highlightCharacterName: nextName,
+          highlightCharacterAvatar: nextAvatar
+        }),
+      "Não foi possível salvar quem roubou a cena."
+    );
   }
 
   if (seasons.length === 0 && !error) {
@@ -456,6 +482,15 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
                         </>
                       )}
                     </button>
+                  )}
+
+                  {isWatched && (
+                    <RewatchCounter
+                      compact
+                      count={watchedEntry?.timesWatched ?? 1}
+                      againLabel="Vi de novo"
+                      onChange={(vezes) => handleRewatch(episode.episodeNumber, vezes)}
+                    />
                   )}
 
                   {episodesUpToHere.length > 1 && (

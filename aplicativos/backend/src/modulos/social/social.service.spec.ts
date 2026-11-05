@@ -5,7 +5,7 @@ import { SocialService, usernameExato } from "./social.service";
 
 function montar(responder: (op: Operacao) => Resposta) {
   const supabase = criarSupabaseServiceMock(responder);
-  const catalogo = { buscarSalvos: jest.fn(async () => new Map()) };
+  const catalogo = { buscarSalvos: jest.fn(async () => new Map()), duracoes: jest.fn(async () => new Map()) };
   const service = new SocialService(
     supabase.service as unknown as SupabaseService,
     catalogo as unknown as CatalogoService

@@ -132,8 +132,8 @@ describe("IgdbService", () => {
     });
   });
 
-  describe("IProvedorCatalogo (buscar e buscarPorId)", () => {
-    it("buscar deve retornar lista padronizada de CatalogItem", async () => {
+  describe("buscar e buscarPorId", () => {
+    it("buscar deve retornar lista padronizada de ItemCatalogo", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -170,7 +170,7 @@ describe("IgdbService", () => {
       ]);
     });
 
-    it("buscarPorId deve retornar CatalogItem a partir do ID igdb_game_", async () => {
+    it("buscarPorId deve retornar ItemCatalogo a partir do ID igdb_game_", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({

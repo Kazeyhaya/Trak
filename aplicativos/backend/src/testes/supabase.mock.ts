@@ -3,7 +3,7 @@
 
 export type Operacao = {
   table: string;
-  action: "select" | "insert" | "update" | "upsert" | "delete";
+  action: "select" | "insert" | "update" | "upsert" | "delete" | "rpc";
   payload?: unknown;
   options?: unknown;
   filtros: Array<[string, ...unknown[]]>;
@@ -57,7 +57,7 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
         Promise.resolve().then(executar).then(resolve, reject)
     };
 
-    for (const filtro of ["eq", "in", "ilike", "order", "limit"]) {
+    for (const filtro of ["eq", "neq", "gte", "in", "not", "ilike", "order", "limit"]) {
       proxy[filtro] = (...args: unknown[]) => {
         op.filtros.push([filtro, ...args]);
         return proxy;
@@ -69,6 +69,13 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
 
   const client = {
     from: (table: string) => builder(table),
+    // Funcoes do banco: registradas com table = nome da funcao e action = "rpc".
+    rpc: async (funcao: string, args?: unknown) => {
+      const op: Operacao = { table: funcao, action: "rpc", payload: args, filtros: [], single: false };
+      chamadas.push(op);
+      const resposta = responder(op);
+      return { data: resposta.data ?? null, error: resposta.error ?? null };
+    },
     auth: { getUser: jest.fn() }
   };
 

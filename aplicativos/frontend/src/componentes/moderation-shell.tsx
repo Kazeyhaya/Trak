@@ -119,7 +119,10 @@ export function ModerationShell() {
                 <time dateTime={report.createdAt}>{dateFormatter.format(new Date(report.createdAt))}</time>
               </div>
               {report.details && <p className="report-meta">Detalhes: {report.details}</p>}
-              <blockquote>{report.comment?.content ?? "Comentário já removido."}</blockquote>
+              {report.comment?.removed && (
+                <p className="report-meta">Fora do ar: apagado pelo autor ou removido pela moderação. Texto original:</p>
+              )}
+              <blockquote>{report.comment?.content ?? "Comentário apagado antes da denúncia ser registrada."}</blockquote>
               {report.comment && (
                 <p className="report-meta">
                   Em <Link href={`/itens/${report.comment.mediaItemId}`}>{report.item?.title ?? report.comment.mediaItemId}</Link>
@@ -127,7 +130,7 @@ export function ModerationShell() {
               )}
               <div className="item-next-actions">
                 <UiButton
-                  disabled={busy === report.id || !report.comment || report.comment.content === "[comentário removido]"}
+                  disabled={busy === report.id || !report.comment || report.comment.removed}
                   onClick={() => act(report, "RESOLVED", true)}
                 >
                   Remover comentário

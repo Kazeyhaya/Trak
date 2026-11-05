@@ -1,19 +1,26 @@
 # Trak
 
-This will be the most beautiful app and website about tracking your tv shows, movies, games and possibly books.
+Caderno de filmes, séries, jogos e livros: progresso por episódio, página ou hora jogada, notas em meias
+estrelas, quem roubou a cena em cada episódio e o Panteão com o personagem favorito de cada obra concluída.
 
 ## Estrutura
 
-- `aplicativos/backend` — API NestJS (`@trak/api`), fala com Supabase, TMDB e RAWG.
+- `aplicativos/backend` — API NestJS (`@trak/api`). Fala com o Supabase (service role) e com as fontes do
+  catálogo: TMDB, RAWG, IGDB, Open Library, Google Books e Hardcover (um adaptador por fonte em
+  `src/modulos/catalogo/fontes`).
 - `aplicativos/frontend` — site Next.js (`@trak/web`), autenticação via Supabase Auth.
 
 ## Rodando localmente
 
 Requer Node 22+.
 
-Antes da primeira execução, aplique `supabase/migrations/20261019000000_trak_social.sql` no seu projeto
-Supabase (SQL Editor). Ela complementa o schema existente (`User`, `MediaItem`, `UserMedia`, `Favorite`,
-`Comment`, `CommentLike`, `CommentReport`).
+O schema base do Supabase (`User`, `MediaItem`, `UserMedia`, `Favorite`, `Follow`, `Activity`,
+`EpisodeProgress`, `Comment`, `CommentLike`, `CommentReport` e o trigger `trak_criar_usuario`) ainda não está
+versionado neste repositório. As migrações em `supabase/migrations` o complementam: aplique-as em ordem de nome
+no SQL Editor antes de subir uma versão nova da API.
+
+O site não lê tabelas pelo Supabase; tudo passa pela API. Por isso todas as tabelas têm RLS ativo e nenhuma
+policy (a anon key não acessa dados).
 
 ```bash
 npm install

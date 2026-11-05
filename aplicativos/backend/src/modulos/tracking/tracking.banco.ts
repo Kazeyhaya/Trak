@@ -40,6 +40,8 @@ export type RegistroTracking = {
   customCoverUrl: string | null;
   favoriteCharacterName?: string | null;
   favoriteCharacterAvatar?: string | null;
+  // Vezes que a obra foi concluida; 0 enquanto nunca foi.
+  timesConsumed: number;
   startedAt: string | null;
   finishedAt: string | null;
   updatedAt: string;
@@ -55,6 +57,7 @@ export type AlteracaoTracking = {
   customCoverUrl?: string | null;
   favoriteCharacterName?: string | null;
   favoriteCharacterAvatar?: string | null;
+  timesConsumed?: number;
 };
 
 export function statusParaBanco(status: StatusTracking) {
@@ -78,6 +81,7 @@ export function deBanco(linha: LinhaUserMedia): RegistroTracking {
     customCoverUrl: linha.customCoverUrl ?? null,
     favoriteCharacterName: linha.favoriteCharacterName ?? null,
     favoriteCharacterAvatar: linha.favoriteCharacterAvatar ?? null,
+    timesConsumed: linha.timesConsumed ?? 0,
     startedAt: linha.startedAt,
     finishedAt: linha.finishedAt,
     updatedAt: linha.updatedAt
@@ -128,6 +132,10 @@ export function paraBanco(
   if (mudouStatus && alteracao.status === "COMPLETED") {
     linha.finishedAt = agora;
     linha.timesConsumed = Math.max(existente?.timesConsumed ?? 0, 1);
+  }
+  // Contagem escolhida pela pessoa ("vi de novo" / desfazer) vence a automatica.
+  if (alteracao.timesConsumed !== undefined) {
+    linha.timesConsumed = alteracao.timesConsumed;
   }
 
   return linha;

@@ -21,33 +21,30 @@ type AuthContextValue = {
 
 const naoConfigurado = "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.";
 
+// Mensagens para quem usa o site. Detalhes de configuracao (SMTP, trigger, "Confirm email")
+// vao para o console, onde quem mantem o projeto procura, e nao para a tela de login.
 function traduzirErroAuth(mensagem: string): string {
   const m = mensagem.toLowerCase();
-  if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
-    return "Limite de envio de e-mails atingido no Supabase. Aguarde alguns minutos ou desative 'Confirm email' em Authentication → Providers → Email no painel do Supabase.";
-  }
-  if (m.includes("error sending confirmation email") || m.includes("unexpected_failure")) {
-    return "Não foi possível enviar o e-mail de confirmação (ou houve erro no trigger do banco). Dica: no painel do Supabase, desative 'Confirm email' em Authentication → Providers → Email.";
-  }
-  if (m.includes("database error saving new user")) {
-    return "Erro no banco ao criar usuário (verifique a tabela User e o trigger trak_criar_usuario no Supabase).";
-  }
   if (m.includes("user already registered") || m.includes("already been registered")) {
-    return "Este e-mail já está cadastrado. Tente entrar com sua senha.";
+    return "Este e-mail já tem conta. Entre com sua senha.";
   }
   if (m.includes("invalid login credentials")) {
     return "E-mail ou senha incorretos.";
   }
   if (m.includes("email not confirmed")) {
-    return "Confirme seu e-mail antes de entrar (ou desative a confirmação de e-mail no Supabase).";
+    return "Falta confirmar seu e-mail. Procure a mensagem do Trak na sua caixa de entrada (e no spam).";
   }
   if (m.includes("password should be at least")) {
-    return "A senha deve ter pelo menos 6 caracteres.";
+    return "A senha precisa ter pelo menos 6 caracteres.";
+  }
+  if (m.includes("rate limit")) {
+    return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
   }
   if (m.includes("invalid") && m.includes("email")) {
-    return "Informe um endereço de e-mail válido.";
+    return "Esse endereço de e-mail não parece válido.";
   }
-  return mensagem;
+  console.warn("[auth] erro do Supabase:", mensagem);
+  return "Não conseguimos concluir agora. Tente de novo em instantes.";
 }
 
 const AuthContext = createContext<AuthContextValue>({
