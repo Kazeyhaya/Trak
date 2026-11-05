@@ -122,11 +122,11 @@ declare
 begin
   -- 1. Linhas com id fora do padrao, mas externalId intacto: o id certo sai direto.
   for item in
-    select id, "externalId", public.trak_id_canonico(source, type::text, "externalId") as canonico
+    select id, "externalId", public.trak_id_canonico(source::text, type::text, "externalId") as canonico
       from "MediaItem"
      where "externalId" not like 'legacy\_%'
-       and public.trak_id_canonico(source, type::text, "externalId") is not null
-       and id <> public.trak_id_canonico(source, type::text, "externalId")
+       and public.trak_id_canonico(source::text, type::text, "externalId") is not null
+       and id <> public.trak_id_canonico(source::text, type::text, "externalId")
   loop
     perform public.trak_unir_media_item(item.id, item.canonico, item."externalId");
     unidos := unidos + 1;
