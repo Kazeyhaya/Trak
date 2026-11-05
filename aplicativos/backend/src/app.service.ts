@@ -13,6 +13,7 @@ export class AppService {
         rawg: configurada("RAWG_API_KEY"),
         openLibrary: true,
         steam: configurada("STEAM_API_KEY"),
+        igdb: configurada("IGDB_CLIENT_ID") && configurada("IGDB_CLIENT_SECRET"),
         supabase: configurada("SUPABASE_URL") && configurada("SUPABASE_SERVICE_ROLE_KEY")
       }
     };

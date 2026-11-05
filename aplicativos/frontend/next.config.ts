@@ -23,8 +23,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
-    formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60 * 60 * 24 * 7,
+    // Tamanhos vem do proprio provedor da capa (ver carregador-imagem.ts), sem o
+    // otimizador da Vercel.
+    loader: "custom",
+    loaderFile: "./src/lib/carregador-imagem.ts",
     deviceSizes: [360, 480, 640, 750, 828, 1080, 1200, 1920],
     imageSizes: [64, 96, 128, 200, 240, 384],
     remotePatterns: [

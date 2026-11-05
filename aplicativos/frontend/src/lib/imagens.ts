@@ -22,9 +22,13 @@ export function ehDominioOtimizado(url: string | null | undefined): boolean {
 
 export function miniaturaCapa(url: string | null | undefined, larguraCss: number): string | null {
   if (!url) return null;
-
   // Considera telas de alta densidade (2x).
-  const alvo = larguraCss * 2;
+  return capaNaLargura(url, larguraCss * 2);
+}
+
+// A mesma capa no menor tamanho que o proprio provedor oferece com pelo menos `alvo`
+// pixels de largura. Fontes sem tamanhos alternativos voltam como vieram.
+export function capaNaLargura(url: string, alvo: number): string {
 
   if (url.includes("image.tmdb.org/t/p/")) {
     const largura = LARGURAS_TMDB.find((w) => w >= alvo) ?? 780;
