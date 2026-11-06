@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Clapperboard } from "lucide-react";
 
-import { HomeHeroCta } from "./home-hero-cta";
 import { LandingDemo } from "./landing-demo";
+import { LandingGestos, LandingHero } from "./landing-hero";
 import { MediaGrid } from "./media-grid";
 import { SectionHeading } from "./section-heading";
 import { SiteHeader } from "./site-header";
@@ -18,10 +18,12 @@ import { miniaturaCapa } from "../lib/imagens";
 
 type HomeShellProps = {
   destaques: CatalogItem[];
+  // Destaques alternando filme, serie, jogo e livro, para o hero da landing.
+  vitrine: CatalogItem[];
   initialLoggedIn: boolean;
 };
 
-export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
+export function HomeShell({ destaques, vitrine, initialLoggedIn }: HomeShellProps) {
   const { user, profile, loading } = useAuth();
   const isLoggedIn = loading ? initialLoggedIn : Boolean(user);
   const [library, setLibrary] = useState<TrackingEntry[]>([]);
@@ -149,18 +151,9 @@ export function HomeShell({ destaques, initialLoggedIn }: HomeShellProps) {
     <main className="home-shell">
       <SiteHeader />
 
-      <section className="hero-card">
-        <div className="hero-copy">
-          <span className="hero-eyebrow">Diário cultural sem ruído</span>
-          <h1>Seu caderno de filmes, séries, jogos e livros.</h1>
-          <p>
-            Registre cada episódio, página ou hora jogada. Dê notas fracionadas, coroe seus personagens favoritos no
-            Panteão e veja apenas o que seus amigos destacaram — sem algoritmo nem efeito manada.
-          </p>
+      <LandingHero vitrine={vitrine} />
 
-          <HomeHeroCta initialLoggedIn={false} />
-        </div>
-      </section>
+      <LandingGestos />
 
       <LandingDemo destaques={destaques} />
 
