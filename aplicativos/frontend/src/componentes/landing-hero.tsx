@@ -25,6 +25,13 @@ const COR: Record<MediaType, string> = {
 
 const VERBOS_EM_ORDEM: MediaType[] = ["MOVIE", "SERIES", "GAME", "BOOK"];
 
+const NOME_DO_TIPO: Record<MediaType, string> = {
+  MOVIE: "Filmes",
+  SERIES: "Séries",
+  GAME: "Jogos",
+  BOOK: "Livros"
+};
+
 // Hero da landing: pilha de capas reais (filme, serie, jogo, livro) que gira sozinha,
 // com o fundo tingido pela capa da frente e o verbo do titulo trocando junto.
 export function LandingHero({ vitrine }: { vitrine: CatalogItem[] }) {
@@ -77,7 +84,18 @@ export function LandingHero({ vitrine }: { vitrine: CatalogItem[] }) {
       </div>
 
       <div className="landing-hero-texto">
-        <span className="landing-hero-selo">Filmes · Séries · Jogos · Livros — grátis</span>
+        {/* Os quatro tipos que cabem na estante; o da capa da frente se acende na sua cor. */}
+        <ul className="landing-hero-tipos" aria-label="Filmes, séries, jogos e livros">
+          {VERBOS_EM_ORDEM.map((tipo) => (
+            <li
+              key={tipo}
+              className={tipo === tipoAtivo ? "is-active" : undefined}
+              style={{ ["--cor-tipo" as string]: COR[tipo] }}
+            >
+              {NOME_DO_TIPO[tipo]}
+            </li>
+          ))}
+        </ul>
         <h1 id="landing-hero-titulo">
           Tudo que você{" "}
           <span className="landing-hero-verbo" aria-live="off">
@@ -137,7 +155,7 @@ export function LandingHero({ vitrine }: { vitrine: CatalogItem[] }) {
 
           {frente && (
             <div className="landing-hero-legenda" key={frente.id}>
-              <span>{getMediaTypeLabel(frente.type, frente.subtype)}</span>
+              <span>Em alta · {getMediaTypeLabel(frente.type, frente.subtype)}</span>
               <strong>{frente.title}</strong>
               {frente.releaseYear && <small>{frente.releaseYear}</small>}
             </div>
