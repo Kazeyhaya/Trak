@@ -784,3 +784,29 @@ describe("ficha com a fonte fora do ar", () => {
     await expect(criarServico().buscarPorId("rawg_game_1")).rejects.toThrow("Item nao encontrado.");
   });
 });
+
+
+describe("conteudo +18 no catalogo", () => {
+  const jogo = (id: number, name: string, themes?: number[]) => ({ id, name, themes, cover: { image_id: `c${id}` } });
+
+  function servicoComJogos() {
+    const igdb = new IgdbService();
+    jest.spyOn(igdb, "isConfigurado").mockReturnValue(true);
+    jest.spyOn(igdb, "consulta").mockImplementation(async (endpoint: string) =>
+      endpoint === "popularity_primitives"
+        ? [{ game_id: 1 }, { game_id: 2 }, { game_id: 3 }]
+        : [jogo(1, "Palworld"), jogo(2, "Jogo Marcado", [42]), jogo(3, "Fap Nights At Frenni's")]
+    );
+    return criarServico(new GoogleBooksService(), new HardcoverService(), igdb);
+  }
+
+  it("fica fora por padrao: tema Erotic da IGDB ou titulo explicito", async () => {
+    const itens = await servicoComJogos().listar(undefined, "game");
+    expect(itens.map((i) => i.title)).toEqual(["Palworld"]);
+  });
+
+  it("aparece para quem liberou no perfil", async () => {
+    const itens = await servicoComJogos().listar(undefined, "game", undefined, undefined, true);
+    expect(itens.map((i) => i.title)).toEqual(["Palworld", "Jogo Marcado", "Fap Nights At Frenni's"]);
+  });
+});

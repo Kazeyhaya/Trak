@@ -2325,3 +2325,24 @@
     padding: 20px;
   }
 }
+
+/* Conteudo +18 no formulario de perfil */
+.profile-adult-card {
+  margin-top: 12px;
+}
+
+.profile-adult-date {
+  max-width: 220px;
+  margin-top: 10px;
+}
+
+.profile-adult-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--danger);
+}
+
+.profile-switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

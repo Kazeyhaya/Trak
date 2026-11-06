@@ -1,7 +1,7 @@
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { criarSupabaseServiceMock, Operacao, Resposta, valorDoFiltro } from "../../testes/supabase.mock";
 import { CatalogoService } from "../catalogo/catalogo.service";
-import { SocialService, usernameExato } from "./social.service";
+import { idadeEm, SocialService, usernameExato } from "./social.service";
 
 function montar(responder: (op: Operacao) => Resposta) {
   const supabase = criarSupabaseServiceMock(responder);
@@ -241,5 +241,35 @@ describe("SocialService (perfil na tabela User)", () => {
       // Item do amigo que u1 NÃO tem na estante
       expect(feed.items[2]).toMatchObject({ id: "act3", inMyLibrary: false });
     });
+  });
+});
+
+
+describe("conteudo +18 no perfil", () => {
+  it("idadeEm conta o aniversario do ano", () => {
+    const hoje = new Date(Date.UTC(2026, 10, 6));
+    expect(idadeEm("2008-11-06", hoje)).toBe(18);
+    expect(idadeEm("2008-11-07", hoje)).toBe(17);
+    expect(idadeEm("1990-01-01", hoje)).toBe(36);
+  });
+
+  it("recusa liberar conteudo +18 para menor de idade", async () => {
+    const { service } = montar((op) => (op.table === "User" ? { data: { id: "u1", birthDate: null } } : { data: null }));
+    const anoMenor = new Date().getUTCFullYear() - 15;
+    await expect(
+      service.salvarPerfil("u1", { username: "ana", birthDate: `${anoMenor}-01-01`, adultContent: true })
+    ).rejects.toThrow("Conteúdo +18 só pode ser liberado para maiores de 18 anos.");
+  });
+
+  it("libera para maior de idade e registra o consentimento", async () => {
+    const { service, chamadas } = montar((op) =>
+      op.table === "User" ? { data: { id: "u1", username: "ana", birthDate: "1990-05-10" } } : { data: null }
+    );
+
+    await service.salvarPerfil("u1", { username: "ana", birthDate: "1990-05-10", adultContent: true });
+
+    const update = chamadas.find((c) => c.table === "User" && c.action === "update")!;
+    expect(update.payload).toMatchObject({ birthDate: "1990-05-10", adultContent: true });
+    expect(update.payload).toHaveProperty("adultConsentAt");
   });
 });

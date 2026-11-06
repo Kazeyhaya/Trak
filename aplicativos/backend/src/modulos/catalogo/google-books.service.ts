@@ -6,6 +6,7 @@ import { ProvedorCatalogo } from "./provedor-catalogo.interface";
 export interface GoogleBooksVolume {
   id: string;
   volumeInfo?: {
+    maturityRating?: "MATURE" | "NOT_MATURE";
     title?: string;
     subtitle?: string;
     description?: string;
@@ -96,7 +97,8 @@ export function mapGoogleBooksVolume(volume: GoogleBooksVolume): ItemCatalogo {
     coverUrl,
     synopsis,
     releaseYear,
-    ...(typeof info?.pageCount === "number" && info.pageCount > 0 ? { pageCount: info.pageCount } : {})
+    ...(typeof info?.pageCount === "number" && info.pageCount > 0 ? { pageCount: info.pageCount } : {}),
+    ...(info?.maturityRating === "MATURE" ? { adult: true } : {})
   };
 }
 

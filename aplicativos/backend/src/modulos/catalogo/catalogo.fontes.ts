@@ -19,6 +19,7 @@ export type TmdbItem = {
   episode_run_time?: number[];
   origin_country?: string[];
   original_language?: string;
+  adult?: boolean;
 };
 
 // Genero "Animacao" no TMDB (o mesmo id para filmes e series).
@@ -123,6 +124,8 @@ export type RawgItem = {
   playtime?: number | null;
   genres?: Array<{ name: string; slug: string }>;
   stores?: Array<{ id?: number; url?: string; store?: { id?: number; name: string; domain?: string } }>;
+  tags?: Array<{ slug: string }>;
+  esrb_rating?: { slug: string } | null;
 };
 
 export type OpenLibraryDoc = {
@@ -266,7 +269,8 @@ export function mapearTmdb(
     title: item.title ?? item.name ?? "Sem titulo",
     coverUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     synopsis: item.overview || null,
-    releaseYear: anoDe(item.release_date ?? item.first_air_date)
+    releaseYear: anoDe(item.release_date ?? item.first_air_date),
+    ...(item.adult ? { adult: true } : {})
   };
 }
 
@@ -288,8 +292,25 @@ export function mapearRawg(item: RawgItem): ItemCatalogo {
     // Mantem a resolucao alta do RAWG para o otimizador do Next.js nao pixelar.
     coverUrl: item.background_image ?? null,
     synopsis: sinopseCurta || null,
-    releaseYear: anoDe(item.released)
+    releaseYear: anoDe(item.released),
+    ...(rawgAdulto(item) ? { adult: true } : {})
   };
+}
+
+const TAGS_ADULTAS_RAWG = new Set(["nsfw", "hentai", "sexual-content", "nudity", "erotic", "adult"]);
+
+function rawgAdulto(item: RawgItem) {
+  return item.esrb_rating?.slug === "adults-only" || Boolean(item.tags?.some((t) => TAGS_ADULTAS_RAWG.has(t.slug)));
+}
+
+// Reserva para jogos que a fonte nao marcou: titulos com termos explicitos.
+// Vale so para jogos ("Sex Education" e uma serie comum, por exemplo).
+const TITULO_ADULTO_JOGO =
+  /\b(hentai|nsfw|porn\w*|futa\w*|milf|fap|xxx|er[oó]tic\w*|lewd|ecchi|strip poker|spank\w*)\b/i;
+
+// O item e conteudo +18? Marcacao da fonte ou, em jogos, o titulo.
+export function ehAdulto(item: Pick<ItemCatalogo, "adult" | "type" | "title">) {
+  return item.adult === true || (item.type === "GAME" && TITULO_ADULTO_JOGO.test(item.title ?? ""));
 }
 
 export function detectarSubtipoLivro(

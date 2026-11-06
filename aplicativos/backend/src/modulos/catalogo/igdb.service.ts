@@ -23,6 +23,8 @@ export interface IgdbGame {
   game_type?: number;
   // Preenchido em edicoes (Gold Edition, Wii Edition...): aponta para o jogo original.
   version_parent?: number | null;
+  // Temas da IGDB; 42 = Erotic.
+  themes?: number[];
   genres?: Array<{ id: number; name: string }>;
   websites?: Array<{ id: number; category: number; url: string }>;
 }
@@ -71,6 +73,8 @@ export function semDuplicatas(jogos: IgdbGame[]): IgdbGame[] {
   });
 }
 
+const TEMA_EROTICO = 42;
+
 export function mapIgdbGame(game: IgdbGame): ItemCatalogo {
   let releaseYear: number | null = null;
   if (typeof game.first_release_date === "number" && game.first_release_date > 0) {
@@ -92,7 +96,8 @@ export function mapIgdbGame(game: IgdbGame): ItemCatalogo {
     title: game.name?.trim() || "Sem título",
     coverUrl,
     synopsis: game.summary?.trim() || null,
-    releaseYear
+    releaseYear,
+    ...(game.themes?.includes(TEMA_EROTICO) ? { adult: true } : {})
   };
 }
 
@@ -228,7 +233,7 @@ export class IgdbService implements ProvedorCatalogo {
   // 12 meses mais avaliados. Nunca o "mais avaliado de todos os tempos".
   async emAlta(limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
-    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count";
+    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count,themes";
 
     const populares = await this.consulta<Array<{ game_id?: number }>>(
       "popularity_primitives",
@@ -266,7 +271,7 @@ export class IgdbService implements ProvedorCatalogo {
 
     // Pede o dobro: edicoes e derivados saem no filtro, e o limite ainda deve ser atingido.
     const pedidos = Math.min(maxResults * 2, 50);
-    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count";
+    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count,themes";
     const montar = (extras: string, filtro: string) =>
       nomeLimpo
         ? `search "${nomeLimpo}"; fields ${campos}${extras};${filtro ? ` where ${filtro};` : ""} limit ${pedidos};`
@@ -298,7 +303,7 @@ export class IgdbService implements ProvedorCatalogo {
       return null;
     }
 
-    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
+    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,themes,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
     const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
     const game = resultado?.[0];
     if (!game?.id) {
@@ -318,7 +323,7 @@ export class IgdbService implements ProvedorCatalogo {
       return null;
     }
 
-    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
+    const apicalypse = `fields name,summary,first_release_date,cover.image_id,rating,rating_count,themes,genres.name,websites.url,websites.category; where id = ${numericId}; limit 1;`;
     const resultado = await this.consulta<IgdbGame[]>("games", apicalypse);
     return resultado?.[0] ?? null;
   }
@@ -362,7 +367,7 @@ export class IgdbService implements ProvedorCatalogo {
     }
 
     const nomeLimpo = nomeJogo.replace(/[^\w\s-]/gi, "").trim();
-    const query = `search "${nomeLimpo}"; fields name,summary,first_release_date,rating,rating_count,cover.image_id,genres.name,websites.url,websites.category; limit 1;`;
+    const query = `search "${nomeLimpo}"; fields name,summary,first_release_date,rating,rating_count,themes,cover.image_id,genres.name,websites.url,websites.category; limit 1;`;
     const resultado = await this.consulta<IgdbGame[]>("games", query);
 
     return resultado?.[0] ?? null;

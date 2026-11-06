@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
+import { AdultGate } from "../../../componentes/adult-gate";
 import { ItemShell } from "../../../componentes/item-shell";
 import { getCatalogItemById, getMediaTypeLabel } from "../../../lib/catalogo-api";
 
@@ -22,6 +23,11 @@ export async function generateMetadata({ params }: ItemPageProps): Promise<Metad
 
   if (!item) {
     return { title: "Trak | Item não encontrado" };
+  }
+
+  // Obra +18: a previa de links nao mostra capa nem sinopse.
+  if (item.adult) {
+    return { title: "Trak | Conteúdo +18", robots: { index: false } };
   }
 
   const title = `${item.title}${item.releaseYear ? ` (${item.releaseYear})` : ""} | Trak`;
@@ -49,5 +55,9 @@ export default async function ItemPage({ params }: ItemPageProps) {
     notFound();
   }
 
-  return <ItemShell item={item} />;
+  return (
+    <AdultGate adult={item.adult}>
+      <ItemShell item={item} />
+    </AdultGate>
+  );
 }
