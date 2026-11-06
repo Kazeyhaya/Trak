@@ -233,3 +233,39 @@ describe("semDuplicatas", () => {
     expect(semDuplicatas(jogos).map((j) => j.id)).toEqual([1, 3]);
   });
 });
+
+
+describe("IgdbService.emAlta", () => {
+  const ano = (a: number) => Date.UTC(a, 5, 1) / 1000;
+
+  it("segue a popularidade atual, na ordem dela", async () => {
+    const service = new IgdbService();
+    const consulta = jest.spyOn(service, "consulta").mockImplementation(async (endpoint: string) => {
+      if (endpoint === "popularity_primitives") {
+        return [{ game_id: 30 }, { game_id: 10 }, { game_id: 20 }];
+      }
+      return [
+        { id: 10, name: "Dez", first_release_date: ano(2024) },
+        { id: 20, name: "Vinte", first_release_date: ano(2025) },
+        { id: 30, name: "Trinta", first_release_date: ano(2026) }
+      ];
+    });
+
+    const itens = await service.emAlta(20);
+
+    expect(itens.map((i) => i.id)).toEqual(["igdb_game_30", "igdb_game_10", "igdb_game_20"]);
+    expect(consulta.mock.calls[1][1]).toContain("where id = (30,10,20)");
+  });
+
+  it("sem popularidade, usa os lancamentos do ultimo ano, nunca o ranking de todos os tempos", async () => {
+    const service = new IgdbService();
+    const consulta = jest.spyOn(service, "consulta").mockImplementation(async (endpoint: string) =>
+      endpoint === "popularity_primitives" ? null : [{ id: 7, name: "Recente", first_release_date: ano(2026) }]
+    );
+
+    const itens = await service.emAlta(20);
+
+    expect(itens.map((i) => i.id)).toEqual(["igdb_game_7"]);
+    expect(consulta.mock.calls[1][1]).toMatch(/first_release_date > \d+ & first_release_date < \d+/);
+  });
+});

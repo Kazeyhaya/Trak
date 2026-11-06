@@ -113,6 +113,19 @@ export function mapHardcoverBook(book: HardcoverBook | HardcoverSearchHitDocumen
   };
 }
 
+const CAMPOS_LIVRO = `
+  id
+  title
+  description
+  release_year
+  pages
+  rating
+  cached_image
+  cached_contributors
+  cached_tags
+  slug
+`;
+
 @Injectable()
 export class HardcoverService implements ProvedorCatalogo {
   private readonly logger = new Logger(HardcoverService.name);
@@ -195,6 +208,66 @@ export class HardcoverService implements ProvedorCatalogo {
 
     return hits
       .flatMap((hit) => (hit.document ? [mapHardcoverBook(hit.document)] : []))
+      .filter((item) => Boolean(item.id && item.title));
+  }
+
+  // books_trending nao esta documentado de forma acessivel; se a API recusar, nao insiste.
+  private tendenciaIndisponivel = false;
+
+  // Livros em alta agora. Ordem de preferencia: tendencia da Hardcover nos ultimos 30
+  // dias; os mais lidos entre os lancados no ultimo ano; os mais lidos de todos os tempos.
+  async emAlta(limit = 20): Promise<ItemCatalogo[]> {
+    const maxResults = Math.min(Math.max(1, limit), 50);
+    if (!this.getApiKey()) {
+      return [];
+    }
+
+    if (!this.tendenciaIndisponivel) {
+      const hoje = new Date();
+      const dia = (d: Date) => d.toISOString().slice(0, 10);
+      const tendencia = await this.executeQuery<{ books_trending?: { ids?: number[] } | null }>(
+        `query EmAlta($from: date!, $to: date!, $limit: Int!) {
+          books_trending(from: $from, to: $to, limit: $limit, offset: 0) { ids }
+        }`,
+        { from: dia(new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)), to: dia(hoje), limit: maxResults }
+      );
+      const ids = tendencia?.books_trending?.ids ?? [];
+      if (ids.length > 0) {
+        const livros = await this.livrosPorIds(ids);
+        if (livros.length > 0) {
+          return livros;
+        }
+      } else if (!tendencia?.books_trending) {
+        this.tendenciaIndisponivel = true;
+      }
+    }
+
+    const recentes = await this.executeQuery<HardcoverPopularResponse>(
+      `query Recentes($limit: Int!, $ano: Int!) {
+        books(where: { release_year: { _gte: $ano } }, order_by: { users_read_count: desc }, limit: $limit) {
+          ${CAMPOS_LIVRO}
+        }
+      }`,
+      { limit: maxResults, ano: new Date().getUTCFullYear() - 1 }
+    );
+    const itens = (recentes?.books ?? []).map(mapHardcoverBook).filter((item) => Boolean(item.id && item.title));
+    return itens.length > 0 ? itens : this.getPopularBooks(maxResults);
+  }
+
+  // Livros pelos ids, na mesma ordem.
+  private async livrosPorIds(ids: number[]): Promise<ItemCatalogo[]> {
+    const data = await this.executeQuery<HardcoverPopularResponse>(
+      `query PorIds($ids: [Int!]!) {
+        books(where: { id: { _in: $ids } }) {
+          ${CAMPOS_LIVRO}
+        }
+      }`,
+      { ids }
+    );
+    const posicao = new Map(ids.map((id, i) => [id, i]));
+    return (data?.books ?? [])
+      .sort((a, b) => (posicao.get(Number(a.id)) ?? 0) - (posicao.get(Number(b.id)) ?? 0))
+      .map(mapHardcoverBook)
       .filter((item) => Boolean(item.id && item.title));
   }
 
