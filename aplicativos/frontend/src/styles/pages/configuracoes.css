@@ -1,0 +1,220 @@
+/* ===== Pagina de configuracoes ===== */
+.config-hero {
+  margin-bottom: 20px;
+}
+
+.config-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+/* Menu de secoes: coluna fixa no desktop, abas rolaveis no celular. */
+.config-menu {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+}
+
+.config-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.config-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.config-menu-item.is-active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.config-menu-pendente {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.config-conteudo {
+  min-width: 0;
+}
+
+.config-secao {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+}
+
+.config-secao-cabecalho h2 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.config-secao-cabecalho p {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Em grades de dois campos, o texto de ajuda de um lado nao estica o campo do outro. */
+.config-secao label {
+  align-content: start;
+}
+
+.config-secao textarea,
+.config-secao select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(160, 184, 214, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+}
+
+.config-secao textarea:focus,
+.config-secao select:focus {
+  outline: 2px solid rgba(110, 231, 200, 0.32);
+  outline-offset: 1px;
+}
+
+.config-secao .theme-selector {
+  margin-top: 8px;
+}
+
+/* Botao de arquivo: o input nativo fica escondido dentro do rotulo. */
+.config-arquivo {
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.config-arquivo input {
+  display: none;
+}
+
+/* Rodape de cada secao: preso ao pe da tela enquanto ha alteracoes. */
+.config-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.config-rodape.is-alterado {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  padding: 12px 16px;
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow);
+}
+
+.config-rodape-mensagens p {
+  margin: 0;
+}
+
+.config-rodape-acoes {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Secao Conta: blocos independentes, cada um com sua acao. */
+.config-bloco {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-subtle);
+}
+
+.config-bloco h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.config-bloco p {
+  margin: 0;
+}
+
+.config-perigo {
+  display: grid;
+  gap: 12px;
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.config-perigo > p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.config-botao-perigo {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.config-botao-perigo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .config-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .config-menu {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .config-menu-item {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .config-secao {
+    padding: 18px 16px;
+  }
+}

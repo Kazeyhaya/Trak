@@ -86,7 +86,7 @@ export function ImportShell() {
           <UiButton href="/painel" variant="secondary">
             Ver minha estante
           </UiButton>
-          <UiButton href="/perfil" variant="secondary">
+          <UiButton href="/configuracoes" variant="secondary">
             Editar perfil
           </UiButton>
         </div>
@@ -123,7 +123,7 @@ export function ImportShell() {
           <p>Você já concluiu a importação inicial do seu histórico no Trak.</p>
           <div className="item-next-actions">
             <UiButton href="/painel">Ver minha estante</UiButton>
-            <UiButton href="/perfil" variant="secondary">
+            <UiButton href="/configuracoes" variant="secondary">
               Editar perfil
             </UiButton>
           </div>

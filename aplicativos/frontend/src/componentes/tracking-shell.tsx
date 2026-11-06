@@ -18,7 +18,7 @@ export function TrackingShell() {
     if (profile?.username && !ehUsernameProvisorio(profile.username)) {
       router.replace(`/u/${profile.username}`);
     } else {
-      router.replace("/perfil");
+      router.replace("/configuracoes");
     }
   }, [loading, profile, router]);
 

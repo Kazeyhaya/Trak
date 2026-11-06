@@ -19,7 +19,7 @@ export function BottomNav() {
   const isCatalogo = pathname.startsWith("/catalogo") || pathname.startsWith("/itens/");
   const isFeed = pathname.startsWith("/feed");
   const isRecomendacoes = pathname.startsWith("/recomendacoes");
-  const isProfile = pathname.startsWith("/u/") || pathname.startsWith("/perfil");
+  const isProfile = pathname.startsWith("/u/") || pathname.startsWith("/configuracoes");
 
   const avatarInitial = (
     profile?.displayName ||
@@ -122,7 +122,7 @@ export function BottomNav() {
             </Link>
 
             <Link
-              href={profile ? `/u/${profile.username}` : "/perfil"}
+              href={profile ? `/u/${profile.username}` : "/configuracoes"}
               className={`bottom-nav-item${isProfile ? " is-active" : ""}`}
               aria-current={isProfile ? "page" : undefined}
             >

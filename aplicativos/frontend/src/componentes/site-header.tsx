@@ -37,7 +37,7 @@ export function SiteHeader() {
   )
     .charAt(0)
     .toUpperCase();
-  const isProfilePage = pathname.startsWith("/u/") || pathname.startsWith("/perfil");
+  const isProfilePage = pathname.startsWith("/u/") || pathname.startsWith("/configuracoes");
 
   return (
     <header className="site-header">
@@ -61,7 +61,7 @@ export function SiteHeader() {
 
           <Link
             className={`header-avatar-link${isProfilePage ? " is-active" : ""}`}
-            href={profile ? `/u/${profile.username}` : "/perfil"}
+            href={profile ? `/u/${profile.username}` : "/configuracoes"}
             aria-current={isProfilePage ? "page" : undefined}
             aria-label={profile ? `Meu perfil (@${profile.username})` : "Criar perfil"}
             title={profile ? `${profile.displayName || `@${profile.username}`} (@${profile.username})` : "Criar perfil"}

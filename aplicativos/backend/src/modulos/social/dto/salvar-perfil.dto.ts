@@ -3,12 +3,15 @@ import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, Matches, MaxLength
 
 const aparar = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim() : value);
 
+// Envio parcial: cada secao das configuracoes manda so os proprios campos. O nome de
+// usuario so e obrigatorio na primeira gravacao (quando ainda nao ha perfil).
 export class SalvarPerfilDto {
+  @IsOptional()
   @Transform(({ value }) => (typeof value === "string" ? value.trim().toLowerCase() : value))
   @Matches(/^[a-z0-9_]{3,20}$/, {
     message: "O nome de usuario deve ter de 3 a 20 caracteres: letras minusculas, numeros ou _."
   })
-  username!: string;
+  username?: string;
 
   @IsOptional()
   @Transform(aparar)
