@@ -180,3 +180,39 @@ describe("HardcoverService", () => {
     });
   });
 });
+
+
+describe("HardcoverService.emAlta", () => {
+  const livro = (id: number, title: string) => ({ id, title, cached_image: { url: `https://assets.hardcover.app/${id}.jpg` } });
+
+  beforeEach(() => {
+    process.env.HARDCOVER_API_KEY = "test_hardcover_token";
+  });
+
+  it("usa a tendencia dos ultimos 30 dias, na ordem dela", async () => {
+    const service = new HardcoverService();
+    jest.spyOn(service, "executeQuery").mockImplementation(async (query: string) => {
+      if (query.includes("books_trending")) {
+        return { books_trending: { ids: [2, 1] } };
+      }
+      return { books: [livro(1, "Um"), livro(2, "Dois")] };
+    });
+
+    const itens = await service.emAlta(20);
+
+    expect(itens.map((i) => i.title)).toEqual(["Dois", "Um"]);
+  });
+
+  it("sem tendencia na API, usa os mais lidos do ultimo ano e nao tenta a tendencia de novo", async () => {
+    const service = new HardcoverService();
+    const executar = jest.spyOn(service, "executeQuery").mockImplementation(async (query: string) =>
+      query.includes("books_trending") ? null : { books: [livro(3, "Recente")] }
+    );
+
+    expect((await service.emAlta(20)).map((i) => i.title)).toEqual(["Recente"]);
+    expect(executar.mock.calls[1][0]).toContain("release_year: { _gte: $ano }");
+
+    await service.emAlta(20);
+    expect(executar.mock.calls.filter(([q]) => String(q).includes("books_trending"))).toHaveLength(1);
+  });
+});

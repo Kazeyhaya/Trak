@@ -27,6 +27,14 @@ type FiltroTipo = "movie" | "series" | "game" | "book" | "anime" | "novela" | "d
 
 const LIMITE_POR_FONTE = 20;
 
+// "AAAA-MM-DD,AAAA-MM-DD" do ultimo ano, no formato do filtro `dates` do RAWG.
+function ultimos12Meses(hoje = new Date()) {
+  const dia = (d: Date) => d.toISOString().slice(0, 10);
+  const inicio = new Date(hoje);
+  inicio.setUTCFullYear(hoje.getUTCFullYear() - 1);
+  return `${dia(inicio)},${dia(hoje)}`;
+}
+
 // Busca e vitrine do catalogo: junta resultados de todas as fontes por tipo e genero.
 export class ListagemCatalogo {
   constructor(
@@ -75,7 +83,7 @@ export class ListagemCatalogo {
     const [movies, series, games, books] = await Promise.all([
       incluir("movie") ? this.listarTmdb("movie", busca, generoValido, filtro === "movie", false, idioma) : [],
       incluir("series") ? this.listarTmdb("tv", busca, generoValido, true, filtro === "series", idioma) : [],
-      incluir("game") ? this.listarRawg(busca, generoValido) : [],
+      incluir("game") ? this.listarJogos(busca, generoValido) : [],
       incluir("book") ? this.listarLivros(busca, generoValido) : []
     ]);
 
@@ -257,14 +265,23 @@ export class ListagemCatalogo {
       .map((item) => mapearTmdb(item, "SERIES", "DORAMA"));
   }
 
-  private async listarRawg(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+  // Jogos. Sem busca, o que esta em alta agora: a popularidade atual da IGDB; sem ela, os
+  // lancamentos dos ultimos 12 meses mais adicionados no RAWG (tambem com genero).
+  private async listarJogos(query?: string, genero?: GeneroCatalogo): Promise<ItemCatalogo[]> {
+    if (!query && !genero && this.igdbService.isConfigurado()) {
+      const emAlta = await this.igdbService.emAlta(LIMITE_POR_FONTE);
+      if (emAlta.length > 0) {
+        return emAlta;
+      }
+    }
+
     const rawgGenre = genero ? MAPA_GENEROS[genero].rawg : undefined;
     if (genero && !rawgGenre) {
       return [];
     }
     const params: Record<string, string> = query
       ? { page_size: String(LIMITE_POR_FONTE), search: query }
-      : { page_size: String(LIMITE_POR_FONTE), ordering: "-added" };
+      : { page_size: String(LIMITE_POR_FONTE), ordering: "-added", dates: ultimos12Meses() };
     if (rawgGenre) {
       params.genres = rawgGenre;
     }
@@ -274,7 +291,10 @@ export class ListagemCatalogo {
     // RAWG fora do ar ou sem chave (null, diferente de lista vazia): a IGDB cobre a busca e a
     // vitrine. Filtro por genero fica de fora, porque a IGDB nao usa os mesmos generos.
     if (data === null) {
-      return !genero && this.igdbService.isConfigurado() ? this.igdbService.buscar(query ?? "", LIMITE_POR_FONTE) : [];
+      if (genero || !this.igdbService.isConfigurado()) {
+        return [];
+      }
+      return query ? this.igdbService.buscar(query, LIMITE_POR_FONTE) : this.igdbService.emAlta(LIMITE_POR_FONTE);
     }
 
     // A listagem do RAWG nao traz descricao. Se IGDB ou SteamGridDB estiverem ativas, busca capas verticais 2:3 nítidas.
@@ -402,45 +422,31 @@ export class ListagemCatalogo {
       return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
     }
 
-    // 2. Filtro por gênero sem termo específico:
+    // 2. Genero (inclui manga e HQ) sem termo: o que esta em alta nele na Open Library.
     if (subject) {
-      const hcTerm = ehManga ? "manga" : (ehHq ? "graphic novel" : (genero ?? subject));
-      const gbooksTerm = ehManga ? "manga" : (ehHq ? 'subject:"comics"' : `subject:${subject}`);
-
-      const [hardcoverResult, gbooksResult, openLibResult] = await Promise.allSettled([
-        this.hardcoverService.buscar(hcTerm, LIMITE_POR_FONTE),
-        this.googleBooksService.buscar(gbooksTerm, LIMITE_POR_FONTE),
-        this.http.openLibrary<{ works?: OpenLibraryDoc[] }>(`/subjects/${subject}.json`, {
-          limit: String(LIMITE_POR_FONTE)
-        })
-      ]);
-
-      const hardcoverItens = hardcoverResult.status === "fulfilled" ? hardcoverResult.value : [];
-      const gbooksItens = gbooksResult.status === "fulfilled" ? gbooksResult.value : [];
-      const openLibItens =
-        openLibResult.status === "fulfilled"
-          ? (openLibResult.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
-          : [];
-
-      return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
+      const emAlta = await this.http.openLibrary<{ docs?: OpenLibraryDoc[] }>("/search.json", {
+        subject,
+        sort: "trending",
+        limit: String(LIMITE_POR_FONTE),
+        fields: "key,title,cover_i,first_publish_year"
+      });
+      return this.mesclarLivros([], [], (emAlta?.docs ?? []).map(mapearOpenLibrary), LIMITE_POR_FONTE);
     }
 
-    // 3. Vitrine inicial da aba Livros: combina populares da Hardcover, tendências da OpenLibrary e populares da Google Books
-    const [hardcoverPopular, openLibTrending, gbooksPopular] = await Promise.allSettled([
-      this.hardcoverService.buscar("", LIMITE_POR_FONTE),
+    // 3. Vitrine da aba Livros: em alta na Hardcover e tendencias da semana na Open Library.
+    const [hardcoverEmAlta, openLibEmAlta] = await Promise.allSettled([
+      this.hardcoverService.emAlta(LIMITE_POR_FONTE),
       this.http.openLibrary<{ works?: OpenLibraryDoc[] }>("/trending/weekly.json", {
         limit: String(LIMITE_POR_FONTE)
-      }),
-      this.googleBooksService.buscar("ficcao fantasia romance bestseller", LIMITE_POR_FONTE)
+      })
     ]);
 
-    const hardcoverItens = hardcoverPopular.status === "fulfilled" ? hardcoverPopular.value : [];
+    const hardcoverItens = hardcoverEmAlta.status === "fulfilled" ? hardcoverEmAlta.value : [];
     const openLibItens =
-      openLibTrending.status === "fulfilled"
-        ? (openLibTrending.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
+      openLibEmAlta.status === "fulfilled"
+        ? (openLibEmAlta.value?.works ?? []).slice(0, LIMITE_POR_FONTE).map(mapearOpenLibrary)
         : [];
-    const gbooksItens = gbooksPopular.status === "fulfilled" ? gbooksPopular.value : [];
 
-    return this.mesclarLivros(hardcoverItens, gbooksItens, openLibItens, LIMITE_POR_FONTE);
+    return this.mesclarLivros(hardcoverItens, [], openLibItens, LIMITE_POR_FONTE);
   }
 }

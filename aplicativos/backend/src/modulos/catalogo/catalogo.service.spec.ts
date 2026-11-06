@@ -44,26 +44,20 @@ afterEach(() => {
 });
 
 describe("CatalogoService.listar", () => {
-  it("sem chaves de API ainda lista livros do Google Books e OpenLibrary de forma híbrida", async () => {
+  it("vitrine de livros sem chaves mostra as tendencias da semana da Open Library", async () => {
     delete process.env.TMDB_API_KEY;
     delete process.env.RAWG_API_KEY;
-    mockFetch({
+    const fetch = mockFetch({
       "trending/weekly": {
         works: [{ key: "/works/OL1W", title: "O Senhor dos Anéis", cover_i: 12345 }]
-      },
-      "googleapis.com/books": {
-        items: [{ id: "gb1", volumeInfo: { title: "Duna", description: "Ficção científica épica." } }]
       }
     });
 
     const itens = await criarServico().listar(undefined, "book");
 
-    expect(itens).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "openlibrary_book_OL1W", type: "BOOK", title: "O Senhor dos Anéis" }),
-        expect.objectContaining({ id: "media_gbooks_gb1", type: "BOOK", title: "Duna" })
-      ])
-    );
+    expect(itens).toEqual([expect.objectContaining({ id: "openlibrary_book_OL1W", type: "BOOK", title: "O Senhor dos Anéis" })]);
+    // A busca fixa do Google Books ("bestseller") nao entra mais na vitrine.
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("googleapis.com/books"))).toBe(false);
   });
 
   it("filtro de tipo consulta apenas a fonte correspondente", async () => {
@@ -284,7 +278,7 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
       "/discover/movie": { results: [{ id: 10, title: "Filme Acao", genre_ids: [28] }] },
       "/discover/tv": { results: [{ id: 20, name: "Serie Acao", genre_ids: [10759] }] },
       "/games": { results: [{ id: 30, name: "Jogo Acao", background_image: null, released: null }] },
-      "googleapis.com/books": { items: [{ id: "gb9", volumeInfo: { title: "Livro Acao" } }] }
+      "/search.json": { docs: [{ key: "/works/OL9W", title: "Livro Acao", cover_i: 9 }] }
     });
 
     const itens = await criarServico().listar(undefined, undefined, "acao");
@@ -293,65 +287,37 @@ describe("CatalogoService.listar (animes e animacoes)", () => {
       "tmdb_movie_10",
       "tmdb_series_20",
       "rawg_game_30",
-      "media_gbooks_gb9"
+      "openlibrary_book_OL9W"
     ]);
-    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    const urls = fetch.mock.calls.map(([url]) => String(url));
+    // Jogos e livros por genero tambem seguem o momento: lancamentos do ultimo ano e tendencia.
+    expect(urls.find((u) => u.includes("/games"))).toMatch(/dates=\d{4}-\d{2}-\d{2}%2C\d{4}-\d{2}-\d{2}/);
+    expect(urls.find((u) => u.includes("/search.json"))).toContain("sort=trending");
   });
 
-  it("filtra por manga na aba de livros ou tipo manga", async () => {
-    const mockHc = new HardcoverService();
-    jest.spyOn(mockHc, "searchBooks").mockResolvedValueOnce([
-      {
-        id: "media_hardcover_101",
-        externalId: "101",
-        source: "hardcover",
-        type: "BOOK",
-        subtype: "MANGA",
-        title: "Chainsaw Man",
-        coverUrl: "https://assets.hardcover.app/csm.jpg",
-        synopsis: null,
-        releaseYear: 2018
-      }
-    ]);
-    const mockGb = new GoogleBooksService();
-    jest.spyOn(mockGb, "searchBooks").mockResolvedValueOnce([]);
-    mockFetch({
-      "/subjects/manga.json": { works: [] }
+  it("filtra por manga com o que esta em alta no assunto", async () => {
+    const fetch = mockFetch({
+      "/search.json": { docs: [{ key: "/works/OL101W", title: "Chainsaw Man", cover_i: 101 }] }
     });
 
-    const servico = criarServico(mockGb, mockHc);
-    const itens = await servico.listar(undefined, "book", "manga");
+    const itens = await criarServico().listar(undefined, "book", "manga");
 
-    expect(itens.some((i) => i.title === "Chainsaw Man")).toBe(true);
-    expect(mockHc.searchBooks).toHaveBeenCalledWith("manga", 20);
+    expect(itens.map((i) => i.title)).toEqual(["Chainsaw Man"]);
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).toContain("subject=manga");
+    expect(url).toContain("sort=trending");
   });
 
-  it("filtra por quadrinhos/hqs na aba de livros", async () => {
-    const mockHc = new HardcoverService();
-    jest.spyOn(mockHc, "searchBooks").mockResolvedValueOnce([
-      {
-        id: "media_hardcover_202",
-        externalId: "202",
-        source: "hardcover",
-        type: "BOOK",
-        subtype: "HQ",
-        title: "Watchmen",
-        coverUrl: "https://assets.hardcover.app/watchmen.jpg",
-        synopsis: null,
-        releaseYear: 1986
-      }
-    ]);
-    const mockGb = new GoogleBooksService();
-    jest.spyOn(mockGb, "searchBooks").mockResolvedValueOnce([]);
-    mockFetch({
-      "/subjects/comic_books.json": { works: [] }
+  it("filtra por quadrinhos/hqs com o que esta em alta no assunto", async () => {
+    const fetch = mockFetch({
+      "/search.json": { docs: [{ key: "/works/OL202W", title: "Watchmen", cover_i: 202 }] }
     });
 
-    const servico = criarServico(mockGb, mockHc);
-    const itens = await servico.listar(undefined, "book", "quadrinhos");
+    const itens = await criarServico().listar(undefined, "book", "quadrinhos");
 
-    expect(itens.some((i) => i.title === "Watchmen")).toBe(true);
-    expect(mockHc.searchBooks).toHaveBeenCalledWith("graphic novel", 20);
+    expect(itens.map((i) => i.title)).toEqual(["Watchmen"]);
+    expect(String(fetch.mock.calls[0][0])).toContain("subject=comic_books");
   });
 });
 
@@ -760,7 +726,7 @@ describe("jogos com o RAWG fora do ar", () => {
     jest.spyOn(global, "fetch").mockResolvedValue(new Response("error code: 522", { status: 522 }));
     const igdb = new IgdbService();
     jest.spyOn(igdb, "isConfigurado").mockReturnValue(true);
-    const buscar = jest.spyOn(igdb, "buscar").mockResolvedValue([
+    const emAlta = jest.spyOn(igdb, "emAlta").mockResolvedValue([
       {
         id: "igdb_game_1",
         externalId: "1",
@@ -775,7 +741,7 @@ describe("jogos com o RAWG fora do ar", () => {
 
     const itens = await criarServico(new GoogleBooksService(), new HardcoverService(), igdb).listar(undefined, "game");
 
-    expect(buscar).toHaveBeenCalledWith("", 20);
+    expect(emAlta).toHaveBeenCalledWith(20);
     expect(itens.map((i) => i.id)).toEqual(["igdb_game_1"]);
   });
 });

@@ -223,6 +223,43 @@ export class IgdbService implements ProvedorCatalogo {
   /**
    * Busca jogos na IGDB e devolve no formato unificado ItemCatalogo[].
    */
+  // Jogos em alta agora. Ordem de preferencia: popularidade atual da IGDB (visitas
+  // recentes, endpoint popularity_primitives); se indisponivel, os lancamentos dos ultimos
+  // 12 meses mais avaliados. Nunca o "mais avaliado de todos os tempos".
+  async emAlta(limit = 20): Promise<ItemCatalogo[]> {
+    const maxResults = Math.min(Math.max(1, limit), 50);
+    const campos = "name,summary,first_release_date,cover.image_id,rating,rating_count";
+
+    const populares = await this.consulta<Array<{ game_id?: number }>>(
+      "popularity_primitives",
+      "fields game_id,value; where popularity_type = 1; sort value desc; limit 60;"
+    );
+    const ids = [...new Set((populares ?? []).flatMap((p) => (p.game_id ? [p.game_id] : [])))];
+    if (ids.length > 0) {
+      const lista = `(${ids.join(",")})`;
+      const jogos =
+        (await this.consulta<IgdbGame[]>(
+          "games",
+          `fields ${campos},game_type,version_parent; where id = ${lista} & cover != null; limit 60;`
+        )) ?? (await this.consulta<IgdbGame[]>("games", `fields ${campos}; where id = ${lista} & cover != null; limit 60;`));
+      const posicao = new Map(ids.map((id, i) => [id, i]));
+      const ordenados = (jogos ?? []).sort((a, b) => (posicao.get(a.id) ?? 0) - (posicao.get(b.id) ?? 0));
+      const itens = semDuplicatas(ordenados).slice(0, maxResults).map(mapIgdbGame);
+      if (itens.length > 0) {
+        return itens;
+      }
+    }
+
+    // Datas arredondadas ao dia, para a consulta (e o cache) nao mudar a cada segundo.
+    const DIA = 24 * 60 * 60;
+    const hoje = Math.floor(Date.now() / 1000 / DIA) * DIA;
+    const recentes = await this.consulta<IgdbGame[]>(
+      "games",
+      `fields ${campos}; where first_release_date > ${hoje - 365 * DIA} & first_release_date < ${hoje} & cover != null & version_parent = null; sort rating_count desc; limit ${Math.min(maxResults * 2, 50)};`
+    );
+    return semDuplicatas(recentes ?? []).slice(0, maxResults).map(mapIgdbGame);
+  }
+
   async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
     const nomeLimpo = (query ?? "").replace(/[^\w\s-]/gi, "").trim();
