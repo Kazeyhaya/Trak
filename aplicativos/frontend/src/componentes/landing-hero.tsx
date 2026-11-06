@@ -155,7 +155,7 @@ export function LandingHero({ vitrine }: { vitrine: CatalogItem[] }) {
 
           {frente && (
             <div className="landing-hero-legenda" key={frente.id}>
-              <span>{getMediaTypeLabel(frente.type, frente.subtype)}</span>
+              <span>Em alta · {getMediaTypeLabel(frente.type, frente.subtype)}</span>
               <strong>{frente.title}</strong>
               {frente.releaseYear && <small>{frente.releaseYear}</small>}
             </div>

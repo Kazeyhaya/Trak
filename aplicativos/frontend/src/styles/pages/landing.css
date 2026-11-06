@@ -8,8 +8,7 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   align-items: center;
   gap: 40px;
-  min-height: min(640px, calc(100vh - 140px));
-  padding: 56px 56px 48px;
+  padding: 32px 56px 40px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--surface-border);
   background: var(--bg);
@@ -89,6 +88,15 @@
 
 .landing-hero-tipos li.is-active::after {
   transform: scaleX(1);
+}
+
+/* Na landing o menu e o hero ficam mais perto do topo da pagina. */
+.home-shell--landing {
+  padding-top: 16px;
+}
+
+.landing-hero-texto h1 {
+  margin-top: 16px;
 }
 
 /* O destino do "Experimentar sem conta" para um pouco abaixo do topo. */
@@ -347,12 +355,16 @@ html:has(.landing-experimente) {
 }
 
 @media (max-width: 900px) {
+  .home-shell--landing {
+    padding-top: 12px;
+  }
+
   .landing-hero {
     /* minmax(0, ...) deixa a coluna encolher abaixo do conteudo; com 1fr o verbo
        (que nao quebra linha) alargava a pagina inteira no celular. */
     grid-template-columns: minmax(0, 1fr);
     gap: 36px;
-    padding: 36px 20px 32px;
+    padding: 24px 20px 28px;
     text-align: center;
   }
 
