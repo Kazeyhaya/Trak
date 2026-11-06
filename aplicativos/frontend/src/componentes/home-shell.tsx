@@ -155,17 +155,20 @@ export function HomeShell({ destaques, vitrine, initialLoggedIn }: HomeShellProp
 
       <LandingGestos />
 
-      <LandingDemo destaques={destaques} />
+      {/* Alvo do "Experimentar sem conta": existe mesmo se a demonstracao nao carregar. */}
+      <div id="experimente" className="landing-experimente">
+        <LandingDemo destaques={vitrine} />
 
-      {destaques.length > 0 && (
-        <section className="roadmap-block">
-          <SectionHeading
-            title="Em alta na semana"
-            description="Abra qualquer ficha para ver elenco, avaliações e onde assistir, jogar ou ler."
-          />
-          <MediaGrid items={destaques} label="Em alta na semana" />
-        </section>
-      )}
+        {destaques.length > 0 && (
+          <section className="roadmap-block">
+            <SectionHeading
+              title="Em alta na semana"
+              description="Abra qualquer ficha para ver elenco, avaliações e onde assistir, jogar ou ler."
+            />
+            <MediaGrid items={destaques} label="Em alta na semana" />
+          </section>
+        )}
+      </div>
     </main>
   );
 }

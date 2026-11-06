@@ -94,7 +94,7 @@ export function LandingDemo({ destaques }: { destaques: CatalogItem[] }) {
   const avatarDe = (nome: string | null) => personagens.find((p) => p.character === nome)?.avatarUrl ?? null;
 
   return (
-    <section className="landing-demo" id="experimente" aria-labelledby="landing-demo-titulo">
+    <section className="landing-demo" aria-labelledby="landing-demo-titulo">
       <header className="landing-demo-header">
         <span className="hero-eyebrow">Experimente agora</span>
         <h2 id="landing-demo-titulo">Marque um episódio de {serie.title}.</h2>

@@ -47,26 +47,57 @@
     linear-gradient(180deg, transparent 65%, var(--bg) 100%);
 }
 
-.landing-hero-selo {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--surface-border-strong);
-  background: rgba(10, 13, 18, 0.6);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 600;
+/* Os quatro tipos da estante, como etiquetas de fichario: o da capa da frente
+   ganha a cor do tipo e um traco embaixo. */
+.landing-hero-tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.landing-hero-selo::before {
+.landing-hero-tipos li {
+  position: relative;
+  padding-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.4s ease;
+}
+
+.landing-hero-tipos li::after {
   content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--cor-ativa);
-  transition: background 0.6s ease;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cor-tipo);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+
+.landing-hero-tipos li.is-active {
+  color: var(--cor-tipo);
+}
+
+.landing-hero-tipos li.is-active::after {
+  transform: scaleX(1);
+}
+
+/* O destino do "Experimentar sem conta" para um pouco abaixo do topo. */
+.landing-experimente {
+  scroll-margin-top: 24px;
+}
+
+html:has(.landing-experimente) {
+  scroll-behavior: smooth;
 }
 
 .landing-hero-texto h1 {
@@ -333,7 +364,8 @@
     margin: 0 auto;
   }
 
-  .landing-hero-acoes {
+  .landing-hero-acoes,
+  .landing-hero-tipos {
     justify-content: center;
   }
 
@@ -378,8 +410,14 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-hero-fundo img,
   .landing-hero-capa,
-  .landing-hero-verbo > span {
+  .landing-hero-verbo > span,
+  .landing-hero-tipos li,
+  .landing-hero-tipos li::after {
     transition: none;
+  }
+
+  html:has(.landing-experimente) {
+    scroll-behavior: auto;
   }
 
   .landing-hero-legenda {
