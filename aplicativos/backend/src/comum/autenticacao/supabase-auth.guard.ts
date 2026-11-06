@@ -35,6 +35,15 @@ export function limparCacheDeTokens() {
   tokensValidados.clear();
 }
 
+// Conta excluida: os tokens dela deixam de valer na hora, sem esperar os 60s do cache.
+export function esquecerUsuario(authUserId: string) {
+  for (const [chave, guardado] of tokensValidados) {
+    if (guardado.usuario.id === authUserId) {
+      tokensValidados.delete(chave);
+    }
+  }
+}
+
 async function autenticar(
   supabaseService: SupabaseService,
   request: RequestComUsuario,

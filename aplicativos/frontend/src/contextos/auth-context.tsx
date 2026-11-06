@@ -23,7 +23,7 @@ const naoConfigurado = "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_U
 
 // Mensagens para quem usa o site. Detalhes de configuracao (SMTP, trigger, "Confirm email")
 // vao para o console, onde quem mantem o projeto procura, e nao para a tela de login.
-function traduzirErroAuth(mensagem: string): string {
+export function traduzirErroAuth(mensagem: string): string {
   const m = mensagem.toLowerCase();
   if (m.includes("user already registered") || m.includes("already been registered")) {
     return "Este e-mail já tem conta. Entre com sua senha.";
@@ -33,6 +33,9 @@ function traduzirErroAuth(mensagem: string): string {
   }
   if (m.includes("email not confirmed")) {
     return "Falta confirmar seu e-mail. Procure a mensagem do Trak na sua caixa de entrada (e no spam).";
+  }
+  if (m.includes("should be different from the old password")) {
+    return "A nova senha precisa ser diferente da atual.";
   }
   if (m.includes("password should be at least")) {
     return "A senha precisa ter pelo menos 6 caracteres.";

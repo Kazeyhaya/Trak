@@ -76,7 +76,7 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
       const resposta = responder(op);
       return { data: resposta.data ?? null, error: resposta.error ?? null };
     },
-    auth: { getUser: jest.fn() }
+    auth: { getUser: jest.fn(), admin: { deleteUser: jest.fn(async () => ({ data: {}, error: null })) } }
   };
 
   return { client, chamadas };

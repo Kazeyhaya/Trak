@@ -27,9 +27,9 @@ export function AdultGate({ adult, children }: { adult?: boolean; children: Reac
           </p>
           <div className="adult-gate-acoes">
             {user ? (
-              <UiButton href="/perfil">Abrir configurações do perfil</UiButton>
+              <UiButton href="/configuracoes?secao=privacidade">Abrir configurações</UiButton>
             ) : (
-              <UiButton href="/entrar?next=/perfil">Entrar para liberar</UiButton>
+              <UiButton href="/entrar?next=%2Fconfiguracoes%3Fsecao%3Dprivacidade">Entrar para liberar</UiButton>
             )}
             <UiButton href="/catalogo" variant="secondary">
               Voltar ao catálogo

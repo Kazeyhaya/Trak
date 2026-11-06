@@ -13,6 +13,16 @@ function montar(responder: (op: Operacao) => Resposta) {
   return { service, chamadas: supabase.chamadas };
 }
 
+// Igual ao montar, expondo o cliente (para conferir supabase.auth.admin).
+function montarComCliente(responder: (op: Operacao) => Resposta) {
+  const supabase = criarSupabaseServiceMock(responder);
+  const service = new SocialService(
+    supabase.service as unknown as SupabaseService,
+    {} as unknown as CatalogoService
+  );
+  return { service, chamadas: supabase.chamadas, supabase: supabase.client };
+}
+
 const linhaUser = { id: "u1", username: "ana_1", displayName: null, bio: null, isPublic: true, createdAt: "2026" };
 
 describe("usernameExato", () => {
@@ -271,5 +281,45 @@ describe("conteudo +18 no perfil", () => {
     const update = chamadas.find((c) => c.table === "User" && c.action === "update")!;
     expect(update.payload).toMatchObject({ birthDate: "1990-05-10", adultContent: true });
     expect(update.payload).toHaveProperty("adultConsentAt");
+  });
+});
+
+
+describe("configuracoes: salvamento por secao e exclusao de conta", () => {
+  it("salva so os campos enviados, sem exigir o nome de usuario de quem ja tem perfil", async () => {
+    const { service, chamadas } = montar((op) =>
+      op.table === "User" ? { data: { id: "u1", username: "ana", bio: "nova bio" } } : { data: null }
+    );
+
+    await service.salvarPerfil("u1", { bio: "nova bio" });
+
+    const update = chamadas.find((c) => c.table === "User" && c.action === "update")!;
+    expect(Object.keys(update.payload as object).sort()).toEqual(["bio", "updatedAt"]);
+  });
+
+  it("na primeira gravacao exige o nome de usuario", async () => {
+    const { service } = montar(() => ({ data: null }));
+    await expect(service.salvarPerfil("u1", { bio: "oi" })).rejects.toThrow("Escolha um nome de usuário primeiro.");
+  });
+
+  it("excluir conta apaga os dados no banco e depois o login", async () => {
+    const { service, chamadas, supabase } = montarComCliente(() => ({ data: null }));
+
+    await expect(service.excluirConta("u1")).resolves.toEqual({ ok: true });
+
+    expect(chamadas.find((c) => c.action === "rpc")).toMatchObject({
+      table: "trak_excluir_usuario",
+      payload: { usuario: "u1" }
+    });
+    expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith("u1");
+  });
+
+  it("se o banco falhar, o login nao e apagado", async () => {
+    const { service, supabase } = montarComCliente((op) =>
+      op.action === "rpc" ? { error: { message: "falhou" } } : { data: null }
+    );
+
+    await expect(service.excluirConta("u1")).rejects.toThrow("falhou");
+    expect(supabase.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 });

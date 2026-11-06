@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { AuthGuard } from "../../componentes/auth-guard";
-import { ProfileForm } from "../../componentes/profile-form";
-
-export const metadata: Metadata = { title: "Trak | Seu perfil" };
-
+// O antigo formulario de perfil virou a pagina de configuracoes; links antigos continuam valendo.
 export default function PerfilPage() {
-  return (
-    <AuthGuard>
-      <ProfileForm />
-    </AuthGuard>
-  );
+  redirect("/configuracoes");
 }

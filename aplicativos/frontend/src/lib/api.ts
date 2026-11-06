@@ -403,8 +403,14 @@ export function ehUsernameProvisorio(username: string) {
 
 export const getMyProfile = () => request<{ profile: Profile | null; isAdmin: boolean }>("/perfis/eu");
 
-export const saveMyProfile = (profile: Partial<Profile> & { username: string }) =>
+// Envio parcial: so os campos informados mudam. O nome de usuario so e obrigatorio na
+// primeira gravacao, quando a pessoa ainda nao tem perfil.
+export const saveMyProfile = (profile: Partial<Profile>) =>
   request<Profile>("/perfis/eu", { method: "PUT", body: json(profile) });
+
+// Irreversivel: apaga estante, notas, favoritos, comentarios (os denunciados ficam
+// ocultos para a moderacao) e o login.
+export const deleteMyAccount = () => request<{ ok: true }>("/perfis/eu", { method: "DELETE" });
 
 export const getPublicProfile = (username: string) =>
   request<PublicProfile>(`/perfis/${encodeURIComponent(username)}`);

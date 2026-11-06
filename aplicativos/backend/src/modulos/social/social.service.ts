@@ -7,7 +7,7 @@ import {
   NotFoundException,
   Optional
 } from "@nestjs/common";
-import { ehAdmin } from "../../comum/autenticacao/supabase-auth.guard";
+import { ehAdmin, esquecerUsuario } from "../../comum/autenticacao/supabase-auth.guard";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
@@ -440,6 +440,9 @@ export class SocialService {
     }
 
     if (!error && !data) {
+      if (!valores.username) {
+        throw new BadRequestException("Escolha um nome de usuário primeiro.");
+      }
       const novoRegistro = {
         ...valores,
         id: userId,
@@ -462,6 +465,20 @@ export class SocialService {
     }
     falha(error);
     return perfilDe(data as LinhaUser, metaLegado);
+  }
+
+  // Exclui a conta: apaga os dados no banco (trak_excluir_usuario) e depois o login no
+  // Supabase Auth. Comentarios denunciados ficam ocultos, com o original para a moderacao.
+  async excluirConta(authUserId: string) {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { error } = await this.db.rpc("trak_excluir_usuario", { usuario: userId });
+    falha(error);
+
+    const { error: authError } = await this.db.auth.admin.deleteUser(authUserId);
+    falha(authError);
+
+    esquecerUsuario(authUserId);
+    return { ok: true };
   }
 
   // Perfil publico

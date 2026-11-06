@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   AutenticacaoOpcionalGuard,
   SupabaseAuthGuard
@@ -25,6 +26,14 @@ export class SocialController {
   @Put("perfis/eu")
   salvarPerfil(@UsuarioLogado() usuario: UsuarioAuth, @Body() payload: SalvarPerfilDto) {
     return this.socialService.salvarPerfil(usuario.id, payload, usuario.email);
+  }
+
+  // Irreversivel: no maximo 3 tentativas a cada 10 minutos.
+  @UseGuards(SupabaseAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 10 * 60_000 } })
+  @Delete("perfis/eu")
+  excluirConta(@UsuarioLogado() usuario: UsuarioAuth) {
+    return this.socialService.excluirConta(usuario.id);
   }
 
   @Get("perfis")

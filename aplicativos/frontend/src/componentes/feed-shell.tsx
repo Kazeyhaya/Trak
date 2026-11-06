@@ -126,7 +126,7 @@ export function FeedShell() {
               <strong>Escolha seu nome de usuário</strong>
               <p>É por ele que seus amigos vão encontrar e seguir você.</p>
             </div>
-            <UiButton href="/perfil">Editar perfil</UiButton>
+            <UiButton href="/configuracoes">Editar perfil</UiButton>
           </UiCard>
         </div>
       )}

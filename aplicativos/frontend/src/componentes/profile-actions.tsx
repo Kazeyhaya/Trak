@@ -60,7 +60,7 @@ export function ProfileActions({ username, initialIsMe, initialFollowing, initia
             Importar histórico
           </UiButton>
         )}
-        <UiButton href="/perfil" variant="secondary">
+        <UiButton href="/configuracoes" variant="secondary">
           Editar perfil
         </UiButton>
       </div>
