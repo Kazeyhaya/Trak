@@ -18,7 +18,8 @@ import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
 
 // O perfil publico mora na propria tabela "User" (id = id do Supabase Auth).
-const CAMPOS_PERFIL = "id,username,displayName,bio,isPublic,avatarUrl,bannerUrl,theme,language,importedSources,createdAt";
+const CAMPOS_PERFIL =
+  "id,username,displayName,bio,isPublic,avatarUrl,bannerUrl,theme,language,importedSources,birthDate,adultContent,createdAt";
 const CAMPOS_PERFIL_LEGADO = "id,username,displayName,bio,isPublic,createdAt";
 
 const TEMA_PADRAO = "emerald";
@@ -59,9 +60,22 @@ function perfilDe(linha: LinhaUser, meta?: MetaPerfil | null): Perfil {
     bannerUrl: linha.bannerUrl ?? meta?.bannerUrl ?? null,
     theme: linha.theme || meta?.theme || TEMA_PADRAO,
     language: (linha as unknown as { language?: string }).language === "en-US" ? "en-US" : IDIOMA_PADRAO,
+    birthDate: linha.birthDate ?? null,
+    adultContent: linha.adultContent === true,
     importedSources,
     hasImported: Boolean(meta?.hasImported) || todasImportadas
   };
+}
+
+// Idade completa em anos na data `hoje`, a partir de "AAAA-MM-DD".
+export function idadeEm(nascimento: string, hoje = new Date()) {
+  const [ano, mes, dia] = nascimento.split("-").map(Number);
+  let idade = hoje.getUTCFullYear() - ano;
+  const fezAniversario = hoje.getUTCMonth() + 1 > mes || (hoje.getUTCMonth() + 1 === mes && hoje.getUTCDate() >= dia);
+  if (!fezAniversario) {
+    idade--;
+  }
+  return idade;
 }
 
 // Busca exata sem diferenciar caixa; escapa os curingas do LIKE (_ e %).
@@ -79,6 +93,8 @@ type Perfil = {
   bannerUrl: string | null;
   theme: string;
   language: "pt-BR" | "en-US";
+  birthDate: string | null;
+  adultContent: boolean;
   importedSources: string[];
   hasImported: boolean;
   createdAt: string;
@@ -367,8 +383,29 @@ export class SocialService {
       ...(payload.bannerUrl !== undefined ? { bannerUrl: payload.bannerUrl || null } : {}),
       ...(payload.theme !== undefined ? { theme: payload.theme || TEMA_PADRAO } : {})
     };
-    const valores = Object.fromEntries(Object.entries(normalizado).filter(([, valor]) => valor !== undefined));
+    const valores: Record<string, unknown> = Object.fromEntries(
+      Object.entries(normalizado).filter(([, valor]) => valor !== undefined)
+    );
     const agora = new Date().toISOString();
+
+    // Conteudo +18: so com 18 anos ou mais pela data de nascimento (a enviada agora ou a salva).
+    if (payload.birthDate !== undefined || payload.adultContent !== undefined) {
+      const { data: atual } = await this.db.from("User").select("birthDate").eq("id", userId).maybeSingle();
+      const nascimento = payload.birthDate ?? (atual?.birthDate as string | null | undefined) ?? null;
+      if (nascimento && (idadeEm(nascimento) < 0 || idadeEm(nascimento) > 120)) {
+        throw new BadRequestException("Confira a data de nascimento.");
+      }
+      const maior = nascimento !== null && idadeEm(nascimento) >= 18;
+      if (payload.adultContent === true && !maior) {
+        throw new BadRequestException("Conteúdo +18 só pode ser liberado para maiores de 18 anos.");
+      }
+      if (payload.adultContent === true) {
+        valores.adultConsentAt = agora;
+      }
+      if (!maior) {
+        valores.adultContent = false;
+      }
+    }
 
     // A linha em "User" normalmente ja existe (trigger de cadastro); se nao, e criada aqui.
     const inicial = await this.db

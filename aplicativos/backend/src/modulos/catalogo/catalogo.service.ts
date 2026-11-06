@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
-import { IdParseado, parsearId } from "./catalogo.fontes";
+import { ehAdulto, IdParseado, parsearId } from "./catalogo.fontes";
 import { ClienteCatalogo } from "./catalogo.http";
 import { ListagemCatalogo } from "./catalogo.listagem";
 import { ExtrasCatalogo, FonteCatalogo, ItemCatalogo, Novidade } from "./catalogo.types";
@@ -53,8 +53,25 @@ export class CatalogoService implements OnModuleInit {
     return p ? { p, fonte: this.fontes[p.source] as unknown as Fonte } : null;
   }
 
-  listar(query?: string, tipo?: string, genero?: string, lang?: string) {
-    return this.listagem.listar(query, tipo, genero, lang);
+  // Conteudo +18 so entra para quem liberou no perfil (idade confirmada e consentimento).
+  async listar(query?: string, tipo?: string, genero?: string, lang?: string, incluirAdulto = false) {
+    const itens = await this.listagem.listar(query, tipo, genero, lang);
+    return incluirAdulto ? itens : itens.filter((item) => !ehAdulto(item));
+  }
+
+  // A pessoa liberou conteudo +18 no perfil? Visitante sem login: nao.
+  async permiteAdulto(authUserId?: string) {
+    if (!authUserId) {
+      return false;
+    }
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { data } = await this.supabaseService
+      .getClient()
+      .from("User")
+      .select("adultContent")
+      .eq("id", userId)
+      .maybeSingle();
+    return data?.adultContent === true;
   }
 
   // Com a fonte fora do ar (ex.: RAWG respondendo 522), usa o que ja esta salvo em
@@ -71,7 +88,9 @@ export class CatalogoService implements OnModuleInit {
     if (!item && !salvo) {
       throw new NotFoundException("Item nao encontrado.");
     }
-    return (item ?? salvo)!;
+    const encontrado = (item ?? salvo)!;
+    // Marca tambem o que so o titulo denuncia, para a ficha avisar antes de abrir.
+    return ehAdulto(encontrado) ? { ...encontrado, adult: true } : encontrado;
   }
 
   async extras(id: string): Promise<ExtrasCatalogo> {
@@ -82,9 +101,10 @@ export class CatalogoService implements OnModuleInit {
     return alvo.fonte.extras(alvo.p, id, this.mediaTrak(id));
   }
 
-  async relacionados(id: string): Promise<ItemCatalogo[]> {
+  async relacionados(id: string, incluirAdulto = false): Promise<ItemCatalogo[]> {
     const alvo = this.fonte(id);
-    return alvo ? alvo.fonte.relacionados(alvo.p, id) : [];
+    const itens = alvo ? await alvo.fonte.relacionados(alvo.p, id) : [];
+    return incluirAdulto ? itens : itens.filter((item) => !ehAdulto(item));
   }
 
   // Capa atual primeiro, depois as alternativas da fonte, sem repetir.
@@ -233,8 +253,10 @@ export class CatalogoService implements OnModuleInit {
 
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
-    const { pageCount: _pageCount, ...campos } = item;
+    // pageCount e adult nao sao colunas de MediaItem.
+    const { pageCount: _pageCount, adult: _adult, ...campos } = item;
     void _pageCount;
+    void _adult;
 
     // O item acabou de vir da API, com subtipo e capa ja resolvidos: nao precisa de backfill.
     const { error: insertError } = await supabase

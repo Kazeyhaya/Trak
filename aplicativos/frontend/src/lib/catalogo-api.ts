@@ -15,6 +15,8 @@ export type CatalogItem = {
   synopsis: string | null;
   releaseYear: number | null;
   pageCount?: number | null;
+  // Conteudo +18 marcado pela fonte.
+  adult?: boolean;
 };
 
 // Exibidos apenas quando a API esta fora do ar. Os ids seguem o formato do
@@ -118,7 +120,9 @@ export function obterIdiomaUsuario(): string {
   return "pt-BR";
 }
 
-export async function getCatalogItems(query = "", type = "", genre = "", lang = "") {
+// Com token, a API inclui conteudo +18 para quem liberou no perfil; sem token (visitante),
+// nunca inclui, e a resposta pode ir para o cache publico.
+export async function getCatalogItems(query = "", type = "", genre = "", lang = "", token: string | null = null) {
   const params = new URLSearchParams();
   const cleanQuery = query.trim().slice(0, 50);
   if (cleanQuery) {
@@ -137,7 +141,7 @@ export async function getCatalogItems(query = "", type = "", genre = "", lang = 
 
   const suffix = params.size > 0 ? `?${params}` : "";
   // Lista publica do catalogo: 10 minutos de cache (destaques e buscas repetidas).
-  const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`, null, { revalidate: 600 });
+  const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`, token, { revalidate: 600 });
 
   return items ? { items, offline: false } : { items: fallbackItems, offline: true };
 }

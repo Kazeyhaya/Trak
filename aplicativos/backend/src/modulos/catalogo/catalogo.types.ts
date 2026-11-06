@@ -15,6 +15,8 @@ export interface ItemCatalogo {
   synopsis: string | null;
   releaseYear: number | null;
   pageCount?: number | null;
+  // Conteudo +18 (marcado pela fonte). Fica fora das listas de quem nao liberou no perfil.
+  adult?: boolean;
 }
 
 export interface Temporada {

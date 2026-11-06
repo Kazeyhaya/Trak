@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CatalogShell } from "../../componentes/catalog-shell";
 import { getCatalogItems } from "../../lib/catalogo-api";
+import { tokenDoServidor } from "../../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ export default async function CatalogoPage({
   const query = rawQuery.slice(0, 50);
   const typeFilter = resolvedSearchParams?.type ?? "";
   const genreFilter = resolvedSearchParams?.genre ?? "";
-  const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter);
+  const token = await tokenDoServidor();
+  const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter, "", token);
 
   return (
     <CatalogShell

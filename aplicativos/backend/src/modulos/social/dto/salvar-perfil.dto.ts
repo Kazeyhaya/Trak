@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 const aparar = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim() : value);
 
@@ -49,4 +49,14 @@ export class SalvarPerfilDto {
     message: "O idioma deve ser pt-BR ou en-US."
   })
   language?: "pt-BR" | "en-US";
+
+  // AAAA-MM-DD. So a propria pessoa ve; serve para liberar conteudo +18.
+  @IsOptional()
+  @IsDateString({ strict: true }, { message: "Informe a data de nascimento no formato AAAA-MM-DD." })
+  birthDate?: string;
+
+  // Mostrar conteudo +18 no catalogo. Exige 18 anos ou mais pela data de nascimento.
+  @IsOptional()
+  @IsBoolean()
+  adultContent?: boolean;
 }

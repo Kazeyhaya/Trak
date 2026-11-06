@@ -31,6 +31,16 @@ const THEMES: Array<{ id: ProfileTheme; label: string; color: string }> = [
   { id: "crimson", label: "Carmesim", color: "#ff7a90" }
 ];
 
+// Idade completa em anos a partir de "AAAA-MM-DD" (a API confere de novo ao salvar).
+function idadeEm(nascimento: string, hoje = new Date()) {
+  const [ano, mes, dia] = nascimento.split("-").map(Number);
+  if (!ano || !mes || !dia) {
+    return 0;
+  }
+  const fezAniversario = hoje.getMonth() + 1 > mes || (hoje.getMonth() + 1 === mes && hoje.getDate() >= dia);
+  return hoje.getFullYear() - ano - (fezAniversario ? 0 : 1);
+}
+
 export function ProfileForm() {
   const { profile } = useAuth();
   const isEndOfYear = new Date().getMonth() === 11;
@@ -75,6 +85,9 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [isPublic, setIsPublic] = useState(profile?.isPublic ?? true);
+  const [birthDate, setBirthDate] = useState(profile?.birthDate ?? "");
+  const [adultContent, setAdultContent] = useState(profile?.adultContent ?? false);
+  const maiorDeIdade = birthDate ? idadeEm(birthDate) >= 18 : false;
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? "");
   const [bannerUrl, setBannerUrl] = useState(profile?.bannerUrl ?? "");
   const [theme, setTheme] = useState<string>(profile?.theme ?? "emerald");
@@ -200,7 +213,9 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
         avatarUrl: avatarUrl.trim(),
         bannerUrl: bannerUrl.trim(),
         theme,
-        language
+        language,
+        ...(birthDate ? { birthDate } : {}),
+        adultContent: adultContent && maiorDeIdade
       });
       setI18nLanguage(language);
       await refreshProfile();
@@ -460,6 +475,45 @@ function ProfileFields({ profile }: { profile: Profile | null }) {
               aria-label="Perfil público (outras pessoas veem sua lista e atividade)"
               className={`profile-switch${isPublic ? " is-on" : ""}`}
               onClick={() => setIsPublic((current) => !current)}
+            >
+              <span className="profile-switch-thumb" />
+            </button>
+          </div>
+
+          <div className="profile-privacy-card profile-adult-card">
+            <div className="profile-privacy-copy">
+              <strong>Conteúdo +18 ({adultContent && maiorDeIdade ? "Visível" : "Oculto"})</strong>
+              <p>
+                Jogos, filmes e livros adultos ficam fora do catálogo por padrão. Para vê-los, informe sua data de
+                nascimento e confirme que tem 18 anos ou mais. A data só aparece para você.
+              </p>
+              <label className="field-stack profile-adult-date">
+                <span className="field-label">Data de nascimento</span>
+                <input
+                  type="date"
+                  value={birthDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(event) => {
+                    setBirthDate(event.target.value);
+                    if (!event.target.value || idadeEm(event.target.value) < 18) {
+                      setAdultContent(false);
+                    }
+                  }}
+                />
+              </label>
+              {birthDate && !maiorDeIdade && (
+                <small>Conteúdo +18 só pode ser liberado para maiores de 18 anos.</small>
+              )}
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={adultContent && maiorDeIdade}
+              aria-label="Tenho 18 anos ou mais e quero ver conteúdo +18 no catálogo"
+              title={maiorDeIdade ? undefined : "Informe uma data de nascimento de 18 anos ou mais"}
+              disabled={!maiorDeIdade}
+              className={`profile-switch${adultContent && maiorDeIdade ? " is-on" : ""}`}
+              onClick={() => setAdultContent((current) => !current)}
             >
               <span className="profile-switch-thumb" />
             </button>

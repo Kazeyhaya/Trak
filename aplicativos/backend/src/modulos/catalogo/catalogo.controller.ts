@@ -1,18 +1,24 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from "@nestjs/common";
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from "@nestjs/common";
+import { AutenticacaoOpcionalGuard } from "../../comum/autenticacao/supabase-auth.guard";
+import { UsuarioAuth, UsuarioOpcional } from "../../comum/autenticacao/usuario-auth.decorator";
 import { CatalogoService } from "./catalogo.service";
 
 @Controller("catalogo")
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 
+  // Publico; com login, inclui conteudo +18 se a pessoa liberou no perfil.
+  @UseGuards(AutenticacaoOpcionalGuard)
   @Get()
-  listar(
+  async listar(
     @Query("q") q?: string,
     @Query("type") type?: string,
     @Query("genre") genre?: string,
-    @Query("lang") lang?: string
+    @Query("lang") lang?: string,
+    @UsuarioOpcional() usuario?: UsuarioAuth
   ) {
-    return this.catalogoService.listar(q, type, genre, lang);
+    const incluirAdulto = await this.catalogoService.permiteAdulto(usuario?.id);
+    return this.catalogoService.listar(q, type, genre, lang, incluirAdulto);
   }
 
   @Get(":id")
@@ -44,9 +50,10 @@ export class CatalogoController {
     return this.catalogoService.creditosEpisodio(id, temporada, episodio);
   }
 
+  @UseGuards(AutenticacaoOpcionalGuard)
   @Get(":id/relacionados")
-  relacionados(@Param("id") id: string) {
-    return this.catalogoService.relacionados(id);
+  async relacionados(@Param("id") id: string, @UsuarioOpcional() usuario?: UsuarioAuth) {
+    return this.catalogoService.relacionados(id, await this.catalogoService.permiteAdulto(usuario?.id));
   }
 
   @Get(":id/capas")

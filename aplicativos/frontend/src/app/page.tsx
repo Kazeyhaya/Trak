@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { HomeShell } from "../componentes/home-shell";
 import { CatalogItem, getCatalogItems } from "../lib/catalogo-api";
-import { usuarioDoServidor } from "../lib/supabase-server";
+import { tokenDoServidor, usuarioDoServidor } from "../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,8 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [{ items, offline }, usuario] = await Promise.all([getCatalogItems(), usuarioDoServidor()]);
+  const token = await tokenDoServidor();
+  const [{ items, offline }, usuario] = await Promise.all([getCatalogItems("", "", "", "", token), usuarioDoServidor()]);
   const comCapa = offline ? [] : items.filter((item) => item.coverUrl);
   const destaques = comCapa.slice(0, 8);
 

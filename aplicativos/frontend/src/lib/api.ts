@@ -325,6 +325,10 @@ export type Profile = {
   language?: ProfileLanguage;
   importedSources?: string[];
   hasImported?: boolean;
+  // So aparece no proprio perfil (AAAA-MM-DD).
+  birthDate?: string | null;
+  // Mostrar conteudo +18 no catalogo (exige 18 anos ou mais).
+  adultContent?: boolean;
 };
 
 export type ActivityType = "STATUS" | "RATING" | "COMMENT" | "FAVORITE" | "EPISODES";
