@@ -1669,6 +1669,29 @@
   padding-left: 18px;
 }
 
+/* Barra de progresso da importacao em segundo plano. */
+.import-progresso {
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  accent-color: var(--primary);
+}
+
+.import-progresso::-webkit-progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.import-progresso::-webkit-progress-value {
+  background: var(--primary);
+}
+
+.import-progresso::-moz-progress-bar {
+  background: var(--primary);
+}
+
 .report-item {
   display: grid;
   gap: 10px;

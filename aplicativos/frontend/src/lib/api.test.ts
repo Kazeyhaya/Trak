@@ -152,3 +152,27 @@ describe("paginacao", () => {
     expect(comCursor("/comentarios?mediaItemId=x", "c")).toBe("/comentarios?mediaItemId=x&cursor=c");
   });
 });
+
+describe("importacao", () => {
+  it("comoTarefa transforma a resposta antiga (resultado direto) numa tarefa concluida", async () => {
+    const { comoTarefa } = await import("./api");
+    const tarefa = comoTarefa({ total: 3, imported: 2, skipped: 1, notFound: [] }, "trakt");
+    expect(tarefa).toMatchObject({ status: "CONCLUIDA", fonte: "trakt", processados: 3, resultado: { imported: 2 } });
+  });
+
+  it("comoTarefa devolve a tarefa nova como veio", async () => {
+    const { comoTarefa } = await import("./api");
+    const nova = {
+      id: "t1",
+      fonte: "steam" as const,
+      chave: "steam",
+      status: "PROCESSANDO" as const,
+      total: 10,
+      processados: 0,
+      resultado: null,
+      erro: null,
+      createdAt: "2026-11-07"
+    };
+    expect(comoTarefa(nova, "steam")).toBe(nova);
+  });
+});

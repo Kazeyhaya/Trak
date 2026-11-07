@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SiteHeader } from "./site-header";
 import { UiBadge } from "./ui-badge";
@@ -9,20 +9,27 @@ import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
 import {
   errorMessage,
+  getImportTask,
+  getImportTasks,
   importLetterboxd,
   importSteam,
   importTrakt,
-  ImportResult,
+  ImportTask,
   LetterboxdList
 } from "../lib/api";
 import { listaPeloNome, validarArquivo } from "../lib/importacao";
 
 type Fonte = "letterboxd" | "trakt" | "steam";
 
+const NOMES: Record<Fonte, string> = { letterboxd: "Letterboxd", trakt: "Trakt", steam: "Steam" };
+const INTERVALO_MS = 2000;
+
 export function ImportShell() {
   const { profile, refreshProfile } = useAuth();
+  // Envio em curso (antes de a API devolver a tarefa).
   const [running, setRunning] = useState<Fonte | null>(null);
-  const [result, setResult] = useState<{ fonte: Fonte; data: ImportResult } | null>(null);
+  // Ultima importacao: em andamento, concluida ou com falha.
+  const [tarefa, setTarefa] = useState<ImportTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lista, setLista] = useState<LetterboxdList>("watched");
   const [letterboxdFile, setLetterboxdFile] = useState<File | null>(null);
@@ -38,14 +45,70 @@ export function ImportShell() {
   // A API decide quando nao ha mais nada a importar (inclui todas as listas do Letterboxd).
   const allImported = Boolean(profile?.hasImported);
 
-  async function run(fonte: Fonte, tarefa: () => Promise<ImportResult>) {
+  const processando = tarefa?.status === "PROCESSANDO";
+
+  // Ao abrir a pagina, retoma uma importacao que ainda esteja rodando.
+  useEffect(() => {
+    let ativo = true;
+    getImportTasks()
+      .then((tarefas) => {
+        const emAndamento = tarefas.find((t) => t.status === "PROCESSANDO");
+        if (ativo && emAndamento) {
+          setTarefa((atual) => atual ?? emAndamento);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  // Enquanto processa, consulta o progresso a cada 2s (uma consulta por vez); ao terminar,
+  // atualiza o perfil (fontes importadas). O efeito para sozinho quando o status muda.
+  const tarefaId = processando ? tarefa?.id : null;
+  useEffect(() => {
+    if (!tarefaId) {
+      return;
+    }
+    let ativo = true;
+    let emVoo = false;
+    const relogio = setInterval(async () => {
+      if (emVoo) {
+        return;
+      }
+      emVoo = true;
+      try {
+        const atual = await getImportTask(tarefaId);
+        if (!ativo) {
+          return;
+        }
+        setTarefa(atual);
+        if (atual.status === "CONCLUIDA") {
+          await refreshProfile();
+        }
+      } catch (err) {
+        if (ativo) {
+          setError(errorMessage(err, "Não foi possível acompanhar a importação. Recarregue a página."));
+        }
+      } finally {
+        emVoo = false;
+      }
+    }, INTERVALO_MS);
+    return () => {
+      ativo = false;
+      clearInterval(relogio);
+    };
+  }, [tarefaId, refreshProfile]);
+
+  async function run(fonte: Fonte, iniciar: () => Promise<ImportTask>) {
     setRunning(fonte);
     setError(null);
-    setResult(null);
     try {
-      const data = await tarefa();
-      setResult({ fonte, data });
-      await refreshProfile();
+      const nova = await iniciar();
+      setTarefa(nova);
+      if (nova.status === "CONCLUIDA") {
+        await refreshProfile();
+      }
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -68,7 +131,7 @@ export function ImportShell() {
     definir(arquivo);
   }
 
-  const ocupado = running !== null;
+  const ocupado = running !== null || processando;
 
   return (
     <main className="content-shell">
@@ -98,17 +161,35 @@ export function ImportShell() {
         </p>
       )}
 
-      {result && (
+      {tarefa && processando && (
         <UiCard className="import-card import-result" as="div">
           <strong role="status">
-            Importação concluída: {result.data.imported} de {result.data.total} itens adicionados.
+            Importando do {NOMES[tarefa.fonte]}: {tarefa.processados} de {tarefa.total} itens.
           </strong>
-          {result.data.skipped > 0 && <p>{result.data.skipped} já estavam no seu Trak (ou passaram do limite).</p>}
-          {result.data.notFound.length > 0 && (
+          <progress className="import-progresso" value={tarefa.processados} max={Math.max(tarefa.total, 1)} />
+          <p className="panel-note">Pode sair desta página: a importação continua e o resultado aparece aqui depois.</p>
+        </UiCard>
+      )}
+
+      {tarefa?.status === "FALHOU" && (
+        <p className="auth-error" role="alert">
+          {tarefa.erro ?? "A importação parou no meio. Pode tentar de novo."}
+        </p>
+      )}
+
+      {tarefa?.status === "CONCLUIDA" && tarefa.resultado && (
+        <UiCard className="import-card import-result" as="div">
+          <strong role="status">
+            Importação concluída: {tarefa.resultado.imported} de {tarefa.resultado.total} itens adicionados.
+          </strong>
+          {tarefa.resultado.skipped > 0 && (
+            <p>{tarefa.resultado.skipped} já estavam no seu Trak (ou passaram do limite).</p>
+          )}
+          {tarefa.resultado.notFound.length > 0 && (
             <details>
-              <summary>{result.data.notFound.length} não encontrados</summary>
+              <summary>{tarefa.resultado.notFound.length} não encontrados</summary>
               <ul>
-                {result.data.notFound.map((titulo) => (
+                {tarefa.resultado.notFound.map((titulo) => (
                   <li key={titulo}>{titulo}</li>
                 ))}
               </ul>
@@ -169,7 +250,11 @@ export function ImportShell() {
                     letterboxdFile && run("letterboxd", async () => importLetterboxd(await letterboxdFile.text(), lista))
                   }
                 >
-                  {running === "letterboxd" ? "Importando…" : "Importar do Letterboxd"}
+                  {running === "letterboxd"
+                    ? "Enviando…"
+                    : processando && tarefa?.fonte === "letterboxd"
+                      ? "Importando…"
+                      : "Importar do Letterboxd"}
                 </UiButton>
             </>
           </UiCard>
@@ -197,7 +282,11 @@ export function ImportShell() {
                   disabled={ocupado || !traktFile}
                   onClick={() => traktFile && run("trakt", async () => importTrakt(await traktFile.text()))}
                 >
-                  {running === "trakt" ? "Importando…" : "Importar do Trakt"}
+                  {running === "trakt"
+                    ? "Enviando…"
+                    : processando && tarefa?.fonte === "trakt"
+                      ? "Importando…"
+                      : "Importar do Trakt"}
                 </UiButton>
               </>
             )}
@@ -229,7 +318,11 @@ export function ImportShell() {
                   disabled={ocupado || steamProfile.trim().length < 2}
                   onClick={() => run("steam", () => importSteam(steamProfile.trim()))}
                 >
-                  {running === "steam" ? "Importando…" : "Importar da Steam"}
+                  {running === "steam"
+                    ? "Enviando…"
+                    : processando && tarefa?.fonte === "steam"
+                      ? "Importando…"
+                      : "Importar da Steam"}
                 </UiButton>
               </>
             )}

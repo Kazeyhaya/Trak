@@ -435,6 +435,12 @@ export class SocialService {
   // Supabase Auth. Comentarios denunciados ficam ocultos, com o original para a moderacao.
   async excluirConta(authUserId: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
+    // O historico de importacoes (com titulos nao encontrados) sai tambem quando a linha
+    // em "User" fica anonima por causa de um comentario denunciado.
+    const { error: importacoesError } = await this.db.from("ImportJob").delete().eq("userId", userId);
+    if (importacoesError && !erroColunaAusente(importacoesError) && !/relation .* does not exist/i.test(importacoesError.message)) {
+      falha(importacoesError);
+    }
     const { error } = await this.db.rpc("trak_excluir_usuario", { usuario: userId });
     falha(error);
 
