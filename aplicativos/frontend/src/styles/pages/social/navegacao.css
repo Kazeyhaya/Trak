@@ -1,0 +1,7 @@
+/* Navegacao */
+
+.site-nav a[aria-current="page"] {
+  color: var(--text);
+  background: rgba(110, 231, 200, 0.1);
+}
+

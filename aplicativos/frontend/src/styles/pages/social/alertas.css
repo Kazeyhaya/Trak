@@ -1,0 +1,24 @@
+/* Alertas */
+
+.alert-list {
+  display: grid;
+  gap: 10px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.alert-item strong {
+  display: block;
+}
+
+.alert-item span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+

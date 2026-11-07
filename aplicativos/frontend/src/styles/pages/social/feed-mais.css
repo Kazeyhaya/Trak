@@ -1,0 +1,6 @@
+/* "Ver atividades mais antigas" no fim do feed. */
+.feed-mais {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
