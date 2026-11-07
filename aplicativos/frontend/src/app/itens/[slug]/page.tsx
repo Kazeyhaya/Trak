@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { AdultGate } from "../../../componentes/adult-gate";
-import { ItemShell } from "../../../componentes/item-shell";
+import { ItemShell } from "../../../componentes/item/item-shell";
 import { getCatalogItemById, getMediaTypeLabel } from "../../../lib/catalogo-api";
 
 type ItemPageProps = {

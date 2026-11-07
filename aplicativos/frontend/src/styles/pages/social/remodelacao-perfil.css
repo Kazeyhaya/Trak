@@ -1,0 +1,195 @@
+/* Remodelacao do Perfil (Banner, Temas, Contadores e Vitrine) */
+
+.profile-showcase-banner {
+  --theme-accent: #6ee7c8;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  margin-bottom: 22px;
+}
+
+.profile-showcase-banner.theme-ocean {
+  --theme-accent: #6cb8ff;
+  --theme-glow: rgba(108, 184, 255, 0.25);
+}
+
+.profile-showcase-banner.theme-cyberpunk {
+  --theme-accent: #c586ff;
+  --theme-glow: rgba(197, 134, 255, 0.26);
+}
+
+.profile-showcase-banner.theme-amber {
+  --theme-accent: #ffbe5c;
+  --theme-glow: rgba(255, 190, 92, 0.24);
+}
+
+.profile-showcase-banner.theme-crimson {
+  --theme-accent: #ff7a90;
+  --theme-glow: rgba(255, 122, 144, 0.25);
+}
+
+.profile-showcase-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 25%;
+  opacity: 0.26;
+  filter: blur(8px) saturate(1.2);
+  transform: scale(1.06);
+  pointer-events: none;
+}
+
+.profile-showcase-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 16, 28, 0.4) 0%, rgba(8, 16, 28, 0.92) 100%);
+  pointer-events: none;
+}
+
+.profile-showcase-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 22px;
+  padding: 28px;
+}
+
+.profile-showcase-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.profile-identity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.profile-avatar-badge {
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #06101c;
+  background: linear-gradient(135deg, var(--theme-accent), rgba(255, 255, 255, 0.85));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36), 0 0 0 3px rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.profile-avatar-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(160, 184, 214, 0.14);
+  background: rgba(8, 16, 28, 0.48);
+}
+
+.avatar-picker-preview {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-picker-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.profile-identity-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-identity-copy h1,
+.profile-identity-copy h2 {
+  margin: 0;
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.6rem);
+  letter-spacing: -0.03em;
+}
+
+.profile-handle {
+  margin: 0;
+  color: var(--theme-accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.profile-bio-text {
+  margin: 4px 0 0;
+  color: var(--text);
+  max-width: 65ch;
+  line-height: 1.6;
+}
+
+.profile-cultural-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cultural-badge {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cultural-badge strong {
+  font-size: 1.35rem;
+  color: var(--theme-accent);
+  line-height: 1.2;
+}
+
+.cultural-badge span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+

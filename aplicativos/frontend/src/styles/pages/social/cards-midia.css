@@ -1,0 +1,27 @@
+/* Cards de midia em grade estreita */
+
+.media-card h3 {
+  overflow-wrap: anywhere;
+}
+
+.media-card-footer span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Botoes desabilitados: antes nao havia estilo, entao "Salvar perfil" parecia
+   clicavel mesmo bloqueado. */
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: saturate(0.4);
+}
+
+.field-error {
+  color: #ff9090;
+  font-size: 0.85rem;
+}
+

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
-import { ProfileHub } from "../../../componentes/profile-hub";
+import { ProfileHub } from "../../../componentes/perfil/profile-hub";
 import { PublicProfile } from "../../../lib/api";
 import { fetchJson } from "../../../lib/catalogo-api";
 import { tokenDoServidor } from "../../../lib/supabase-server";

@@ -1,0 +1,42 @@
+/* Perfil */
+
+.profile-counts {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+.profile-counts strong {
+  color: var(--text);
+}
+
+.profile-count-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+
+.profile-count-button:hover {
+  color: var(--text);
+}
+
+.profile-count-button:hover strong {
+  color: var(--theme-accent, var(--primary));
+  text-decoration: underline;
+}
+
+.profile-count-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
