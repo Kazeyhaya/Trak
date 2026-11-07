@@ -9,7 +9,6 @@ import { UiCard } from "./ui-card";
 import { CatalogItem } from "../lib/catalogo-api";
 import { getTrackingItems } from "../lib/api";
 import { useAuth } from "../contextos/auth-context";
-import { useI18n } from "../contextos/i18n-context";
 
 type CatalogShellProps = {
   items: CatalogItem[];
@@ -34,17 +33,16 @@ function heroDispensadoAntes() {
 }
 
 function CatalogEmptyState({ query }: { query: string }) {
-  const { t } = useI18n();
   const trimmed = query.trim();
   const displayQuery = trimmed.length > 50 ? `${trimmed.slice(0, 50)}…` : trimmed;
   return (
     <UiCard className="empty-state">
       <h3 className="empty-state-title">
-        {displayQuery ? `${t("catalog.noResultsFor", "Nada encontrado para")} "${displayQuery}".` : "Nenhum item disponível."}
+        {displayQuery ? `${"Nada encontrado para"} "${displayQuery}".` : "Nenhum item disponível."}
       </h3>
       <p>Tente outro termo ou remova o filtro de categoria.</p>
       <Link className="secondary-button" href="/catalogo">
-        {t("catalog.clearSearch", "Limpar busca")}
+        Limpar busca
       </Link>
     </UiCard>
   );

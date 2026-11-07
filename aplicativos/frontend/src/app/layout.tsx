@@ -3,7 +3,6 @@ import { Manrope, Space_Grotesk } from "next/font/google";
 import { BottomNav } from "../componentes/bottom-nav";
 import { PwaRegister } from "../componentes/pwa-register";
 import { AuthProvider } from "../contextos/auth-context";
-import { I18nProvider } from "../contextos/i18n-context";
 import "./globals.css";
 
 const headingFont = Space_Grotesk({
@@ -37,10 +36,8 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
         <AuthProvider>
-          <I18nProvider>
-            {children}
-            <BottomNav />
-          </I18nProvider>
+          {children}
+          <BottomNav />
         </AuthProvider>
         <PwaRegister />
       </body>

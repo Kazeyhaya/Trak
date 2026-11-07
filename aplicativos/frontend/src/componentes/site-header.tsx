@@ -4,11 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NotificationBell } from "./notification-bell";
 import { useAuth } from "../contextos/auth-context";
-import { useI18n } from "../contextos/i18n-context";
 
 export function SiteHeader() {
   const { user, profile, isAdmin, signOut } = useAuth();
-  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -19,12 +17,12 @@ export function SiteHeader() {
   }
 
   const navItems = [
-    { label: t("nav.catalog", "Catálogo"), href: "/catalogo" },
+    { label: "Catálogo", href: "/catalogo" },
     ...(user
       ? [
-          { label: t("nav.feed", "Feed"), href: "/feed" },
-          { label: t("nav.forYou", "Para você"), href: "/recomendacoes" },
-          ...(isAdmin ? [{ label: t("nav.moderation", "Moderação"), href: "/moderacao" }] : [])
+          { label: "Feed", href: "/feed" },
+          { label: "Para você", href: "/recomendacoes" },
+          ...(isAdmin ? [{ label: "Moderação", href: "/moderacao" }] : [])
         ]
       : [])
   ];
@@ -100,7 +98,7 @@ export function SiteHeader() {
         </div>
       ) : (
         <Link className="header-cta" href="/entrar">
-          {t("nav.signIn", "Entrar")}
+          Entrar
         </Link>
       )}
     </header>

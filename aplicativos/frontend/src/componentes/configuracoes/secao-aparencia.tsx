@@ -6,13 +6,11 @@ import { RodapeSecao } from "./rodape-secao";
 import { useSecaoSalvavel } from "./usar-secao";
 import { UiBadge } from "../ui-badge";
 import { useAuth } from "../../contextos/auth-context";
-import { useI18n } from "../../contextos/i18n-context";
 import {
   CatalogItem,
   getFavorites,
   getTrackingItems,
   Profile,
-  ProfileLanguage,
   ProfileTheme,
   saveMyProfile
 } from "../../lib/api";
@@ -72,15 +70,13 @@ function numerosDaEstante(trackings: Awaited<ReturnType<typeof getTrackingItems>
   return numeros;
 }
 
-// Foto, capa, tema e idioma, com a pre-visualizacao do perfil no topo.
+// Foto, capa e tema, com a pre-visualizacao do perfil no topo.
 export function SecaoAparencia({ profile, onAlterado }: Props) {
   const { refreshProfile } = useAuth();
-  const { t, setLanguage: setIdiomaDaInterface } = useI18n();
   const secao = useSecaoSalvavel({
     avatarUrl: profile?.avatarUrl ?? "",
     bannerUrl: profile?.bannerUrl ?? "",
-    theme: String(profile?.theme ?? "emerald"),
-    language: (profile?.language ?? "pt-BR") as ProfileLanguage
+    theme: String(profile?.theme ?? "emerald")
   });
   const { valores, alterar, alterado } = secao;
   const [obras, setObras] = useState<CatalogItem[]>([]);
@@ -151,9 +147,6 @@ export function SecaoAparencia({ profile, onAlterado }: Props) {
         ...(alteracoes.avatarUrl !== undefined ? { avatarUrl: alteracoes.avatarUrl.trim() } : {}),
         ...(alteracoes.bannerUrl !== undefined ? { bannerUrl: alteracoes.bannerUrl.trim() } : {})
       });
-      if (alteracoes.language) {
-        setIdiomaDaInterface(alteracoes.language);
-      }
       await refreshProfile();
     }, "Aparência salva.");
   }
@@ -162,7 +155,7 @@ export function SecaoAparencia({ profile, onAlterado }: Props) {
     <section className="config-secao" aria-labelledby="config-aparencia-titulo">
       <header className="config-secao-cabecalho">
         <h2 id="config-aparencia-titulo">Aparência</h2>
-        <p>Foto, capa e cores do seu perfil, e o idioma do site.</p>
+        <p>Foto, capa e cores do seu perfil.</p>
       </header>
 
       <div className={`profile-showcase-banner theme-${valores.theme}`} aria-label="Pré-visualização do seu perfil">
@@ -304,13 +297,6 @@ export function SecaoAparencia({ profile, onAlterado }: Props) {
           <small>Em branco, o fundo usa a capa da sua obra favorita.</small>
         </label>
 
-        <label className="field-block">
-          <span className="field-label">{t("profile.language", "Idioma da interface e catálogo")}</span>
-          <select value={valores.language} onChange={(event) => alterar({ language: event.target.value as ProfileLanguage })}>
-            <option value="pt-BR">Português (Brasil)</option>
-            <option value="en-US">English (US)</option>
-          </select>
-        </label>
       </div>
 
       <RodapeSecao

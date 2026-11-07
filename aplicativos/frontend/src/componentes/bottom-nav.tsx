@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../contextos/auth-context";
-import { useI18n } from "../contextos/i18n-context";
 
 export function BottomNav() {
   const { user, profile, loading } = useAuth();
-  const { t } = useI18n();
   const pathname = usePathname();
 
   // Em telas de login/cadastro não exibe a barra inferior
@@ -74,7 +72,7 @@ export function BottomNav() {
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <span>{t("nav.catalog", "Catálogo")}</span>
+          <span>Catálogo</span>
         </Link>
 
         {loading ? null : user ? (
@@ -97,7 +95,7 @@ export function BottomNav() {
               >
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
-              <span>{t("nav.feed", "Feed")}</span>
+              <span>Feed</span>
             </Link>
 
             <Link
@@ -118,7 +116,7 @@ export function BottomNav() {
               >
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
-              <span>{t("nav.forYou", "Para você")}</span>
+              <span>Para você</span>
             </Link>
 
             <Link
@@ -157,7 +155,7 @@ export function BottomNav() {
               <polyline points="10 17 15 12 10 7" />
               <line x1="15" y1="12" x2="3" y2="12" />
             </svg>
-            <span>{t("nav.signIn", "Entrar")}</span>
+            <span>Entrar</span>
           </Link>
         )}
       </div>
