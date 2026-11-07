@@ -3,11 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
   Optional
 } from "@nestjs/common";
 import { ehAdmin, esquecerUsuario } from "../../comum/autenticacao/supabase-auth.guard";
+import { falha } from "../../comum/erros";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
@@ -108,12 +108,6 @@ type Atividade = {
   data: Record<string, unknown>;
   createdAt: string;
 };
-
-function falha(error: { message: string } | null) {
-  if (error) {
-    throw new InternalServerErrorException(error.message);
-  }
-}
 
 @Injectable()
 export class SocialService {

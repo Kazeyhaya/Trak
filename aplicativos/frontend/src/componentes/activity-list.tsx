@@ -130,7 +130,9 @@ export function ActivityList({ items, showAuthor = true }: ActivityListProps) {
                         onError={() => setBrokenImages((prev) => ({ ...prev, [atividade.id]: true }))}
                       />
                     ) : (
-                      <div className="media-card-orb" />
+                      <div className="media-card-fallback" aria-hidden="true">
+                        <span>{item.title}</span>
+                      </div>
                     )}
                   </div>
 

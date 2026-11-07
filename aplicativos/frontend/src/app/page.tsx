@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     "Organize o que você assiste, joga e lê. Marque episódios, dê notas, siga amigos e receba alertas de estreias. Grátis.",
   openGraph: {
     title: "Trak | Acompanhe filmes, séries, jogos e livros",
-    description: "Organize o que você assiste, joga e lê, em um só lugar.",
+    description: "Filmes, séries, jogos e livros num caderno só.",
     type: "website"
   }
 };

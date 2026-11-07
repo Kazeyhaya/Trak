@@ -433,7 +433,9 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img loading="lazy" decoding="async" src={miniaturaCapa(item.coverUrl, 180) ?? item.coverUrl} alt={item.title} />
                           ) : (
-                            <span className="media-card-orb" />
+                            <div className="media-card-fallback" aria-hidden="true">
+                              <span>{item.title}</span>
+                            </div>
                           )}
                           <div className="featured-showcase-overlay">
                             <UiBadge tone="secondary">#{index + 1}</UiBadge>
@@ -729,7 +731,9 @@ export function ProfileHub({ initialData }: { initialData: PublicProfile }) {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img loading="lazy" decoding="async" src={miniaturaCapa(item.coverUrl, 180) ?? item.coverUrl} alt={item.title} />
                           ) : (
-                            <span className="media-card-orb" />
+                            <div className="media-card-fallback" aria-hidden="true">
+                              <span>{item.title}</span>
+                            </div>
                           )}
                           <div className="featured-showcase-overlay">
                             <UiBadge tone="secondary">#{index + 1}</UiBadge>

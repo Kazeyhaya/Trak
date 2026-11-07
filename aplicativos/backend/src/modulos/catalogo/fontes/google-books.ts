@@ -6,6 +6,78 @@ import { Fonte, lojasDeLivro, NotaTrak, ParseadoDe } from "./fonte";
 
 type IdGoogleBooks = ParseadoDe<"gbooks">;
 
+const DICIONARIO_CATEGORIAS: Record<string, string> = {
+  fiction: "Ficção",
+  nonfiction: "Não ficção",
+  "non-fiction": "Não ficção",
+  fantasy: "Fantasia",
+  "science fiction": "Ficção Científica",
+  dystopian: "Distopia",
+  comics: "Quadrinhos",
+  "comics & graphic novels": "Quadrinhos",
+  "graphic novels": "Graphic Novels",
+  manga: "Mangá",
+  biography: "Biografia",
+  autobiography: "Autobiografia",
+  "biography & autobiography": "Biografia",
+  history: "História",
+  philosophy: "Filosofia",
+  psychology: "Psicologia",
+  "self-help": "Autoajuda",
+  poetry: "Poesia",
+  drama: "Drama",
+  mystery: "Mistério",
+  detective: "Detetive",
+  "mystery & detective": "Mistério",
+  thriller: "Suspense",
+  suspense: "Suspense",
+  horror: "Terror",
+  romance: "Romance",
+  "action & adventure": "Aventura",
+  adventure: "Aventura",
+  computers: "Computação",
+  "business & economics": "Negócios & Economia",
+  business: "Negócios",
+  economics: "Economia",
+  "juvenile fiction": "Ficção Juvenil",
+  "young adult fiction": "Ficção Juvenil",
+  "young adult": "Jovem Adulto",
+  children: "Infantil",
+  art: "Arte",
+  music: "Música",
+  religion: "Religião",
+  "social science": "Ciências Sociais",
+  science: "Ciência",
+  "true crime": "Crime Real",
+  epic: "Épico",
+  literary: "Literatura"
+};
+
+export function traduzirCategoriasGoogleBooks(categories: string[] = []): string[] {
+  const resultado: string[] = [];
+  const vistos = new Set<string>();
+
+  for (const cat of categories) {
+    if (!cat?.trim()) continue;
+    // Divide categorias compostas como "Fiction / Fantasy / Epic"
+    const partes = cat
+      .split("/")
+      .map((p) => p.trim())
+      .filter((p) => p && p.toLowerCase() !== "general");
+
+    for (const parte of partes) {
+      const lower = parte.toLowerCase();
+      const traduzido = DICIONARIO_CATEGORIAS[lower] ?? parte;
+      if (!vistos.has(traduzido.toLowerCase())) {
+        vistos.add(traduzido.toLowerCase());
+        resultado.push(traduzido);
+      }
+    }
+  }
+
+  return resultado.slice(0, 5);
+}
+
 // Livros do Google Books. Sem capa no volume, tenta a da Open Library pelo titulo.
 export class FonteGoogleBooks implements Fonte<IdGoogleBooks> {
   constructor(
@@ -44,7 +116,7 @@ export class FonteGoogleBooks implements Fonte<IdGoogleBooks> {
     ];
 
     return {
-      genres: (info?.categories ?? []).slice(0, 5),
+      genres: traduzirCategoriasGoogleBooks(info?.categories ?? []),
       watchProviders,
       watchLink: url,
       trakRating,

@@ -853,7 +853,7 @@ function PersonalTracking({
               <span className="pantheon-desc">
                 {draft.favoriteCharacterName
                   ? `Seu personagem favorito coroado para esta obra:`
-                  : "Obra concluída! Escolha quem marcou a sua jornada para o seu Panteão:"}
+                  : "Obra concluída! Escolha seu personagem favorito para o Panteão:"}
               </span>
             </div>
 

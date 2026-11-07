@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   // Base para URLs absolutas de Open Graph (previa de links compartilhados).
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "Trak | Organize filmes, séries, jogos e livros",
-  description: "Acompanhe o que você assiste, joga e lê, em um só lugar.",
+  description: "Filmes, séries, jogos e livros num caderno só.",
   applicationName: "Trak",
   appleWebApp: { capable: true, title: "Trak", statusBarStyle: "black-translucent" }
 };

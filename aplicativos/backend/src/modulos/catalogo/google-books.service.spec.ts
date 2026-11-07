@@ -1,4 +1,5 @@
 import { GoogleBooksService } from "./google-books.service";
+import { traduzirCategoriasGoogleBooks } from "./fontes/google-books";
 
 describe("GoogleBooksService", () => {
   const originalEnv = { ...process.env };
@@ -177,6 +178,24 @@ describe("GoogleBooksService", () => {
       expect(item).toBeNull();
 
       expect(await service.getBookById("")).toBeNull();
+    });
+  });
+
+  describe("traduzirCategoriasGoogleBooks", () => {
+    it("traduz categorias em ingles para portugues e divide barras", () => {
+      expect(
+        traduzirCategoriasGoogleBooks(["Fiction / Fantasy / Epic", "Science Fiction"])
+      ).toEqual(["Ficção", "Fantasia", "Épico", "Ficção Científica"]);
+    });
+
+    it("descarta termo 'General' e remove duplicatas", () => {
+      expect(
+        traduzirCategoriasGoogleBooks(["Comics & Graphic Novels / General", "Manga"])
+      ).toEqual(["Quadrinhos", "Mangá"]);
+    });
+
+    it("mantem fallback limpo para categorias desconhecidas", () => {
+      expect(traduzirCategoriasGoogleBooks(["Culinária Brasileira"])).toEqual(["Culinária Brasileira"]);
     });
   });
 });

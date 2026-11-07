@@ -319,63 +319,6 @@
   color: #facc15;
 }
 
-.episode-inline-panel {
-  margin-top: 6px;
-  margin-bottom: 8px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(110, 231, 200, 0.2);
-  background: rgba(18, 24, 38, 0.95);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: slideDown 180ms ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.episode-inline-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.episode-inline-rating {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.episode-characters-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.episode-characters-title {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .episode-characters-carousel {
   display: flex;
   align-items: flex-start;
@@ -1354,8 +1297,7 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2004,7 +1946,6 @@
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
 }
 
 .cultural-badge strong {

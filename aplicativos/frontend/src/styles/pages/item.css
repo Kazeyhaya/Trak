@@ -23,7 +23,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(145deg, #161e2e 0%, #0f1520 100%);
+  background: var(--surface, #111827);
 }
 
 .item-poster img {
@@ -456,10 +456,9 @@
   width: auto;
   height: auto;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-md, 8px);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(11, 16, 27, 0.88);
-  backdrop-filter: blur(8px);
+  background: rgba(11, 16, 27, 0.95);
   color: #f1f5f9;
   font-size: 0.8rem;
   font-weight: 600;
@@ -474,8 +473,7 @@
   background: rgba(15, 23, 42, 0.98);
   border-color: var(--primary);
   color: #ffffff;
-  transform: translateY(-1px);
-}
+  }
 
 .item-poster-badge {
   position: absolute;
@@ -487,8 +485,7 @@
   height: auto;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(110, 231, 200, 0.3);
   color: var(--primary);
   font-size: 0.68rem;
@@ -508,8 +505,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(4, 7, 13, 0.78);
-  backdrop-filter: blur(8px);
+  background: rgba(4, 7, 13, 0.85);
 }
 
 .cover-modal-card {

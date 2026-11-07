@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { falha } from "../../comum/erros";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { parsearId } from "../catalogo/catalogo.fontes";
@@ -25,12 +26,6 @@ type OpcoesSalvar = {
   registrarAtividade?: boolean;
   item?: ItemCatalogo;
 };
-
-function falha(error: { message: string } | null) {
-  if (error) {
-    throw new InternalServerErrorException(error.message);
-  }
-}
 
 function exigirSerie(mediaItemId: string) {
   const parsed = parsearId(mediaItemId);

@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { falha } from "../../comum/erros";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { ComentariosService, CONTEUDO_REMOVIDO } from "../comentarios/comentarios.service";
@@ -15,12 +16,6 @@ type Denuncia = {
   status: StatusDenuncia;
   createdAt: string;
 };
-
-function falha(error: { message: string } | null) {
-  if (error) {
-    throw new InternalServerErrorException(error.message);
-  }
-}
 
 @Injectable()
 export class ModeracaoService {

@@ -187,8 +187,7 @@
   padding: 8px;
   border-radius: 20px;
   border: 1px solid rgba(160, 184, 214, 0.14);
-  background: rgba(8, 16, 28, 0.56);
-  backdrop-filter: blur(14px);
+  background: rgba(8, 16, 28, 0.75);
 }
 
 .profile-hub-tab {
