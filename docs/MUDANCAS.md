@@ -7,8 +7,9 @@ Caminhos relativos à raiz do repositório.
 
 ## 0. Antes de rodar: passos obrigatórios
 
-1. **Aplique a migration no Supabase:** `supabase/migrations/20261019000000_trak_social.sql` (SQL Editor ou
-   `supabase db push`). Ela **complementa o schema existente** e não apaga nem renomeia nada:
+1. **Migration da rodada** (`20261019000000_trak_social.sql`, já aplicada na produção e hoje contida em
+   `supabase/schema.sql`; veja [supabase/README.md](../supabase/README.md)). Ela complementou o schema existente
+   sem apagar nem renomear nada:
    - defaults de `createdAt`/`updatedAt` (o Prisma não cria default para `@updatedAt`);
    - colunas `displayName` e `isPublic` em `User` (o perfil público é a própria tabela `User`);
    - trigger `trak_criar_usuario`: cria a linha em `User` em cada cadastro (id = id do Auth, username provisório
