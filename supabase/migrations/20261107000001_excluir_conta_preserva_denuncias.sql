@@ -1,8 +1,13 @@
--- Exclusao de conta (DELETE /api/perfis/eu). Apaga tudo da pessoa numa transacao;
--- depois a API remove o login no Supabase Auth.
+-- Corrige trak_excluir_usuario: comentarios denunciados nao podem sumir com a conta.
 --
--- Comentarios que outras pessoas denunciaram nao somem: ficam ocultos e guardam o texto
--- original em "originalContent", para a moderacao ainda ver o que foi denunciado.
+-- A versao anterior apagava a linha em "User" e so a anonimizava se o banco recusasse
+-- (foreign_key_violation). Na producao, Comment.userId e CommentReport.commentId tem
+-- ON DELETE CASCADE: o delete passava e levava junto os comentarios denunciados e as
+-- denuncias. E User.authUserId tem cascade para auth.users, entao a linha anonima
+-- tambem sumiria quando a API apaga o login logo depois.
+--
+-- Agora a decisao e explicita: com comentario denunciado, a linha fica anonima e solta
+-- do Auth (authUserId = null); sem, ela e apagada.
 create or replace function public.trak_excluir_usuario(usuario text)
 returns void
 language plpgsql
@@ -31,13 +36,10 @@ begin
    where c."userId" = usuario
      and not exists (select 1 from "CommentReport" r where r."commentId" = c.id);
 
-  -- Se algum comentario oculto ainda aponta para a pessoa por chave estrangeira, a linha
-  -- em "User" nao pode sair: fica anonima, sem nada que identifique a pessoa.
-  begin
-    delete from "User" where id = usuario;
-  exception when foreign_key_violation then
+  if exists (select 1 from "Comment" where "userId" = usuario) then
     update "User"
        set username = 'conta_excluida_' || substr(md5(usuario), 1, 10),
+           "authUserId" = null,
            "displayName" = null,
            bio = null,
            "avatarUrl" = null,
@@ -45,9 +47,12 @@ begin
            "isPublic" = false,
            "birthDate" = null,
            "adultContent" = false,
-           "adultConsentAt" = null
+           "adultConsentAt" = null,
+           "importedSources" = '{}'
      where id = usuario;
-  end;
+  else
+    delete from "User" where id = usuario;
+  end if;
 end $$;
 
 revoke all on function public.trak_excluir_usuario(text) from public, anon, authenticated;

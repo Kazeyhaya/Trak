@@ -14,10 +14,10 @@ estrelas, quem roubou a cena em cada episódio e o Panteão com o personagem fav
 
 Requer Node 22+.
 
-O schema base do Supabase (`User`, `MediaItem`, `UserMedia`, `Favorite`, `Follow`, `Activity`,
-`EpisodeProgress`, `Comment`, `CommentLike`, `CommentReport` e o trigger `trak_criar_usuario`) ainda não está
-versionado neste repositório. As migrações em `supabase/migrations` o complementam: aplique-as em ordem de nome
-no SQL Editor antes de subir uma versão nova da API.
+O banco é um projeto Supabase. `supabase/schema.sql` é o retrato do schema `public` da produção, e
+`supabase/migrations` guarda só as mudanças feitas depois dele. Para montar um banco novo, aplique no SQL Editor
+o `schema.sql` e depois as migrações, em ordem de nome. Como criar uma migração e atualizar o retrato:
+[supabase/README.md](supabase/README.md).
 
 O site não lê tabelas pelo Supabase; tudo passa pela API. Por isso todas as tabelas têm RLS ativo e nenhuma
 policy (a anon key não acessa dados).
@@ -36,6 +36,7 @@ npm run dev:web   # http://localhost:3000
 - `npm run lint` — roda o ESLint nos dois workspaces.
 - `npm run typecheck` — checagem de tipos (`strict`) nos dois workspaces.
 - `npm test` — testes (Jest no backend, Vitest no frontend).
+- `npm run db:verificar` — monta o banco num Postgres em memória (retrato + migrações) e roda os testes de SQL.
 - `npm run start:prod` — sobe a API compilada.
 
 ## Documentação

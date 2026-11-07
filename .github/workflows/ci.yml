@@ -35,6 +35,9 @@ jobs:
       - name: Checagem de tipos
         run: npm run typecheck
 
+      - name: Banco (schema + migracoes + testes de SQL)
+        run: npm run db:verificar
+
       - name: Testes
         run: npm test
 
