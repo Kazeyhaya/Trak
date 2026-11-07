@@ -284,10 +284,3 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.search-results {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-

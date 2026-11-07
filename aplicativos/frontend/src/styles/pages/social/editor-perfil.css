@@ -1,9 +1,5 @@
 /* Editor de Perfil */
 
-.profile-editor-card {
-  padding: 26px;
-}
-
 .profile-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -15,20 +11,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.profile-visual-section {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(160, 184, 214, 0.12);
-}
-
-.profile-visual-section h3 {
-  margin: 0;
-  font-size: 1.1rem;
 }
 
 .theme-selector {

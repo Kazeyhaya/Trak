@@ -1,10 +1,5 @@
 /* Remodelacao do Perfil (Banner, Temas, Contadores e Vitrine) */
 
-.profile-editor-layout {
-  display: grid;
-  gap: 20px;
-}
-
 .profile-showcase-banner {
   --theme-accent: #6ee7c8;
   position: relative;

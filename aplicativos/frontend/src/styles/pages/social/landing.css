@@ -1,29 +1,7 @@
 /* Landing */
 
-.landing-features {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.landing-features article {
-  padding: 20px;
-}
-
-.landing-features h3 {
-  margin: 10px 0 6px;
-  font-size: 1.15rem;
-}
-
-.landing-features p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
 @media (max-width: 980px) {
-  .import-grid,
-  .landing-features {
+  .import-grid {
     grid-template-columns: 1fr;
   }
 }
