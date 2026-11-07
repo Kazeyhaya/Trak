@@ -108,6 +108,13 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
     };
   }, [mediaItemId]);
 
+  // O bloco de episodios aberto so e escolhido ao trocar de temporada. Marcar um episodio
+  // nao deve pular de bloco, entao "watched" entra por ref e nao como dependencia.
+  const watchedRef = useRef(watched);
+  useEffect(() => {
+    watchedRef.current = watched;
+  }, [watched]);
+
   useEffect(() => {
     if (selected === null) {
       return;
@@ -129,7 +136,9 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
           return;
         }
         const size = list.length > 200 ? 50 : 25;
-        const watchedSet = new Set(watched.filter((w) => w.season === selected).map((w) => w.episode));
+        const watchedSet = new Set(
+          watchedRef.current.filter((w) => w.season === selected).map((w) => w.episode)
+        );
         const firstUnwatchedIdx = list.findIndex(
           (ep) => jaExibido(ep.airDate) && !watchedSet.has(ep.episodeNumber)
         );
@@ -144,8 +153,6 @@ export function EpisodesPanel({ mediaItemId, onTrackingChange }: EpisodesPanelPr
     return () => {
       active = false;
     };
-    // Carregamento disparado pela troca de temporada.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaItemId, selected]);
 
   const watchedInSeason = useMemo(

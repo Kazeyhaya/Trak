@@ -14,9 +14,17 @@ export function RecommendationsShell() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     getRecommendations()
-      .then(setData)
-      .catch((err) => setError(errorMessage(err, "Não foi possível carregar recomendações.")));
+      .then((resultado) => {
+        if (active) setData(resultado);
+      })
+      .catch((err) => {
+        if (active) setError(errorMessage(err, "Não foi possível carregar recomendações."));
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
