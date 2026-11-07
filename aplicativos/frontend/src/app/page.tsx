@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const token = await tokenDoServidor();
-  const [{ items, offline }, usuario] = await Promise.all([getCatalogItems("", "", "", "", token), usuarioDoServidor()]);
+  const [{ items, offline }, usuario] = await Promise.all([getCatalogItems("", "", "", token), usuarioDoServidor()]);
   const comCapa = offline ? [] : items.filter((item) => item.coverUrl);
   const destaques = comCapa.slice(0, 8);
 

@@ -19,18 +19,9 @@ const STATUS_LABELS: Record<MediaType | "ALL", { WANT: string; WATCHING: string;
   ALL: { WANT: "Quero ver", WATCHING: "Assistindo", COMPLETED: "Concluído" },
 };
 
-const STATUS_LABELS_EN: Record<MediaType | "ALL", { WANT: string; WATCHING: string; COMPLETED: string }> = {
-  MOVIE: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
-  SERIES: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
-  GAME: { WANT: "Want to play", WATCHING: "Playing", COMPLETED: "Completed" },
-  BOOK: { WANT: "Want to read", WATCHING: "Reading", COMPLETED: "Read" },
-  ALL: { WANT: "Want to watch", WATCHING: "Watching", COMPLETED: "Completed" },
-};
-
-function getDynamicStatusLabel(status: string, type?: MediaType, lang = "pt-BR") {
+function getDynamicStatusLabel(status: string, type?: MediaType) {
   const key = type ?? "ALL";
-  const dict = lang === "en-US" ? STATUS_LABELS_EN : STATUS_LABELS;
-  const map = dict[key as MediaType | "ALL"] ?? dict["ALL"];
+  const map = STATUS_LABELS[key as MediaType | "ALL"] ?? STATUS_LABELS["ALL"];
   switch (status) {
     case "WANT":
       return map.WANT;
@@ -39,9 +30,9 @@ function getDynamicStatusLabel(status: string, type?: MediaType, lang = "pt-BR")
     case "COMPLETED":
       return map.COMPLETED;
     case "PAUSED":
-      return lang === "en-US" ? "Paused" : "Pausado";
+      return "Pausado";
     case "DROPPED":
-      return lang === "en-US" ? "Dropped" : "Abandonado";
+      return "Abandonado";
     default:
       return "";
   }
@@ -54,7 +45,6 @@ import { UiBadge } from "./ui-badge";
 import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
-import { useI18n } from "../contextos/i18n-context";
 import { CatalogItem, getMediaTypeLabel } from "../lib/catalogo-api";
 import {
   addFavorite,
@@ -358,7 +348,6 @@ function PersonalTracking({
   seriesInfo?: SeriesInfo | null;
   onTrackingLoaded?: (entry: TrackingEntry | null) => void;
 }) {
-  const { t, language } = useI18n();
   const [tracking, setTracking] = useState<TrackingEntry | null>(null);
   const [draft, setDraft] = useState<TrackingDraft>(() => draftFromEntry(null));
   const [metaDirty, setMetaDirty] = useState(false);
@@ -551,7 +540,7 @@ function PersonalTracking({
       });
       setTracking(entry);
       setDraft(draftFromEntry(entry));
-      setNotice(t("tracking.saved", "Status salvo!"));
+      setNotice("Status salvo!");
     } catch (err) {
       setDraft(previousDraft);
       setTracking(previousTracking);
@@ -576,7 +565,7 @@ function PersonalTracking({
       });
       setTracking(entry);
       setDraft(draftFromEntry(entry));
-      setNotice(t("tracking.saved", "Progresso salvo!"));
+      setNotice("Progresso salvo!");
     } catch (err) {
       // Reverte e exibe alerta de erro
       setDraft(previousDraft);
@@ -664,7 +653,7 @@ function PersonalTracking({
 
     try {
       await removeTrackingItem(item.id);
-      setNotice(t("tracking.removed", "Removido do tracking."));
+      setNotice("Removido do tracking");
       onTrackingLoadedRef.current?.(null);
     } catch (err) {
       setDraft(previousDraft);
@@ -720,17 +709,17 @@ function PersonalTracking({
     }
   }
 
-  const statusLabel = tracking ? getDynamicStatusLabel(tracking.status, item.type, language) : t("tracking.outOfTracking", "Fora do tracking");
+  const statusLabel = tracking ? getDynamicStatusLabel(tracking.status, item.type) : "Fora do tracking";
 
   return (
     <>
       <div className="item-actions" aria-label="Ações do item">
         <UiButton variant="secondary" pressed={isFavorite} disabled={loading} onClick={handleFavorite}>
           <Star size={15} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
-          <span>{isFavorite ? t("tracking.favorite", "Favorito") : t("tracking.addFavorite", "Favoritar")}</span>
+          <span>{isFavorite ? "Favorito" : "Favoritar"}</span>
         </UiButton>
         <UiButton variant="secondary" onClick={handleShare}>
-          {t("tracking.share", "Compartilhar")}
+          Compartilhar
         </UiButton>
       </div>
 
@@ -751,11 +740,11 @@ function PersonalTracking({
                   isCompletedBlocked
                     ? "Esta série ainda está em lançamento (faltam episódios a serem exibidos)"
                     : isActive
-                      ? t("tracking.clickToRemove", "Clique novamente para remover do tracking")
-                      : getDynamicStatusLabel(option, item.type, language)
+                      ? "Clique novamente para remover do tracking"
+                      : getDynamicStatusLabel(option, item.type)
                 }
               >
-                {getDynamicStatusLabel(option, item.type, language)}
+                {getDynamicStatusLabel(option, item.type)}
               </button>
             );
           })}
@@ -764,17 +753,14 @@ function PersonalTracking({
         {confirmRemove && (
           <div className="tracking-remove-confirm" role="alert">
             <p>
-              {t(
-                "tracking.confirmRemove",
-                "Tirar esta obra do seu tracking? Status, nota, anotações e episódios marcados serão apagados."
-              )}
+              Tirar esta obra do seu tracking? Status, nota, anotações e episódios marcados serão apagados.
             </p>
             <div className="tracking-remove-confirm-actions">
               <UiButton onClick={() => void handleRemoveTracking()} disabled={saving}>
-                {t("tracking.remove", "Remover do tracking")}
+                Remover do tracking
               </UiButton>
               <UiButton variant="secondary" onClick={() => setConfirmRemove(false)}>
-                {t("tracking.keep", "Manter")}
+                Manter
               </UiButton>
             </div>
           </div>
@@ -834,7 +820,7 @@ function PersonalTracking({
         )}
 
         <div className="rating-row">
-          <span>{t("tracking.rating", "Sua nota")}</span>
+          <span>Sua nota</span>
           <RatingStars
             value={draft.rating}
             disabled={loading}
@@ -909,12 +895,12 @@ function PersonalTracking({
           }}
         >
           <label>
-            {t("tracking.notes", "Suas anotações (só você vê)")}
+            Suas anotações (só você vê)
             <textarea
               value={draft.notes}
               rows={3}
               maxLength={NOTES_MAX_LENGTH}
-              placeholder={t("tracking.notesPlaceholder", "O que você achou? Onde parou?")}
+              placeholder="O que você achou? Onde parou?"
               disabled={loading}
               onChange={(event) => updateDraft({ notes: event.target.value })}
             />
@@ -923,22 +909,22 @@ function PersonalTracking({
             <span>
               <UiBadge tone="secondary">
                 {saving
-                  ? t("tracking.saving", "Salvando…")
+                  ? "Salvando…"
                   : hasUnsavedChanges
-                    ? t("tracking.unsavedChanges", "Alterações não salvas")
+                    ? "Alterações não salvas"
                     : tracking
                       ? statusLabel
-                      : t("tracking.notStarted", "Não iniciado")}
+                      : "Não iniciado"}
               </UiBadge>
             </span>
             <span className="item-save-actions">
               {hasUnsavedChanges && (
                 <UiButton type="button" variant="secondary" disabled={saving} onClick={handleDiscard}>
-                  {t("tracking.discard", "Descartar")}
+                  Descartar
                 </UiButton>
               )}
               <UiButton type="submit" disabled={loading || saving || !hasUnsavedChanges}>
-                {saving ? t("tracking.saving", "Salvando…") : t("tracking.saveChanges", "Salvar alterações")}
+                {saving ? "Salvando…" : "Salvar alterações"}
               </UiButton>
             </span>
           </div>

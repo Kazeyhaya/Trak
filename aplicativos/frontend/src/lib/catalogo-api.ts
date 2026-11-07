@@ -108,21 +108,9 @@ export async function fetchJson<T>(
   }
 }
 
-export function obterIdiomaUsuario(): string {
-  if (typeof window !== "undefined") {
-    try {
-      const stored = window.localStorage.getItem("trak:language");
-      if (stored === "en-US" || stored === "pt-BR") return stored;
-    } catch {
-      // ignora
-    }
-  }
-  return "pt-BR";
-}
-
 // Com token, a API inclui conteudo +18 para quem liberou no perfil; sem token (visitante),
 // nunca inclui, e a resposta pode ir para o cache publico.
-export async function getCatalogItems(query = "", type = "", genre = "", lang = "", token: string | null = null) {
+export async function getCatalogItems(query = "", type = "", genre = "", token: string | null = null) {
   const params = new URLSearchParams();
   const cleanQuery = query.trim().slice(0, 50);
   if (cleanQuery) {
@@ -134,11 +122,6 @@ export async function getCatalogItems(query = "", type = "", genre = "", lang = 
   if (genre) {
     params.set("genre", genre);
   }
-  const idioma = lang || obterIdiomaUsuario();
-  if (idioma) {
-    params.set("lang", idioma);
-  }
-
   const suffix = params.size > 0 ? `?${params}` : "";
   // Lista publica do catalogo: 10 minutos de cache (destaques e buscas repetidas).
   const items = await fetchJson<CatalogItem[]>(`/catalogo${suffix}`, token, { revalidate: 600 });
@@ -146,45 +129,42 @@ export async function getCatalogItems(query = "", type = "", genre = "", lang = 
   return items ? { items, offline: false } : { items: fallbackItems, offline: true };
 }
 
-export async function getCatalogItemById(id: string, lang = "") {
-  const idioma = lang || obterIdiomaUsuario();
-  const query = idioma ? `?lang=${encodeURIComponent(idioma)}` : "";
+export async function getCatalogItemById(id: string) {
   // Detalhe publico da obra: 1 hora de cache (metadados mudam raramente).
-  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}${query}`, null, {
+  const item = await fetchJson<CatalogItem>(`/catalogo/${encodeURIComponent(id)}`, null, {
     revalidate: 3600
   });
 
   return item ?? fallbackItems.find((entry) => entry.id === id) ?? null;
 }
 
-export function getMediaTypeLabel(type: MediaType, subtype?: string | null, lang = "pt-BR") {
-  const isEn = lang === "en-US";
+export function getMediaTypeLabel(type: MediaType, subtype?: string | null) {
   if (subtype === "NOVELA") {
-    return isEn ? "Telenovela" : "Novela";
+    return "Novela";
   }
   if (subtype === "DORAMA") {
-    return isEn ? "K-Drama" : "Dorama";
+    return "Dorama";
   }
   if (subtype === "ANIME") {
     return "Anime";
   }
   if (subtype === "ANIMACAO") {
-    return isEn ? "Animation" : "Animação";
+    return "Animação";
   }
   if (subtype === "MANGA") {
     return "Mangá";
   }
   if (subtype === "HQ") {
-    return isEn ? "Comic" : "HQ";
+    return "HQ";
   }
   switch (type) {
     case "MOVIE":
-      return isEn ? "Movie" : "Filme";
+      return "Filme";
     case "SERIES":
-      return isEn ? "Series" : "Série";
+      return "Série";
     case "GAME":
-      return isEn ? "Game" : "Jogo";
+      return "Jogo";
     case "BOOK":
-      return isEn ? "Book" : "Livro";
+      return "Livro";
   }
 }

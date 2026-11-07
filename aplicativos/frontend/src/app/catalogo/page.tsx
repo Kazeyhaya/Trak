@@ -22,7 +22,7 @@ export default async function CatalogoPage({
   const typeFilter = resolvedSearchParams?.type ?? "";
   const genreFilter = resolvedSearchParams?.genre ?? "";
   const token = await tokenDoServidor();
-  const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter, "", token);
+  const { items, offline } = await getCatalogItems(query, typeFilter, genreFilter, token);
 
   return (
     <CatalogShell

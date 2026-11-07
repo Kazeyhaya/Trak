@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { useI18n } from "../contextos/i18n-context";
 
 const filters = [
   { label: "Todos", value: "" },
@@ -138,7 +137,6 @@ function normalizeValue(value?: string | null) {
 }
 
 export function FilterBar() {
-  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -254,7 +252,7 @@ export function FilterBar() {
               handleClear();
             }
           }}
-          placeholder={t("catalog.searchPlaceholder", "Buscar filmes, séries, jogos e livros")}
+          placeholder="Buscar filmes, séries, jogos e livros"
         />
         {isPending ? (
           <span className="filter-search-spinner" aria-label="Buscando..." />
