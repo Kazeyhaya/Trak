@@ -58,10 +58,10 @@ describe("HardcoverService", () => {
     });
   });
 
-  describe("searchBooks", () => {
+  describe("buscar", () => {
     it("retorna lista vazia se HARDCOVER_API_KEY nao estiver configurada", async () => {
       delete process.env.HARDCOVER_API_KEY;
-      const res = await service.searchBooks("qualquer livro");
+      const res = await service.buscar("qualquer livro");
       expect(res).toEqual([]);
       expect(global.fetch).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("HardcoverService", () => {
         })
       });
 
-      const res = await service.searchBooks("Hobbit", 10);
+      const res = await service.buscar("Hobbit", 10);
       expect(res).toHaveLength(1);
       expect(res[0].id).toBe("media_hardcover_123");
       expect(res[0].title).toBe("O Hobbit");
@@ -107,8 +107,8 @@ describe("HardcoverService", () => {
       );
     });
 
-    it("deve delegar para getPopularBooks se a query for vazia", async () => {
-      jest.spyOn(service, "getPopularBooks").mockResolvedValueOnce([
+    it("deve delegar para populares se a query for vazia", async () => {
+      jest.spyOn(service, "populares").mockResolvedValueOnce([
         {
           id: "media_hardcover_999",
           externalId: "999",
@@ -121,8 +121,8 @@ describe("HardcoverService", () => {
         }
       ]);
 
-      const res = await service.searchBooks("   ", 10);
-      expect(service.getPopularBooks).toHaveBeenCalledWith(10);
+      const res = await service.buscar("   ", 10);
+      expect(service.populares).toHaveBeenCalledWith(10);
       expect(res).toHaveLength(1);
     });
 
@@ -132,12 +132,12 @@ describe("HardcoverService", () => {
         status: 500
       });
 
-      const res = await service.searchBooks("teste");
+      const res = await service.buscar("teste");
       expect(res).toEqual([]);
     });
   });
 
-  describe("getBookById", () => {
+  describe("buscarPorId", () => {
     it("deve carregar e mapear livro buscando por books_by_pk", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -158,7 +158,7 @@ describe("HardcoverService", () => {
         })
       });
 
-      const res = await service.getBookById("media_hardcover_1803823");
+      const res = await service.buscarPorId("media_hardcover_1803823");
       expect(res).not.toBeNull();
       expect(res?.id).toBe("media_hardcover_1803823");
       expect(res?.title).toBe("As 48 Leis do Poder");
@@ -175,7 +175,7 @@ describe("HardcoverService", () => {
         })
       });
 
-      const res = await service.getBookById(9999999);
+      const res = await service.buscarPorId(9999999);
       expect(res).toBeNull();
     });
   });
@@ -191,7 +191,7 @@ describe("HardcoverService.emAlta", () => {
 
   it("usa a tendencia dos ultimos 30 dias, na ordem dela", async () => {
     const service = new HardcoverService();
-    jest.spyOn(service, "executeQuery").mockImplementation(async (query: string) => {
+    jest.spyOn(service, "consultar").mockImplementation(async (query: string) => {
       if (query.includes("books_trending")) {
         return { books_trending: { ids: [2, 1] } };
       }
@@ -205,7 +205,7 @@ describe("HardcoverService.emAlta", () => {
 
   it("sem tendencia na API, usa os mais lidos do ultimo ano e nao tenta a tendencia de novo", async () => {
     const service = new HardcoverService();
-    const executar = jest.spyOn(service, "executeQuery").mockImplementation(async (query: string) =>
+    const executar = jest.spyOn(service, "consultar").mockImplementation(async (query: string) =>
       query.includes("books_trending") ? null : { books: [livro(3, "Recente")] }
     );
 

@@ -107,138 +107,72 @@ export class GoogleBooksService implements ProvedorCatalogo {
   private readonly logger = new Logger(GoogleBooksService.name);
   private readonly baseUrl = "https://www.googleapis.com/books/v1/volumes";
 
-  private getApiKey(): string | undefined {
-    return process.env.GOOGLE_BOOKS_API_KEY?.trim() || undefined;
+  // GET na API de volumes. Devolve null quando a resposta nao e 2xx ou a rede falha;
+  // so registra no log o que nao for um 404 esperado.
+  private async pedir<T>(caminho: string, params: URLSearchParams, contexto: string): Promise<T | null> {
+    const chave = process.env.GOOGLE_BOOKS_API_KEY?.trim();
+    if (chave) {
+      params.set("key", chave);
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    try {
+      const response = await fetch(`${this.baseUrl}${caminho}${query}`, {
+        signal: AbortSignal.timeout(5000),
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) {
+        if (response.status !== 404) {
+          this.logger.warn(`Google Books (${contexto}) respondeu HTTP ${response.status}`);
+        }
+        return null;
+      }
+      return (await response.json()) as T;
+    } catch (err) {
+      this.logger.error(`Erro no Google Books (${contexto}):`, err);
+      return null;
+    }
   }
 
-  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
-    return this.searchBooks(query, limit);
+  async buscar(query: string, limite = 20): Promise<ItemCatalogo[]> {
+    const termo = query?.trim() || "ficcao";
+    const params = new URLSearchParams({
+      q: termo,
+      langRestrict: "pt",
+      projection: "lite",
+      maxResults: String(Math.min(Math.max(1, limite), 40))
+    });
+    const data = await this.pedir<GoogleBooksSearchResponse>("", params, `busca "${termo}"`);
+    if (!Array.isArray(data?.items)) {
+      return [];
+    }
+    return data.items
+      .filter((vol) => {
+        const lang = vol.volumeInfo?.language?.toLowerCase();
+        // Volumes em espanhol vazam no filtro langRestrict=pt.
+        if (lang && lang.startsWith("es")) {
+          return false;
+        }
+        return Boolean(vol.volumeInfo?.title?.trim());
+      })
+      .map(mapGoogleBooksVolume);
   }
 
   async buscarPorId(id: string): Promise<ItemCatalogo | null> {
-    return this.getBookById(id);
+    const volume = await this.volume(id);
+    return volume ? mapGoogleBooksVolume(volume) : null;
   }
 
-  async searchBooks(query: string, maxResults = 20): Promise<ItemCatalogo[]> {
-    const cleanQuery = query?.trim() || "ficcao";
-    try {
-      const params = new URLSearchParams({
-        q: cleanQuery,
-        langRestrict: "pt",
-        projection: "lite",
-        maxResults: String(Math.min(Math.max(1, maxResults), 40))
-      });
-
-      const apiKey = this.getApiKey();
-      if (apiKey) {
-        params.set("key", apiKey);
-      }
-
-      const url = `${this.baseUrl}?${params.toString()}`;
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(5000),
-        headers: {
-          Accept: "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        this.logger.warn(`Google Books search respondeu com status HTTP ${response.status}`);
-        return [];
-      }
-
-      const data = (await response.json()) as GoogleBooksSearchResponse;
-      if (!Array.isArray(data.items)) {
-        return [];
-      }
-
-      return data.items
-        .filter((vol) => {
-          const lang = vol.volumeInfo?.language?.toLowerCase();
-          // Descarta volumes explicitamente em espanhol que vazam no filtro langRestrict=pt
-          if (lang && lang.startsWith("es")) {
-            return false;
-          }
-          return Boolean(vol.volumeInfo?.title?.trim());
-        })
-        .map(mapGoogleBooksVolume);
-    } catch (err) {
-      this.logger.error(`Erro ao buscar livros na Google Books API para termo "${query}":`, err);
-      return [];
-    }
-  }
-
-  async getBookById(id: string): Promise<ItemCatalogo | null> {
-    if (!id?.trim()) {
+  // Volume cru (sinopse, paginas, nota), usado pela fonte de livros em fontes/google-books.ts.
+  async volume(id: string): Promise<GoogleBooksVolume | null> {
+    const volumeId = id?.trim().replace(/^media_gbooks_/, "");
+    if (!volumeId) {
       return null;
     }
-    const volumeId = id.trim().replace(/^media_gbooks_/, "");
-    try {
-      const params = new URLSearchParams();
-      const apiKey = this.getApiKey();
-      if (apiKey) {
-        params.set("key", apiKey);
-      }
-
-      const querySuffix = params.size > 0 ? `?${params.toString()}` : "";
-      const url = `${this.baseUrl}/${encodeURIComponent(volumeId)}${querySuffix}`;
-
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(5000),
-        headers: {
-          Accept: "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status !== 404) {
-          this.logger.warn(`Google Books getBookById respondeu com status HTTP ${response.status} para ID "${volumeId}"`);
-        }
-        return null;
-      }
-
-      const volume = (await response.json()) as GoogleBooksVolume;
-      if (!volume?.id) {
-        return null;
-      }
-
-      return mapGoogleBooksVolume(volume);
-    } catch (err) {
-      this.logger.error(`Erro ao buscar livro por ID "${volumeId}" na Google Books API:`, err);
-      return null;
-    }
-  }
-
-  async getVolumeRaw(id: string): Promise<GoogleBooksVolume | null> {
-    if (!id?.trim()) {
-      return null;
-    }
-    const volumeId = id.trim().replace(/^media_gbooks_/, "");
-    try {
-      const params = new URLSearchParams();
-      const apiKey = this.getApiKey();
-      if (apiKey) {
-        params.set("key", apiKey);
-      }
-
-      const querySuffix = params.size > 0 ? `?${params.toString()}` : "";
-      const url = `${this.baseUrl}/${encodeURIComponent(volumeId)}${querySuffix}`;
-
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(5000),
-        headers: {
-          Accept: "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const volume = (await response.json()) as GoogleBooksVolume;
-      return volume?.id ? volume : null;
-    } catch {
-      return null;
-    }
+    const volume = await this.pedir<GoogleBooksVolume>(
+      `/${encodeURIComponent(volumeId)}`,
+      new URLSearchParams(),
+      `volume "${volumeId}"`
+    );
+    return volume?.id ? volume : null;
   }
 }

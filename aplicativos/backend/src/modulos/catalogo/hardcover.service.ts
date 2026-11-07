@@ -131,20 +131,12 @@ export class HardcoverService implements ProvedorCatalogo {
   private readonly logger = new Logger(HardcoverService.name);
   private readonly graphqlUrl = "https://api.hardcover.app/v1/graphql";
 
-  private getApiKey(): string | undefined {
+  private chave(): string | undefined {
     return process.env.HARDCOVER_API_KEY?.trim() || undefined;
   }
 
-  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
-    return this.searchBooks(query, limit);
-  }
-
-  async buscarPorId(id: string): Promise<ItemCatalogo | null> {
-    return this.getBookById(id);
-  }
-
-  async executeQuery<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
-    const apiKey = this.getApiKey();
+  async consultar<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
+    const apiKey = this.chave();
     if (!apiKey) {
       return null;
     }
@@ -181,10 +173,10 @@ export class HardcoverService implements ProvedorCatalogo {
     }
   }
 
-  async searchBooks(query: string, limit = 20): Promise<ItemCatalogo[]> {
-    const cleanQuery = query?.trim();
-    if (!cleanQuery) {
-      return this.getPopularBooks(limit);
+  async buscar(query: string, limit = 20): Promise<ItemCatalogo[]> {
+    const termo = query?.trim();
+    if (!termo) {
+      return this.populares(limit);
     }
 
     const maxResults = Math.min(Math.max(1, limit), 50);
@@ -196,8 +188,8 @@ export class HardcoverService implements ProvedorCatalogo {
       }
     `;
 
-    const data = await this.executeQuery<HardcoverSearchResponse>(gql, {
-      query: cleanQuery,
+    const data = await this.consultar<HardcoverSearchResponse>(gql, {
+      query: termo,
       per_page: maxResults
     });
 
@@ -218,14 +210,14 @@ export class HardcoverService implements ProvedorCatalogo {
   // dias; os mais lidos entre os lancados no ultimo ano; os mais lidos de todos os tempos.
   async emAlta(limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
-    if (!this.getApiKey()) {
+    if (!this.chave()) {
       return [];
     }
 
     if (!this.tendenciaIndisponivel) {
       const hoje = new Date();
       const dia = (d: Date) => d.toISOString().slice(0, 10);
-      const tendencia = await this.executeQuery<{ books_trending?: { ids?: number[] } | null }>(
+      const tendencia = await this.consultar<{ books_trending?: { ids?: number[] } | null }>(
         `query EmAlta($from: date!, $to: date!, $limit: Int!) {
           books_trending(from: $from, to: $to, limit: $limit, offset: 0) { ids }
         }`,
@@ -242,7 +234,7 @@ export class HardcoverService implements ProvedorCatalogo {
       }
     }
 
-    const recentes = await this.executeQuery<HardcoverPopularResponse>(
+    const recentes = await this.consultar<HardcoverPopularResponse>(
       `query Recentes($limit: Int!, $ano: Int!) {
         books(where: { release_year: { _gte: $ano } }, order_by: { users_read_count: desc }, limit: $limit) {
           ${CAMPOS_LIVRO}
@@ -251,12 +243,12 @@ export class HardcoverService implements ProvedorCatalogo {
       { limit: maxResults, ano: new Date().getUTCFullYear() - 1 }
     );
     const itens = (recentes?.books ?? []).map(mapHardcoverBook).filter((item) => Boolean(item.id && item.title));
-    return itens.length > 0 ? itens : this.getPopularBooks(maxResults);
+    return itens.length > 0 ? itens : this.populares(maxResults);
   }
 
   // Livros pelos ids, na mesma ordem.
   private async livrosPorIds(ids: number[]): Promise<ItemCatalogo[]> {
-    const data = await this.executeQuery<HardcoverPopularResponse>(
+    const data = await this.consultar<HardcoverPopularResponse>(
       `query PorIds($ids: [Int!]!) {
         books(where: { id: { _in: $ids } }) {
           ${CAMPOS_LIVRO}
@@ -271,7 +263,7 @@ export class HardcoverService implements ProvedorCatalogo {
       .filter((item) => Boolean(item.id && item.title));
   }
 
-  async getPopularBooks(limit = 20): Promise<ItemCatalogo[]> {
+  async populares(limit = 20): Promise<ItemCatalogo[]> {
     const maxResults = Math.min(Math.max(1, limit), 50);
     const gql = `
       query GetPopularBooks($limit: Int!) {
@@ -290,7 +282,7 @@ export class HardcoverService implements ProvedorCatalogo {
       }
     `;
 
-    const data = await this.executeQuery<HardcoverPopularResponse>(gql, { limit: maxResults });
+    const data = await this.consultar<HardcoverPopularResponse>(gql, { limit: maxResults });
     const books = data?.books;
     if (!Array.isArray(books) || books.length === 0) {
       return [];
@@ -299,15 +291,15 @@ export class HardcoverService implements ProvedorCatalogo {
     return books.map(mapHardcoverBook).filter((item) => Boolean(item.id && item.title));
   }
 
-  async getBookById(id: string | number): Promise<ItemCatalogo | null> {
-    const raw = await this.getBookRaw(id);
+  async buscarPorId(id: string | number): Promise<ItemCatalogo | null> {
+    const raw = await this.livro(id);
     if (!raw) {
       return null;
     }
     return mapHardcoverBook(raw);
   }
 
-  async getBookRaw(id: string | number): Promise<HardcoverBook | null> {
+  async livro(id: string | number): Promise<HardcoverBook | null> {
     const cleanId = String(id).trim().replace(/^(?:media_hardcover_|hardcover_book_)/, "");
     const numericId = parseInt(cleanId, 10);
     if (Number.isNaN(numericId) || numericId <= 0) {
@@ -331,7 +323,7 @@ export class HardcoverService implements ProvedorCatalogo {
       }
     `;
 
-    const data = await this.executeQuery<HardcoverBookDetailResponse>(gql, { id: numericId });
+    const data = await this.consultar<HardcoverBookDetailResponse>(gql, { id: numericId });
     return data?.books_by_pk ?? null;
   }
 }

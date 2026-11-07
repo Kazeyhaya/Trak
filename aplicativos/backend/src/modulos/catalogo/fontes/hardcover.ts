@@ -33,7 +33,7 @@ export class FonteHardcover implements Fonte<IdHardcover> {
   }
 
   async extras(p: IdHardcover, _id: string, notaTrak: Promise<NotaTrak>): Promise<ExtrasCatalogo> {
-    const [livro, trakRating] = await Promise.all([this.hardcover.getBookRaw(p.externalId), notaTrak]);
+    const [livro, trakRating] = await Promise.all([this.hardcover.livro(p.externalId), notaTrak]);
 
     const externalRatings: NotaExterna[] = [];
     if (livro?.rating && Number.isFinite(livro.rating) && livro.rating > 0) {
@@ -58,7 +58,7 @@ export class FonteHardcover implements Fonte<IdHardcover> {
   }
 
   async relacionados(p: IdHardcover, id: string) {
-    const livro = await this.hardcover.getBookRaw(p.externalId);
+    const livro = await this.hardcover.livro(p.externalId);
     const termo = livro?.cached_tags?.Genre?.[0]?.tag || livro?.title;
     if (!termo) {
       return [];
@@ -74,7 +74,7 @@ export class FonteHardcover implements Fonte<IdHardcover> {
   }
 
   async duracao(p: IdHardcover) {
-    const paginas = (await this.hardcover.getBookRaw(p.externalId))?.pages;
+    const paginas = (await this.hardcover.livro(p.externalId))?.pages;
     return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
   }
 

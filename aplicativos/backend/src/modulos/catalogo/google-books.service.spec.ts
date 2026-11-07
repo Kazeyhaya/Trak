@@ -14,7 +14,7 @@ describe("GoogleBooksService", () => {
     process.env = { ...originalEnv };
   });
 
-  describe("searchBooks", () => {
+  describe("buscar", () => {
     it("busca livros com langRestrict=pt e mapeia para ItemCatalogo", async () => {
       const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValueOnce(
         new Response(
@@ -37,7 +37,7 @@ describe("GoogleBooksService", () => {
         )
       );
 
-      const items = await service.searchBooks("machado");
+      const items = await service.buscar("machado");
 
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining("langRestrict=pt"),
@@ -68,7 +68,7 @@ describe("GoogleBooksService", () => {
         new Response(JSON.stringify({ items: [] }), { status: 200 })
       );
 
-      await service.searchBooks("teste");
+      await service.buscar("teste");
 
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining("key=test_key_123"),
@@ -79,7 +79,7 @@ describe("GoogleBooksService", () => {
     it("retorna array vazio em caso de erro HTTP ou falha de rede", async () => {
       jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network timeout"));
 
-      const items = await service.searchBooks("teste");
+      const items = await service.buscar("teste");
       expect(items).toEqual([]);
     });
 
@@ -104,14 +104,14 @@ describe("GoogleBooksService", () => {
         )
       );
 
-      const items = await service.searchBooks("teste");
+      const items = await service.buscar("teste");
       expect(items[0].coverUrl).toBe(
         "https://books.google.com/books/content?id=xyz&printsec=frontcover&img=1&zoom=2&source=gbs_api"
       );
     });
   });
 
-  describe("getBookById", () => {
+  describe("buscarPorId", () => {
     it("aceita ID com prefixo media_gbooks_ e mapeia retorno", async () => {
       const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValueOnce(
         new Response(
@@ -130,7 +130,7 @@ describe("GoogleBooksService", () => {
         )
       );
 
-      const item = await service.getBookById("media_gbooks_abc_456");
+      const item = await service.buscarPorId("media_gbooks_abc_456");
 
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining("/volumes/abc_456"),
@@ -163,7 +163,7 @@ describe("GoogleBooksService", () => {
         )
       );
 
-      const item = await service.getBookById("xyz_789");
+      const item = await service.buscarPorId("xyz_789");
       expect(item?.id).toBe("media_gbooks_xyz_789");
       expect(item?.externalId).toBe("xyz_789");
       expect(item?.releaseYear).toBe(1988);
@@ -174,10 +174,10 @@ describe("GoogleBooksService", () => {
         new Response("Not Found", { status: 404 })
       );
 
-      const item = await service.getBookById("inexistente");
+      const item = await service.buscarPorId("inexistente");
       expect(item).toBeNull();
 
-      expect(await service.getBookById("")).toBeNull();
+      expect(await service.buscarPorId("")).toBeNull();
     });
   });
 

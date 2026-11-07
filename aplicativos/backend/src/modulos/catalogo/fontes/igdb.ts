@@ -23,7 +23,7 @@ export class FonteIgdb implements Fonte<IdIgdb> {
   }
 
   async extras(p: IdIgdb, _id: string, notaTrak: Promise<NotaTrak>): Promise<ExtrasCatalogo> {
-    const [jogo, trakRating] = await Promise.all([this.igdb.getGameRaw(p.externalId), notaTrak]);
+    const [jogo, trakRating] = await Promise.all([this.igdb.jogo(p.externalId), notaTrak]);
 
     const externalRatings: NotaExterna[] = [];
     if (jogo?.rating && jogo.rating > 0) {
@@ -46,7 +46,7 @@ export class FonteIgdb implements Fonte<IdIgdb> {
 
   // Jogos do mesmo genero (ou de nome parecido, quando nao ha genero).
   async relacionados(p: IdIgdb, id: string) {
-    const jogo = await this.igdb.getGameRaw(p.externalId);
+    const jogo = await this.igdb.jogo(p.externalId);
     const termo = jogo?.genres?.[0]?.name || jogo?.name;
     if (!termo) {
       return [];

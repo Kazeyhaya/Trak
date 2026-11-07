@@ -1,3 +1,4 @@
+import { CacheEmMemoria } from "./cache-memoria";
 import { Injectable, Logger } from "@nestjs/common";
 import { normalizarTitulo } from "./catalogo.fontes";
 import { ItemCatalogo } from "./catalogo.types";
@@ -35,14 +36,8 @@ export interface TwitchTokenResponse {
   token_type: string;
 }
 
-/**
- * Converte o image_id da IGDB em uma URL direta com alta resolução.
- * Opções de tamanho oficiais:
- * - 720p: 1280x720 (ótimo para landscape/backdrop)
- * - 1080p: 1920x1080
- * - cover_big: 264x374 (formato vertical 2:3 padrão)
- * - cover_big_2x: 528x748 (formato vertical 2:3 nítido para Retina/mobile/desktop)
- */
+// URL da imagem da IGDB pelo image_id. Tamanhos: cover_big 264x374 e cover_big_2x 528x748
+// (capa 2:3), 720p 1280x720 e 1080p 1920x1080 (paisagem).
 export function formatarUrlCapaIgdb(
   imageId: string,
   tamanho: "cover_big" | "cover_big_2x" | "720p" | "1080p" = "cover_big_2x"
@@ -109,8 +104,8 @@ export class IgdbService implements ProvedorCatalogo {
 
   private accessToken: string | null = null;
   private tokenExpiresAt = 0;
-  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
-  private readonly cacheTtlMs = 15 * 60 * 1000; // 15 minutos
+  private tokenEmAndamento: Promise<string | null> | null = null;
+  private readonly cache = new CacheEmMemoria(15 * 60 * 1000, 500);
 
   private obterCredenciais(): { clientId: string; clientSecret: string } | null {
     const clientId = process.env.IGDB_CLIENT_ID?.trim();
@@ -125,36 +120,23 @@ export class IgdbService implements ProvedorCatalogo {
     return Boolean(this.obterCredenciais());
   }
 
-  private async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
-    const atual = this.cache.get(chave);
-    if (atual && atual.expiresAt > Date.now()) {
-      return atual.value as T;
-    }
-
-    const value = await carregar();
-    if (value !== null && value !== undefined) {
-      if (this.cache.size > 500) {
-        this.cache.delete(this.cache.keys().next().value as string);
-      }
-      this.cache.set(chave, { expiresAt: Date.now() + this.cacheTtlMs, value });
-    }
-    return value;
-  }
-
-  /**
-   * Obtém ou renova o token App Access Token do Twitch OAuth2 exigido pela IGDB.
-   */
+  // Token de app do Twitch, exigido pela IGDB. Vale enquanto faltar mais de 1 minuto
+  // para expirar; varias consultas com o token vencido esperam uma unica renovacao.
   async obterToken(): Promise<string | null> {
     const creds = this.obterCredenciais();
     if (!creds) {
       return null;
     }
-
-    // Se o token ainda for válido (com 60s de margem de segurança)
     if (this.accessToken && this.tokenExpiresAt > Date.now() + 60000) {
       return this.accessToken;
     }
+    this.tokenEmAndamento ??= this.renovarToken(creds).finally(() => {
+      this.tokenEmAndamento = null;
+    });
+    return this.tokenEmAndamento;
+  }
 
+  private async renovarToken(creds: { clientId: string; clientSecret: string }): Promise<string | null> {
     try {
       const params = new URLSearchParams({
         client_id: creds.clientId,
@@ -182,9 +164,7 @@ export class IgdbService implements ProvedorCatalogo {
     }
   }
 
-  /**
-   * Executa uma consulta na API da IGDB com body em formato Apicalypse.
-   */
+  // Consulta Apicalypse (corpo em texto) num endpoint da IGDB, com cache de 15 minutos.
   async consulta<T>(endpoint: string, apicalypseQuery: string): Promise<T | null> {
     const creds = this.obterCredenciais();
     if (!creds) {
@@ -196,7 +176,7 @@ export class IgdbService implements ProvedorCatalogo {
       return null;
     }
 
-    return this.comCache(`${endpoint}:${apicalypseQuery}`, async () => {
+    return this.cache.obter(`${endpoint}:${apicalypseQuery}`, async () => {
       try {
         const response = await fetch(`${this.baseUrl}/${endpoint}`, {
           method: "POST",
@@ -225,9 +205,6 @@ export class IgdbService implements ProvedorCatalogo {
     });
   }
 
-  /**
-   * Busca jogos na IGDB e devolve no formato unificado ItemCatalogo[].
-   */
   // Jogos em alta agora. Ordem de preferencia: popularidade atual da IGDB (visitas
   // recentes, endpoint popularity_primitives); se indisponivel, os lancamentos dos ultimos
   // 12 meses mais avaliados. Nunca o "mais avaliado de todos os tempos".
@@ -290,9 +267,7 @@ export class IgdbService implements ProvedorCatalogo {
       .map(mapIgdbGame);
   }
 
-  /**
-   * Busca um jogo específico pelo ID na IGDB (ex: "igdb_game_1020" ou "1020") e devolve ItemCatalogo.
-   */
+  // Aceita "igdb_game_1020" ou so "1020".
   async buscarPorId(id: string): Promise<ItemCatalogo | null> {
     if (!id?.trim()) {
       return null;
@@ -313,10 +288,7 @@ export class IgdbService implements ProvedorCatalogo {
     return mapIgdbGame(game);
   }
 
-  /**
-   * Busca os dados brutos de um jogo na IGDB pelo ID numérico.
-   */
-  async getGameRaw(id: string | number): Promise<IgdbGame | null> {
+  async jogo(id: string | number): Promise<IgdbGame | null> {
     const cleanId = String(id).trim().replace(/^igdb_game_/, "");
     const numericId = parseInt(cleanId, 10);
     if (Number.isNaN(numericId) || numericId <= 0) {
@@ -328,9 +300,7 @@ export class IgdbService implements ProvedorCatalogo {
     return resultado?.[0] ?? null;
   }
 
-  /**
-   * Busca a capa vertical de alta qualidade (cover_big_2x) de um jogo pelo nome exato ou aproximado.
-   */
+  // Capa vertical cover_big_2x pelo nome do jogo (exato ou o resultado mais proximo).
   async buscarCapaPorNome(nomeJogo: string): Promise<string | null> {
     if (!nomeJogo || !nomeJogo.trim()) {
       return null;
@@ -358,9 +328,6 @@ export class IgdbService implements ProvedorCatalogo {
     return null;
   }
 
-  /**
-   * Busca detalhes e metadados de um jogo na IGDB pelo nome.
-   */
   async buscarJogoPorNome(nomeJogo: string): Promise<IgdbGame | null> {
     if (!nomeJogo || !nomeJogo.trim()) {
       return null;
@@ -373,9 +340,7 @@ export class IgdbService implements ProvedorCatalogo {
     return resultado?.[0] ?? null;
   }
 
-  /**
-   * Busca opções de capas verticais oficiais (edições e variantes regionais) para um jogo na IGDB.
-   */
+  // Capas oficiais alternativas: edicoes e variantes regionais do mesmo jogo.
   async buscarCapasAlternativas(nomeJogo: string): Promise<string[]> {
     if (!nomeJogo || !nomeJogo.trim()) {
       return [];

@@ -13,6 +13,7 @@ import {
   linhasLetterboxd,
   ListaLetterboxd
 } from "./importacao.parsers";
+import { gravarMetaLegado } from "../../comum/meta-legado";
 
 const MAX_ITENS = 500;
 const CONCORRENCIA = 4;
@@ -106,19 +107,7 @@ export class ImportacaoService {
         importedSources: novasFontes,
         hasImported: todasImportadas
       };
-      const { error: rpcError } = await db.rpc("trak_salvar_meta", {
-        p_user_id: userId,
-        p_data: meta
-      });
-      if (rpcError) {
-        await db.from("Activity").upsert({
-          id: userId,
-          userId,
-          type: "STATUS",
-          mediaItemId: null,
-          data: meta
-        });
-      }
+      await gravarMetaLegado(db, userId, meta);
     }
   }
 

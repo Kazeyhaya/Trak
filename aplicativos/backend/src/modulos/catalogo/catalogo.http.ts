@@ -1,3 +1,4 @@
+import { CacheEmMemoria } from "./cache-memoria";
 import { Logger } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { normalizarTitulo } from "./catalogo.fontes";
@@ -22,41 +23,15 @@ function dicaDeErro(status: number) {
 // Acesso as APIs externas do catalogo, com cache em memoria. Fontes sem chave
 // configurada respondem null, e o catalogo segue sem os itens delas.
 export class ClienteCatalogo {
-  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
-  // Pedidos iguais feitos ao mesmo tempo (ex.: varias telas abrindo a mesma serie)
-  // compartilham uma unica chamada externa.
-  private readonly emAndamento = new Map<string, Promise<unknown>>();
+  private readonly cache = new CacheEmMemoria(CACHE_TTL_MS, CACHE_MAX_ENTRIES);
 
   constructor(
     private readonly igdb: IgdbService,
     private readonly logger: Logger
   ) {}
 
-  // Falhas (null) nao sao guardadas, para a proxima chamada tentar de novo.
-  async comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
-    const atual = this.cache.get(chave);
-    if (atual && atual.expiresAt > Date.now()) {
-      return atual.value as T;
-    }
-
-    const pendente = this.emAndamento.get(chave);
-    if (pendente) {
-      return pendente as Promise<T>;
-    }
-
-    const promessa = carregar()
-      .then((value) => {
-        if (value !== null) {
-          if (this.cache.size >= CACHE_MAX_ENTRIES) {
-            this.cache.delete(this.cache.keys().next().value as string);
-          }
-          this.cache.set(chave, { expiresAt: Date.now() + CACHE_TTL_MS, value });
-        }
-        return value;
-      })
-      .finally(() => this.emAndamento.delete(chave));
-    this.emAndamento.set(chave, promessa);
-    return promessa;
+  comCache<T>(chave: string, carregar: () => Promise<T>): Promise<T> {
+    return this.cache.obter(chave, carregar);
   }
 
   async fetchJson<T>(url: string): Promise<T | null> {
@@ -143,7 +118,7 @@ export class ClienteCatalogo {
       return null;
     }
 
-    // 1. Prioriza a IGDB para capas oficiais nítidas em alta resolução
+    // A capa oficial da IGDB vem primeiro; o SteamGridDB so entra se ela faltar.
     if (this.igdb.isConfigurado()) {
       const capaIgdb = await this.igdb.buscarCapaPorNome(nomeJogo);
       if (capaIgdb) {
@@ -151,7 +126,6 @@ export class ClienteCatalogo {
       }
     }
 
-    // 2. Fallback para SteamGridDB caso configurado
     return this.capaSteamGridDb(nomeJogo);
   }
 
