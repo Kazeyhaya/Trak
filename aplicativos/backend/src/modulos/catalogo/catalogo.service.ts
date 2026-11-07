@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
+import { emBlocos } from "../../comum/paginas";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { ehAdulto, IdParseado, parsearId } from "./catalogo.fontes";
 import { ClienteCatalogo } from "./catalogo.http";
@@ -200,7 +201,15 @@ export class CatalogoService implements OnModuleInit {
     }
 
     const db = this.supabaseService.getClient();
-    const { data, error } = await db.from("MediaItem").select("id,durationMinutes").in("id", unicos);
+    let data: Array<{ id: string; durationMinutes: number | null }> | null = null;
+    let error: unknown = null;
+    try {
+      data = await emBlocos<{ id: string; durationMinutes: number | null }>(unicos, (bloco) =>
+        db.from("MediaItem").select("id,durationMinutes").in("id", bloco)
+      );
+    } catch (erro) {
+      error = erro;
+    }
     if (error) {
       await Promise.all(
         unicos.slice(0, limiteNovos).map(async (id) => {
@@ -304,16 +313,18 @@ export class CatalogoService implements OnModuleInit {
     }
 
     const db = this.supabaseService.getClient();
-    const { data, error } = await db
-      .from("MediaItem")
-      .select("id,externalId,source,type,subtype,title,coverUrl,synopsis,releaseYear,enrichedAt")
-      .in("id", unicos);
-
-    if (error) {
-      this.logger.warn(`Nao foi possivel ler MediaItem: ${error.message}`);
+    let linhas: Array<ItemCatalogo & { enrichedAt?: string | null }> = [];
+    try {
+      linhas = await emBlocos<ItemCatalogo & { enrichedAt?: string | null }>(unicos, (bloco) =>
+        db
+          .from("MediaItem")
+          .select("id,externalId,source,type,subtype,title,coverUrl,synopsis,releaseYear,enrichedAt")
+          .in("id", bloco)
+      );
+    } catch (erro) {
+      this.logger.warn(`Nao foi possivel ler MediaItem: ${(erro as Error).message}`);
     }
 
-    const linhas = (data ?? []) as Array<ItemCatalogo & { enrichedAt?: string | null }>;
     const pendentes = linhas.filter((item) => !item.enrichedAt).slice(0, limiteBackfill);
     await Promise.all(pendentes.map((item) => this.enriquecer(item)));
 

@@ -8,6 +8,8 @@ import {
 } from "@nestjs/common";
 import { ehAdmin, esquecerUsuario } from "../../comum/autenticacao/supabase-auth.guard";
 import { falha } from "../../comum/erros";
+import { emBlocos, fecharPagina, filtroAntesDe, lerCursor } from "../../comum/paginas";
+import { ArmazemAvatares } from "./avatares";
 import { gravarMetaLegado } from "../../comum/meta-legado";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
@@ -17,6 +19,10 @@ import { importacaoCompleta } from "../importacao/importacao.parsers";
 import { statusDoBanco, TABELA_TRACKING } from "../tracking/tracking.banco";
 import { SalvarPerfilDto } from "./dto/salvar-perfil.dto";
 import { calcularConquistas, resumoCultural } from "./perfil.estatisticas";
+
+// Itens por pagina do feed e das listas de seguidores/seguindo.
+const TAMANHO_FEED = 30;
+const TAMANHO_CONEXOES = 50;
 
 // O perfil publico mora na propria tabela "User" (id = id do Supabase Auth).
 const CAMPOS_PERFIL =
@@ -118,6 +124,8 @@ export class SocialService {
     @Optional() private readonly notificacoesService?: NotificacoesService
   ) {}
 
+  private readonly avatares = new ArmazemAvatares(() => this.db);
+
   private get db() {
     return this.supabaseService.getClient();
   }
@@ -195,17 +203,18 @@ export class SocialService {
     if (userIds.length === 0) {
       return new Map<string, Perfil>();
     }
-    const ids = [...new Set(userIds)];
-    const inicial = await this.db.from("User").select(CAMPOS_PERFIL).in("id", ids);
-    let data: unknown = inicial.data;
-    let error = inicial.error;
-    if (erroColunaAusente(error)) {
-      const legado = await this.db.from("User").select(CAMPOS_PERFIL_LEGADO).in("id", ids);
-      data = legado.data;
-      error = legado.error;
+    const ler = (campos: string) =>
+      emBlocos<LinhaUser>(userIds, (bloco) => this.db.from("User").select(campos).in("id", bloco));
+    let linhas: LinhaUser[];
+    try {
+      linhas = await ler(CAMPOS_PERFIL);
+    } catch (erro) {
+      if (!erroColunaAusente({ message: (erro as Error).message })) {
+        throw erro;
+      }
+      linhas = await ler(CAMPOS_PERFIL_LEGADO);
     }
-    falha(error);
-    return new Map(((data ?? []) as LinhaUser[]).map((linha) => [linha.id, perfilDe(linha)]));
+    return new Map(linhas.map((linha) => [linha.id, perfilDe(linha)]));
   }
 
   private async filtrarAtividadesValidas(atividades: Atividade[]) {
@@ -332,8 +341,21 @@ export class SocialService {
     return { profile: data ? perfilDe(data as LinhaUser, meta) : null, isAdmin: ehAdmin(usuario.email) };
   }
 
-  async salvarPerfil(authUserId: string, payload: SalvarPerfilDto, email?: string) {
+  async salvarPerfil(authUserId: string, recebido: SalvarPerfilDto, email?: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    // Foto nova chega como data URI (recorte feito no site): vai para o Storage e o perfil
+    // guarda so o link. A anterior e apagada depois que o perfil salvar.
+    let payload = recebido;
+    let fotoAnterior: string | null = null;
+    if (recebido.avatarUrl !== undefined) {
+      const { data: atual } = await this.db.from("User").select("avatarUrl").eq("id", userId).maybeSingle();
+      fotoAnterior = (atual?.avatarUrl as string | null | undefined) ?? null;
+      if (this.avatares.ehDataUri(recebido.avatarUrl)) {
+        payload = { ...recebido, avatarUrl: await this.avatares.salvar(userId, recebido.avatarUrl) };
+      }
+    }
+
     const normalizado = {
       ...payload,
       // String vazia limpa a foto / capa / volta ao tema padrao.
@@ -422,6 +444,9 @@ export class SocialService {
       throw new ConflictException("Este nome de usuario ja esta em uso.");
     }
     falha(error);
+    if (payload.avatarUrl !== undefined && fotoAnterior && fotoAnterior !== (payload.avatarUrl || null)) {
+      await this.avatares.remover(fotoAnterior);
+    }
     return perfilDe(data as LinhaUser, metaLegado);
   }
 
@@ -429,8 +454,15 @@ export class SocialService {
   // Supabase Auth. Comentarios denunciados ficam ocultos, com o original para a moderacao.
   async excluirConta(authUserId: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
+    // O historico de importacoes (com titulos nao encontrados) sai tambem quando a linha
+    // em "User" fica anonima por causa de um comentario denunciado.
+    const { error: importacoesError } = await this.db.from("ImportJob").delete().eq("userId", userId);
+    if (importacoesError && !erroColunaAusente(importacoesError) && !/relation .* does not exist/i.test(importacoesError.message)) {
+      falha(importacoesError);
+    }
     const { error } = await this.db.rpc("trak_excluir_usuario", { usuario: userId });
     falha(error);
+    await this.avatares.removerTodas(userId);
 
     const { error: authError } = await this.db.auth.admin.deleteUser(authUserId);
     falha(authError);
@@ -698,65 +730,69 @@ export class SocialService {
     return { ok: true };
   }
 
-  // Feed: atividades de quem voce segue, mais as suas.
-
-  async feed(authUserId: string) {
+  // Feed: atividades suas e de quem voce segue, em paginas de TAMANHO_FEED a partir do
+  // cursor. A juncao com os seguidos e a paginacao ficam no banco (trak_feed).
+  async feed(authUserId: string, cursorTexto?: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    const { data: seguindo, error } = await this.db.from("Follow").select("followingId").eq("followerId", userId);
-    falha(error);
+    const cursor = lerCursor(cursorTexto);
+    const [seguindo, atividades] = await Promise.all([
+      this.db.from("Follow").select("followingId", { count: "exact", head: true }).eq("followerId", userId),
+      this.db.rpc("trak_feed", {
+        usuario: userId,
+        antes_em: cursor?.em ?? null,
+        antes_id: cursor?.id ?? null,
+        limite: TAMANHO_FEED + 1
+      })
+    ]);
+    falha(seguindo.error);
+    falha(atividades.error);
 
-    const autores = [userId, ...(seguindo ?? []).map((f) => f.followingId as string)];
-    const { data: atividades, error: atividadesError } = await this.db
-      .from("Activity")
-      .select("id,userId,type,mediaItemId,data,createdAt")
-      .in("userId", autores)
-      .order("createdAt", { ascending: false })
-      .limit(50);
-    falha(atividadesError);
+    const { itens: pagina, proximo } = fecharPagina((atividades.data ?? []) as Atividade[], TAMANHO_FEED, (a) => ({
+      em: a.createdAt,
+      id: a.id
+    }));
 
-    const perfis = await this.perfisPorIds(autores);
-    // Perfis privados nao aparecem no feed de outras pessoas.
-    const visiveis = ((atividades ?? []) as Atividade[]).filter(
-      (atividade) => atividade.userId === userId || perfis.get(atividade.userId)?.isPublic
-    );
-
+    const perfis = await this.perfisPorIds(pagina.map((a) => a.userId));
+    // Perfis privados nao aparecem no feed de outras pessoas (o banco ja filtra; aqui e
+    // a garantia caso um perfil mude de visibilidade no meio do caminho).
+    const visiveis = pagina.filter((atividade) => atividade.userId === userId || perfis.get(atividade.userId)?.isPublic);
     const validas = await this.filtrarAtividadesValidas(visiveis);
+    const idsMidia = validas.flatMap((a) => (a.mediaItemId ? [a.mediaItemId] : []));
 
-    const [enrichedItems, userTracking] = await Promise.all([
+    const [enrichedItems, naMinhaEstante] = await Promise.all([
       this.enriquecer(validas),
-      this.db
-        .from(TABELA_TRACKING)
-        .select("mediaItemId")
-        .eq("userId", userId)
-        .then((r) => {
-          if (r.error) {
-            return new Set<string>();
-          }
-          return new Set((r.data ?? []).map((row) => row.mediaItemId as string));
-        })
+      emBlocos<{ mediaItemId: string }>(idsMidia, (bloco) =>
+        this.db.from(TABELA_TRACKING).select("mediaItemId").eq("userId", userId).in("mediaItemId", bloco)
+      )
+        .then((linhas) => new Set(linhas.map((linha) => linha.mediaItemId)))
+        .catch(() => new Set<string>())
     ]);
 
     const items = enrichedItems.map((item) => ({
       ...item,
-      inMyLibrary: item.mediaItemId ? (item.userId === userId || userTracking.has(item.mediaItemId)) : false
+      inMyLibrary: item.mediaItemId ? item.userId === userId || naMinhaEstante.has(item.mediaItemId) : false
     }));
 
-    return {
-      followingCount: autores.length - 1,
-      items
-    };
+    return { followingCount: seguindo.count ?? 0, items, proximo };
   }
 
-  listarSeguidores(username: string, visitante?: UsuarioAuth) {
-    return this.listarConexoes(username, "seguidores", visitante);
+  listarSeguidores(username: string, visitante?: UsuarioAuth, cursor?: string) {
+    return this.listarConexoes(username, "seguidores", visitante, cursor);
   }
 
-  listarSeguindo(username: string, visitante?: UsuarioAuth) {
-    return this.listarConexoes(username, "seguindo", visitante);
+  listarSeguindo(username: string, visitante?: UsuarioAuth, cursor?: string) {
+    return this.listarConexoes(username, "seguindo", visitante, cursor);
   }
 
-  // Ate 100 pessoas, das mais recentes, com o que o visitante tem em comum com cada uma.
-  private async listarConexoes(username: string, direcao: "seguidores" | "seguindo", visitante?: UsuarioAuth) {
+  // Pessoas em paginas de TAMANHO_CONEXOES, das mais recentes, com o que o visitante tem
+  // em comum com cada uma.
+  private async listarConexoes(
+    username: string,
+    direcao: "seguidores" | "seguindo",
+    visitante?: UsuarioAuth,
+    cursorTexto?: string
+  ) {
+    const cursor = lerCursor(cursorTexto);
     const alvo = await this.perfilPorUsername(username);
     const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
     const isMe = visitanteId === alvo.userId;
@@ -768,17 +804,27 @@ export class SocialService {
     // Seguidores: linhas em que o alvo e seguido. Seguindo: em que ele segue.
     const [colunaAlvo, colunaOutro] =
       direcao === "seguidores" ? (["followingId", "followerId"] as const) : (["followerId", "followingId"] as const);
-    const { data: follows, error } = await this.db
+    let consulta = this.db
       .from("Follow")
       .select(`${colunaOutro},createdAt`)
-      .eq(colunaAlvo, alvo.userId)
+      .eq(colunaAlvo, alvo.userId);
+    if (cursor) {
+      consulta = consulta.or(filtroAntesDe(cursor, "createdAt", colunaOutro));
+    }
+    const { data: follows, error } = await consulta
       .order("createdAt", { ascending: false })
-      .limit(100);
+      .order(colunaOutro, { ascending: false })
+      .limit(TAMANHO_CONEXOES + 1);
     falha(error);
 
-    const ids = ((follows ?? []) as unknown as Array<Record<string, string>>).map((f) => f[colunaOutro]);
+    const { itens: linhas, proximo } = fecharPagina(
+      (follows ?? []) as unknown as Array<Record<string, string>>,
+      TAMANHO_CONEXOES,
+      (f) => ({ em: f.createdAt, id: f[colunaOutro] })
+    );
+    const ids = linhas.map((f) => f[colunaOutro]);
     if (ids.length === 0) {
-      return [];
+      return { items: [], proximo: null };
     }
 
     const [perfisMap, seguidosPeloVisitante, seguemVisitante] = await Promise.all([
@@ -801,7 +847,7 @@ export class SocialService {
         : Promise.resolve(new Set<string>())
     ]);
 
-    return ids.flatMap((id) => {
+    const items = ids.flatMap((id) => {
       const p = perfisMap.get(id);
       if (!p) {
         return [];
@@ -819,5 +865,6 @@ export class SocialService {
         }
       ];
     });
+    return { items, proximo };
   }
 }

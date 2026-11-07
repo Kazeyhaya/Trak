@@ -110,7 +110,8 @@ describe("SocialService (perfil na tabela User)", () => {
     });
 
     const seguidores = await service.listarSeguidores("ana_1");
-    expect(seguidores).toEqual([
+    expect(seguidores.proximo).toBeNull();
+    expect(seguidores.items).toEqual([
       expect.objectContaining({
         userId: "u2",
         username: "pedro",
@@ -137,7 +138,8 @@ describe("SocialService (perfil na tabela User)", () => {
     });
 
     const seguindo = await service.listarSeguindo("ana_1");
-    expect(seguindo).toEqual([
+    expect(seguindo.proximo).toBeNull();
+    expect(seguindo.items).toEqual([
       expect.objectContaining({
         userId: "u3",
         username: "lucas",
@@ -212,9 +214,9 @@ describe("SocialService (perfil na tabela User)", () => {
 
       const { service } = montar((op) => {
         if (op.table === "Follow") {
-          return { data: [{ followingId: "u2" }] };
+          return { data: null, count: 1 };
         }
-        if (op.table === "Activity") {
+        if (op.action === "rpc" && op.table === "trak_feed") {
           return { data: atividadesMock };
         }
         if (op.table === "User") {
@@ -250,6 +252,49 @@ describe("SocialService (perfil na tabela User)", () => {
       expect(feed.items[1]).toMatchObject({ id: "act2", inMyLibrary: true });
       // Item do amigo que u1 NÃO tem na estante
       expect(feed.items[2]).toMatchObject({ id: "act3", inMyLibrary: false });
+      expect(feed.followingCount).toBe(1);
+      expect(feed.proximo).toBeNull();
+    });
+
+    it("pagina pelo cursor: devolve 30 atividades e o cursor da ultima", async () => {
+      const atividades = Array.from({ length: 31 }, (_, i) => ({
+        id: `act${String(i).padStart(2, "0")}`,
+        userId: "u1",
+        type: "STATUS",
+        mediaItemId: `m${i}`,
+        data: { status: "WANT" },
+        createdAt: new Date(Date.UTC(2026, 9, 31, 12, 0, 60 - i)).toISOString()
+      }));
+      const { service, chamadas } = montar((op) => {
+        if (op.action === "rpc" && op.table === "trak_feed") {
+          return { data: atividades };
+        }
+        if (op.table === "UserMedia") {
+          return { data: atividades.map((a) => ({ userId: "u1", mediaItemId: a.mediaItemId })) };
+        }
+        if (op.table === "User") {
+          return { data: [{ id: "u1", username: "alex", displayName: "Alex", isPublic: true }] };
+        }
+        return { data: null, count: 0 };
+      });
+
+      const primeira = await service.feed("u1");
+      expect(primeira.items).toHaveLength(30);
+      expect(primeira.proximo).toEqual(expect.any(String));
+
+      await service.feed("u1", primeira.proximo as string);
+      const segundaChamada = chamadas.filter((c) => c.table === "trak_feed")[1];
+      expect(segundaChamada.payload).toMatchObject({
+        usuario: "u1",
+        antes_em: atividades[29].createdAt,
+        antes_id: "act29",
+        limite: 31
+      });
+    });
+
+    it("recusa cursor invalido com 400", async () => {
+      const { service } = montar(() => ({ data: [] }));
+      await expect(service.feed("u1", "nao-e-um-cursor")).rejects.toMatchObject({ status: 400 });
     });
   });
 });

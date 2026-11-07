@@ -6,6 +6,7 @@ import {
   Optional
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { fecharPagina, filtroAntesDe, lerCursor } from "../../comum/paginas";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { NotificacoesService } from "../notificacoes/notificacoes.service";
@@ -13,6 +14,7 @@ import { AtividadesService } from "../social/atividades.service";
 import { DenunciarComentarioDto } from "./dto/denunciar-comentario.dto";
 
 export const CONTEUDO_REMOVIDO = "[comentário removido]";
+const TAMANHO_PAGINA = 30;
 
 @Injectable()
 export class ComentariosService {
@@ -47,21 +49,34 @@ export class ComentariosService {
     );
   }
 
-  async listarPorMidia(mediaItemId: string, authUserId?: string) {
+  // Comentarios da obra em paginas de TAMANHO_PAGINA, dos mais novos para os mais antigos.
+  // Os removidos pela moderacao ja saem na consulta, para nao encurtar a pagina.
+  async listarPorMidia(mediaItemId: string, authUserId?: string, cursorTexto?: string) {
     const supabase = this.supabaseService.getClient();
     const userId = authUserId ? await this.supabaseService.resolverUserId(authUserId) : null;
+    const cursor = lerCursor(cursorTexto);
 
-    const { data: comentarios, error } = await supabase
+    let consulta = supabase
       .from("Comment")
       .select("id,userId,mediaItemId,content,createdAt,updatedAt")
       .eq("mediaItemId", mediaItemId)
-      .order("createdAt", { ascending: false });
+      .neq("content", CONTEUDO_REMOVIDO);
+    if (cursor) {
+      consulta = consulta.or(filtroAntesDe(cursor, "createdAt", "id"));
+    }
+    const { data: comentarios, error } = await consulta
+      .order("createdAt", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(TAMANHO_PAGINA + 1);
 
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
 
-    const visiveis = (comentarios ?? []).filter((c) => c.content !== CONTEUDO_REMOVIDO);
+    const { itens: visiveis, proximo } = fecharPagina(comentarios ?? [], TAMANHO_PAGINA, (c) => ({
+      em: c.createdAt as string,
+      id: c.id as string
+    }));
     const comentarioIds = visiveis.map((c) => c.id as string);
     const likesCount = new Map<string, number>();
     const likesDoUsuario = new Set<string>();
@@ -91,13 +106,14 @@ export class ComentariosService {
       })()
     ]);
 
-    return visiveis.map((comentario) => ({
+    const items = visiveis.map((comentario) => ({
       ...comentario,
       user: autores.get(comentario.userId as string) ?? null,
       likesCount: likesCount.get(comentario.id as string) ?? 0,
       likedByUser: likesDoUsuario.has(comentario.id as string),
       isOwn: comentario.userId === userId
     }));
+    return { items, proximo };
   }
 
   async criar(mediaItemId: string, authUserId: string, content: string) {

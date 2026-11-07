@@ -49,14 +49,22 @@ export class SocialController {
 
   @UseGuards(AutenticacaoOpcionalGuard)
   @Get("perfis/:username/seguidores")
-  seguidores(@Param("username") username: string, @UsuarioOpcional() usuario?: UsuarioAuth) {
-    return this.socialService.listarSeguidores(username, usuario);
+  seguidores(
+    @Param("username") username: string,
+    @Query("cursor") cursor?: string,
+    @UsuarioOpcional() usuario?: UsuarioAuth
+  ) {
+    return this.socialService.listarSeguidores(username, usuario, cursor);
   }
 
   @UseGuards(AutenticacaoOpcionalGuard)
   @Get("perfis/:username/seguindo")
-  seguindo(@Param("username") username: string, @UsuarioOpcional() usuario?: UsuarioAuth) {
-    return this.socialService.listarSeguindo(username, usuario);
+  seguindo(
+    @Param("username") username: string,
+    @Query("cursor") cursor?: string,
+    @UsuarioOpcional() usuario?: UsuarioAuth
+  ) {
+    return this.socialService.listarSeguindo(username, usuario, cursor);
   }
 
   @UseGuards(SupabaseAuthGuard)
@@ -75,7 +83,7 @@ export class SocialController {
 
   @UseGuards(SupabaseAuthGuard)
   @Get("feed")
-  feed(@UsuarioLogado() usuario: UsuarioAuth) {
-    return this.socialService.feed(usuario.id);
+  feed(@UsuarioLogado() usuario: UsuarioAuth, @Query("cursor") cursor?: string) {
+    return this.socialService.feed(usuario.id, cursor);
   }
 }

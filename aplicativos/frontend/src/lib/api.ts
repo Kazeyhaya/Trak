@@ -288,8 +288,26 @@ export type CommentEntry = {
   isOwn: boolean;
 };
 
-export const getComments = (mediaItemId: string) =>
-  request<CommentEntry[]>(`/comentarios?mediaItemId=${encodeURIComponent(mediaItemId)}`);
+// Uma pagina de uma lista longa (feed, comentarios, seguidores): os itens e o cursor da
+// proxima, ou null quando acabou.
+export type Pagina<T> = { items: T[]; proximo: string | null };
+
+// Tambem aceita a resposta antiga (lista simples), para o site nao quebrar se for publicado
+// antes da API.
+export function comoPagina<T>(resposta: T[] | Pagina<T>): Pagina<T> {
+  return Array.isArray(resposta) ? { items: resposta, proximo: null } : { items: resposta.items ?? [], proximo: resposta.proximo ?? null };
+}
+
+export function comCursor(caminho: string, cursor?: string | null) {
+  return cursor ? `${caminho}${caminho.includes("?") ? "&" : "?"}cursor=${encodeURIComponent(cursor)}` : caminho;
+}
+
+export const getComments = async (mediaItemId: string, cursor?: string | null) =>
+  comoPagina(
+    await request<CommentEntry[] | Pagina<CommentEntry>>(
+      comCursor(`/comentarios?mediaItemId=${encodeURIComponent(mediaItemId)}`, cursor)
+    )
+  );
 
 export const createComment = (mediaItemId: string, content: string) =>
   request<CommentEntry>("/comentarios", { method: "POST", body: json({ mediaItemId, content }) });
@@ -431,13 +449,22 @@ export type FollowUser = {
   isMe?: boolean;
 };
 
-export const getFollowers = (username: string) =>
-  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguidores`);
+export const getFollowers = async (username: string, cursor?: string | null) =>
+  comoPagina(
+    await request<FollowUser[] | Pagina<FollowUser>>(comCursor(`/perfis/${encodeURIComponent(username)}/seguidores`, cursor))
+  );
 
-export const getFollowing = (username: string) =>
-  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguindo`);
+export const getFollowing = async (username: string, cursor?: string | null) =>
+  comoPagina(
+    await request<FollowUser[] | Pagina<FollowUser>>(comCursor(`/perfis/${encodeURIComponent(username)}/seguindo`, cursor))
+  );
 
-export const getFeed = () => request<{ followingCount: number; items: Activity[] }>("/feed");
+export type Feed = { followingCount: number; items: Activity[]; proximo: string | null };
+
+export const getFeed = async (cursor?: string | null): Promise<Feed> => {
+  const feed = await request<Omit<Feed, "proximo"> & { proximo?: string | null }>(comCursor("/feed", cursor));
+  return { ...feed, proximo: feed.proximo ?? null };
+};
 
 // Recomendacoes e alertas
 
@@ -461,14 +488,56 @@ export type ImportResult = { total: number; imported: number; skipped: number; n
 
 export type LetterboxdList = "watched" | "ratings" | "diary" | "watchlist";
 
-export const importLetterboxd = (csv: string, lista: LetterboxdList) =>
-  request<ImportResult>("/importacao/letterboxd", { method: "POST", body: json({ csv, lista }) });
+// A importacao roda em segundo plano: o envio devolve a tarefa, e o site acompanha o
+// progresso por getImportTask ate o status sair de PROCESSANDO.
+export type ImportTask = {
+  id: string;
+  fonte: "letterboxd" | "trakt" | "steam";
+  chave: string;
+  status: "PROCESSANDO" | "CONCLUIDA" | "FALHOU";
+  total: number;
+  processados: number;
+  resultado: ImportResult | null;
+  erro: string | null;
+  createdAt: string;
+};
 
-export const importTrakt = (fileContent: string) =>
-  request<ImportResult>("/importacao/trakt", { method: "POST", body: json({ json: fileContent }) });
+// A API antiga respondia o resultado direto; vira uma tarefa ja concluida.
+export function comoTarefa(resposta: ImportTask | ImportResult, fonte: ImportTask["fonte"]): ImportTask {
+  if ("status" in resposta) {
+    return resposta;
+  }
+  return {
+    id: "",
+    fonte,
+    chave: fonte,
+    status: "CONCLUIDA",
+    total: resposta.total,
+    processados: resposta.total,
+    resultado: resposta,
+    erro: null,
+    createdAt: new Date().toISOString()
+  };
+}
 
-export const importSteam = (perfil: string) =>
-  request<ImportResult>("/importacao/steam", { method: "POST", body: json({ perfil }) });
+export const importLetterboxd = async (csv: string, lista: LetterboxdList) =>
+  comoTarefa(
+    await request<ImportTask | ImportResult>("/importacao/letterboxd", { method: "POST", body: json({ csv, lista }) }),
+    "letterboxd"
+  );
+
+export const importTrakt = async (fileContent: string) =>
+  comoTarefa(
+    await request<ImportTask | ImportResult>("/importacao/trakt", { method: "POST", body: json({ json: fileContent }) }),
+    "trakt"
+  );
+
+export const importSteam = async (perfil: string) =>
+  comoTarefa(await request<ImportTask | ImportResult>("/importacao/steam", { method: "POST", body: json({ perfil }) }), "steam");
+
+export const getImportTask = (id: string) => request<ImportTask>(`/importacao/tarefas/${encodeURIComponent(id)}`);
+
+export const getImportTasks = () => request<ImportTask[]>("/importacao/tarefas");
 
 // Moderacao
 

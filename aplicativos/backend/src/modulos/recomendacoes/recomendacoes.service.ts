@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { lerTodas } from "../../comum/paginas";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { TrackingService } from "../tracking/tracking.service";
@@ -18,10 +19,18 @@ export class RecomendacoesService {
     const userId = await this.supabaseService.resolverUserId(authUserId);
     const [registros, favoritos] = await Promise.all([
       this.trackingService.listarDoUsuario(userId),
-      this.supabaseService.getClient().from("Favorite").select("mediaItemId").eq("userId", userId)
+      lerTodas<{ mediaItemId: string }>((de, ate) =>
+        this.supabaseService
+          .getClient()
+          .from("Favorite")
+          .select("mediaItemId")
+          .eq("userId", userId)
+          .order("mediaItemId")
+          .range(de, ate)
+      )
     ]);
 
-    const idsFavoritos = new Set((favoritos.data ?? []).map((f) => f.mediaItemId as string));
+    const idsFavoritos = new Set(favoritos.map((f) => f.mediaItemId));
     const sementes = escolherSementes(registros, idsFavoritos);
 
     if (sementes.length === 0) {

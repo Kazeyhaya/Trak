@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { falha } from "../../comum/erros";
+import { emBlocos, lerTodas } from "../../comum/paginas";
 import { randomUUID } from "node:crypto";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { parsearId } from "../catalogo/catalogo.fontes";
@@ -62,14 +63,19 @@ export class TrackingService {
     });
   }
 
+  // A estante inteira, sem o corte de 1000 linhas (usada tambem pela importacao e pelas
+  // recomendacoes).
   async listarDoUsuario(userId: string) {
-    const { data, error } = await this.db
-      .from(TABELA_TRACKING)
-      .select(CAMPOS_TRACKING)
-      .eq("userId", userId)
-      .order("updatedAt", { ascending: false });
-    falha(error);
-    return ((data ?? []) as LinhaUserMedia[]).map(deBanco);
+    const linhas = await lerTodas<LinhaUserMedia>((de, ate) =>
+      this.db
+        .from(TABELA_TRACKING)
+        .select(CAMPOS_TRACKING)
+        .eq("userId", userId)
+        .order("updatedAt", { ascending: false })
+        .order("id", { ascending: false })
+        .range(de, ate)
+    );
+    return linhas.map(deBanco);
   }
 
   async buscar(authUserId: string, mediaItemId: string) {
@@ -395,44 +401,42 @@ export class TrackingService {
   // Perfis privados ficam de fora: seguir alguem nao exige aprovacao.
   async destaquesAmigos(authUserId: string, mediaItemId: string, season?: number) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
-    const { data: seguindo, error: followErr } = await this.db
-      .from("Follow")
-      .select("followingId")
-      .eq("followerId", userId);
-    falha(followErr);
-
-    const seguidosIds = (seguindo ?? []).map((f) => f.followingId as string);
+    const seguindo = await lerTodas<{ followingId: string }>((de, ate) =>
+      this.db
+        .from("Follow")
+        .select("followingId")
+        .eq("followerId", userId)
+        .order("followingId")
+        .range(de, ate)
+    );
+    const seguidosIds = seguindo.map((f) => f.followingId);
     if (seguidosIds.length === 0) {
       return [];
     }
 
-    const { data: perfis, error: perfisErr } = await this.db
-      .from("User")
-      .select("id,username,displayName,avatarUrl")
-      .in("id", seguidosIds)
-      .eq("isPublic", true);
-    falha(perfisErr);
-
-    const perfisMap = new Map((perfis ?? []).map((p) => [p.id as string, p]));
+    const perfis = await emBlocos<{ id: string; username: string; displayName: string | null; avatarUrl: string | null }>(
+      seguidosIds,
+      (bloco) => this.db.from("User").select("id,username,displayName,avatarUrl").in("id", bloco).eq("isPublic", true)
+    );
+    const perfisMap = new Map(perfis.map((p) => [p.id, p]));
     if (perfisMap.size === 0) {
       return [];
     }
 
-    let query = this.db
-      .from("EpisodeProgress")
-      .select("userId,season,episode,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
-      .eq("mediaItemId", mediaItemId)
-      .in("userId", [...perfisMap.keys()])
-      .not("highlightCharacterName", "is", null);
+    const destaques = await emBlocos<Record<string, unknown>>([...perfisMap.keys()], (bloco) => {
+      let query = this.db
+        .from("EpisodeProgress")
+        .select("userId,season,episode,highlightCharacterId,highlightCharacterName,highlightCharacterAvatar")
+        .eq("mediaItemId", mediaItemId)
+        .in("userId", bloco)
+        .not("highlightCharacterName", "is", null);
+      if (season !== undefined) {
+        query = query.eq("season", season);
+      }
+      return query;
+    });
 
-    if (season !== undefined) {
-      query = query.eq("season", season);
-    }
-
-    const { data: destaques, error: epErr } = await query;
-    falha(epErr);
-
-    return (destaques ?? []).flatMap((d) => {
+    return destaques.flatMap((d) => {
       const perfil = perfisMap.get(d.userId as string);
       if (!perfil) {
         return [];

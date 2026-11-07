@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { emBlocos, lerTodas } from "../../comum/paginas";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { AtividadesService } from "../social/atividades.service";
@@ -16,37 +17,33 @@ export class FavoritosService {
     const supabase = this.supabaseService.getClient();
     const userId = await this.supabaseService.resolverUserId(authUserId);
 
-    const { data: favoritos, error } = await supabase
-      .from("Favorite")
-      .select("mediaItemId,createdAt")
-      .eq("userId", userId)
-      .order("createdAt", { ascending: false });
+    const favoritos = await lerTodas<{ mediaItemId: string; createdAt: string }>((de, ate) =>
+      supabase
+        .from("Favorite")
+        .select("mediaItemId,createdAt")
+        .eq("userId", userId)
+        .order("createdAt", { ascending: false })
+        .order("mediaItemId", { ascending: false })
+        .range(de, ate)
+    );
 
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    const ids = (favoritos ?? []).map((f) => f.mediaItemId as string);
-    const [itens, trackingRes] = await Promise.all([
+    const ids = favoritos.map((f) => f.mediaItemId);
+    const [itens, capas] = await Promise.all([
       this.catalogoService.buscarSalvos(ids),
-      ids.length > 0
-        ? supabase
-            .from("UserMedia")
-            .select("mediaItemId,customCoverUrl")
-            .eq("userId", userId)
-            .in("mediaItemId", ids)
-        : Promise.resolve({ data: [], error: null })
+      emBlocos<{ mediaItemId?: string; customCoverUrl?: string | null }>(ids, (bloco) =>
+        supabase.from("UserMedia").select("mediaItemId,customCoverUrl").eq("userId", userId).in("mediaItemId", bloco)
+      )
     ]);
 
     const capasPersonalizadas = new Map<string, string>();
-    for (const row of (trackingRes.data ?? []) as Array<{ mediaItemId?: string; customCoverUrl?: string | null }>) {
+    for (const row of capas) {
       if (row.mediaItemId && row.customCoverUrl) {
         capasPersonalizadas.set(row.mediaItemId, row.customCoverUrl);
       }
     }
 
-    return (favoritos ?? []).map((fav) => {
-      const id = fav.mediaItemId as string;
+    return favoritos.map((fav) => {
+      const id = fav.mediaItemId;
       const itemBase = itens.get(id) ?? null;
       const customCover = capasPersonalizadas.get(id);
       return {

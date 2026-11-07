@@ -22,7 +22,7 @@ export class ComentariosController {
   @UseGuards(AutenticacaoOpcionalGuard)
   @Get()
   listar(@Query() query: ListarComentariosQueryDto, @UsuarioOpcional() usuario?: UsuarioAuth) {
-    return this.comentariosService.listarPorMidia(query.mediaItemId, usuario?.id);
+    return this.comentariosService.listarPorMidia(query.mediaItemId, usuario?.id, query.cursor);
   }
 
   @UseGuards(SupabaseAuthGuard)

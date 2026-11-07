@@ -47,6 +47,16 @@ language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
 $$;
 
+-- Storage: so a tabela de buckets, que as migracoes configuram.
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id text primary key,
+  name text not null,
+  public boolean default false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+
 create or replace function extensions.uuid_generate_v4() returns uuid
 language sql volatile as $$
   select gen_random_uuid()

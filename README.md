@@ -37,6 +37,8 @@ npm run dev:web   # http://localhost:3000
 - `npm run typecheck` — checagem de tipos (`strict`) nos dois workspaces.
 - `npm test` — testes (Jest no backend, Vitest no frontend).
 - `npm run db:verificar` — monta o banco num Postgres em memória (retrato + migrações) e roda os testes de SQL.
+- `node --env-file=aplicativos/backend/.env scripts/migrar-avatares.mjs [--aplicar]` — passa as fotos de perfil
+  antigas (base64 no banco) para o bucket `avatars` do Storage. Sem `--aplicar`, só conta.
 - `npm run start:prod` — sobe a API compilada.
 
 ## Documentação

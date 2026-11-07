@@ -1,4 +1,13 @@
-import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnApplicationShutdown,
+  ServiceUnavailableException
+} from "@nestjs/common";
+import { falha } from "../../comum/erros";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { montarId } from "../catalogo/catalogo.fontes";
 import { CatalogoService } from "../catalogo/catalogo.service";
@@ -17,6 +26,11 @@ import { gravarMetaLegado } from "../../comum/meta-legado";
 
 const MAX_ITENS = 500;
 const CONCORRENCIA = 4;
+const SALVAR_PROGRESSO_A_CADA = 10;
+const TAREFA_PARADA_MS = 10 * 60_000;
+const TAREFA_INTERROMPIDA = "A importacao foi interrompida. Pode tentar de novo.";
+const IMPORTACAO_FALHOU = "A importacao parou no meio. O que ja foi salvo continua na sua estante; pode tentar de novo.";
+const CAMPOS_TAREFA = "id,fonte,chave,status,total,processados,resultado,erro,createdAt,updatedAt";
 
 type Candidato = {
   titulo: string;
@@ -51,8 +65,25 @@ async function emLotes<T, R>(itens: T[], limite: number, tarefa: (item: T) => Pr
 
 export type FonteImportacao = "letterboxd" | "trakt" | "steam";
 
+export type TarefaImportacao = {
+  id: string;
+  fonte: FonteImportacao;
+  chave: string;
+  status: "PROCESSANDO" | "CONCLUIDA" | "FALHOU";
+  total: number;
+  processados: number;
+  resultado: ResultadoImportacao | null;
+  erro: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 @Injectable()
-export class ImportacaoService {
+export class ImportacaoService implements OnApplicationShutdown {
+  private readonly logger = new Logger(ImportacaoService.name);
+  // Processamentos disparados e ainda nao terminados.
+  private readonly execucoes = new Set<Promise<void>>();
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly catalogoService: CatalogoService,
@@ -111,14 +142,16 @@ export class ImportacaoService {
     }
   }
 
-  // `chave` identifica o que ja foi importado. No Letterboxd cada lista (watched, ratings...)
-  // e um arquivo separado, entao a chave inclui a lista.
-  private async importar(
+  // Valida e cria a tarefa; os itens sao processados depois, em segundo plano. Arquivo
+  // vazio, lista ja importada ou outra importacao igual em andamento dao erro na hora.
+  // `chave` identifica o que ja foi importado: no Letterboxd cada lista (watched,
+  // ratings...) e um arquivo separado, entao a chave inclui a lista.
+  private async iniciar(
     authUserId: string,
     fonte: FonteImportacao,
     candidatos: Candidato[],
     chave: string = fonte
-  ): Promise<ResultadoImportacao> {
+  ): Promise<TarefaImportacao> {
     if (candidatos.length === 0) {
       throw new BadRequestException("Nenhum item encontrado no arquivo.");
     }
@@ -130,48 +163,60 @@ export class ImportacaoService {
       throw new BadRequestException(`A importacao de ${chave} ja foi realizada para esta conta.`);
     }
 
+    const db = this.supabaseService.getClient();
+    // Tarefa sem progresso ha 10 minutos ficou orfa (a API reiniciou no meio): libera a lista.
+    await db
+      .from("ImportJob")
+      .update({ status: "FALHOU", erro: TAREFA_INTERROMPIDA, updatedAt: new Date().toISOString() })
+      .eq("userId", userId)
+      .eq("chave", chave)
+      .eq("status", "PROCESSANDO")
+      .lt("updatedAt", new Date(Date.now() - TAREFA_PARADA_MS).toISOString());
+
+    const lote = candidatos.slice(0, MAX_ITENS);
+    const { data, error } = await db
+      .from("ImportJob")
+      .insert({ userId, fonte, chave, total: lote.length })
+      .select(CAMPOS_TAREFA)
+      .single();
+    if (error?.code === "23505") {
+      throw new ConflictException("Ja existe uma importacao desta lista em andamento.");
+    }
+    falha(error);
+    const tarefa = data as unknown as TarefaImportacao;
+
+    const execucao: Promise<void> = this.processar(tarefa.id, userId, fonte, chave, candidatos, fontes, metaLegado)
+      .catch(async (erro) => {
+        this.logger.error(`Importacao ${tarefa.id} falhou: ${(erro as Error).message}`);
+        await this.atualizarTarefa(tarefa.id, { status: "FALHOU", erro: IMPORTACAO_FALHOU }).catch(() => undefined);
+      })
+      .finally(() => this.execucoes.delete(execucao));
+    this.execucoes.add(execucao);
+    return tarefa;
+  }
+
+  private async processar(
+    tarefaId: string,
+    userId: string,
+    fonte: FonteImportacao,
+    chave: string,
+    candidatos: Candidato[],
+    fontes: string[],
+    metaLegado: Record<string, unknown>
+  ) {
     const existentes = new Map(
       (await this.trackingService.listarDoUsuario(userId)).map((r) => [r.mediaItemId, r.rating] as const)
     );
     const lote = candidatos.slice(0, MAX_ITENS);
     const resultado: ResultadoImportacao = { total: candidatos.length, imported: 0, skipped: 0, notFound: [] };
+    let processados = 0;
 
     await emLotes(lote, CONCORRENCIA, async (candidato) => {
-      const item = await candidato.resolver().catch(() => null);
-
-      if (!item) {
-        resultado.notFound.push(candidato.titulo);
-        return;
+      await this.importarItem(userId, candidato, existentes, resultado);
+      processados++;
+      if (processados % SALVAR_PROGRESSO_A_CADA === 0) {
+        await this.atualizarTarefa(tarefaId, { processados });
       }
-      // Nao sobrescreve o que o usuario ja registrou no Trak; so preenche a nota que faltava
-      // (ex.: ratings.csv enviado depois do watched.csv).
-      if (existentes.has(item.id)) {
-        if (candidato.rating && !existentes.get(item.id)) {
-          await this.trackingService.salvarParaUsuario(
-            userId,
-            item.id,
-            { rating: candidato.rating },
-            { registrarAtividade: false, item }
-          );
-          existentes.set(item.id, candidato.rating);
-          resultado.imported++;
-        } else {
-          resultado.skipped++;
-        }
-        return;
-      }
-      existentes.set(item.id, candidato.rating);
-
-      await this.trackingService.salvarParaUsuario(
-        userId,
-        item.id,
-        { status: candidato.status, ...(candidato.rating ? { rating: candidato.rating } : {}) },
-        { registrarAtividade: false, item }
-      );
-      if (candidato.episodios?.length) {
-        await this.trackingService.importarEpisodios(userId, item.id, candidato.episodios);
-      }
-      resultado.imported++;
     });
 
     // So marca a fonte como concluida se ao menos um item foi reconhecido,
@@ -182,7 +227,100 @@ export class ImportacaoService {
 
     resultado.skipped += Math.max(0, candidatos.length - MAX_ITENS);
     resultado.notFound = resultado.notFound.slice(0, 50);
-    return resultado;
+    await this.atualizarTarefa(tarefaId, { status: "CONCLUIDA", processados: lote.length, resultado });
+  }
+
+  private async importarItem(
+    userId: string,
+    candidato: Candidato,
+    existentes: Map<string, number | null>,
+    resultado: ResultadoImportacao
+  ) {
+    const item = await candidato.resolver().catch(() => null);
+    if (!item) {
+      resultado.notFound.push(candidato.titulo);
+      return;
+    }
+    // Nao sobrescreve o que o usuario ja registrou no Trak; so preenche a nota que faltava
+    // (ex.: ratings.csv enviado depois do watched.csv).
+    if (existentes.has(item.id)) {
+      if (candidato.rating && !existentes.get(item.id)) {
+        await this.trackingService.salvarParaUsuario(
+          userId,
+          item.id,
+          { rating: candidato.rating },
+          { registrarAtividade: false, item }
+        );
+        existentes.set(item.id, candidato.rating);
+        resultado.imported++;
+      } else {
+        resultado.skipped++;
+      }
+      return;
+    }
+    existentes.set(item.id, candidato.rating);
+
+    await this.trackingService.salvarParaUsuario(
+      userId,
+      item.id,
+      { status: candidato.status, ...(candidato.rating ? { rating: candidato.rating } : {}) },
+      { registrarAtividade: false, item }
+    );
+    if (candidato.episodios?.length) {
+      await this.trackingService.importarEpisodios(userId, item.id, candidato.episodios);
+    }
+    resultado.imported++;
+  }
+
+  private async atualizarTarefa(id: string, campos: Partial<Omit<TarefaImportacao, "id">>) {
+    const { error } = await this.supabaseService
+      .getClient()
+      .from("ImportJob")
+      .update({ ...campos, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+    falha(error);
+  }
+
+  async tarefa(authUserId: string, id: string): Promise<TarefaImportacao> {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("ImportJob")
+      .select(CAMPOS_TAREFA)
+      .eq("id", id)
+      .eq("userId", userId)
+      .maybeSingle();
+    falha(error);
+    if (!data) {
+      throw new NotFoundException("Importacao nao encontrada.");
+    }
+    return data as unknown as TarefaImportacao;
+  }
+
+  // As 5 importacoes mais recentes: o site usa para retomar o acompanhamento ao recarregar.
+  async tarefas(authUserId: string): Promise<TarefaImportacao[]> {
+    const userId = await this.supabaseService.resolverUserId(authUserId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("ImportJob")
+      .select(CAMPOS_TAREFA)
+      .eq("userId", userId)
+      .order("createdAt", { ascending: false })
+      .limit(5);
+    falha(error);
+    return (data ?? []) as unknown as TarefaImportacao[];
+  }
+
+  // Ao desligar (deploy, reinicio), espera as importacoes em andamento por ate 20s.
+  async onApplicationShutdown() {
+    if (this.execucoes.size > 0) {
+      await Promise.race([Promise.allSettled([...this.execucoes]), new Promise((fim) => setTimeout(fim, 20_000))]);
+    }
+  }
+
+  // Para testes: espera o processamento disparado em segundo plano.
+  aguardarExecucoes() {
+    return Promise.allSettled([...this.execucoes]);
   }
 
   letterboxd(authUserId: string, csv: string, lista: ListaLetterboxd) {
@@ -193,7 +331,7 @@ export class ImportacaoService {
       throw new BadRequestException((error as Error).message);
     }
 
-    return this.importar(
+    return this.iniciar(
       authUserId,
       "letterboxd",
       linhas.map((linha) => ({
@@ -216,7 +354,7 @@ export class ImportacaoService {
       );
     }
 
-    return this.importar(
+    return this.iniciar(
       authUserId,
       "trakt",
       itens.map((item) => ({
@@ -252,7 +390,7 @@ export class ImportacaoService {
       );
     }
 
-    return this.importar(
+    return this.iniciar(
       authUserId,
       "steam",
       jogos.map((jogo) => ({
