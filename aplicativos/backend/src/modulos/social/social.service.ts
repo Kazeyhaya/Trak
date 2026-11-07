@@ -9,6 +9,7 @@ import {
 import { ehAdmin, esquecerUsuario } from "../../comum/autenticacao/supabase-auth.guard";
 import { falha } from "../../comum/erros";
 import { emBlocos, fecharPagina, filtroAntesDe, lerCursor } from "../../comum/paginas";
+import { ArmazemAvatares } from "./avatares";
 import { gravarMetaLegado } from "../../comum/meta-legado";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
@@ -122,6 +123,8 @@ export class SocialService {
     private readonly catalogoService: CatalogoService,
     @Optional() private readonly notificacoesService?: NotificacoesService
   ) {}
+
+  private readonly avatares = new ArmazemAvatares(() => this.db);
 
   private get db() {
     return this.supabaseService.getClient();
@@ -338,8 +341,21 @@ export class SocialService {
     return { profile: data ? perfilDe(data as LinhaUser, meta) : null, isAdmin: ehAdmin(usuario.email) };
   }
 
-  async salvarPerfil(authUserId: string, payload: SalvarPerfilDto, email?: string) {
+  async salvarPerfil(authUserId: string, recebido: SalvarPerfilDto, email?: string) {
     const userId = await this.supabaseService.resolverUserId(authUserId);
+
+    // Foto nova chega como data URI (recorte feito no site): vai para o Storage e o perfil
+    // guarda so o link. A anterior e apagada depois que o perfil salvar.
+    let payload = recebido;
+    let fotoAnterior: string | null = null;
+    if (recebido.avatarUrl !== undefined) {
+      const { data: atual } = await this.db.from("User").select("avatarUrl").eq("id", userId).maybeSingle();
+      fotoAnterior = (atual?.avatarUrl as string | null | undefined) ?? null;
+      if (this.avatares.ehDataUri(recebido.avatarUrl)) {
+        payload = { ...recebido, avatarUrl: await this.avatares.salvar(userId, recebido.avatarUrl) };
+      }
+    }
+
     const normalizado = {
       ...payload,
       // String vazia limpa a foto / capa / volta ao tema padrao.
@@ -428,6 +444,9 @@ export class SocialService {
       throw new ConflictException("Este nome de usuario ja esta em uso.");
     }
     falha(error);
+    if (payload.avatarUrl !== undefined && fotoAnterior && fotoAnterior !== (payload.avatarUrl || null)) {
+      await this.avatares.remover(fotoAnterior);
+    }
     return perfilDe(data as LinhaUser, metaLegado);
   }
 
@@ -443,6 +462,7 @@ export class SocialService {
     }
     const { error } = await this.db.rpc("trak_excluir_usuario", { usuario: userId });
     falha(error);
+    await this.avatares.removerTodas(userId);
 
     const { error: authError } = await this.db.auth.admin.deleteUser(authUserId);
     falha(authError);

@@ -67,8 +67,26 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
     return proxy;
   }
 
+  // Storage falso: upload/remove/list respondem ok e o link publico segue o formato real.
+  type ErroStorage = { message: string } | null;
+  const storage = {
+    upload: jest.fn<Promise<{ data: object; error: ErroStorage }>, [string, unknown, unknown?]>(async () => ({
+      data: {},
+      error: null
+    })),
+    remove: jest.fn<Promise<{ data: unknown[]; error: ErroStorage }>, [string[]]>(async () => ({ data: [], error: null })),
+    list: jest.fn<Promise<{ data: Array<{ name: string }>; error: ErroStorage }>, [string, unknown?]>(async () => ({
+      data: [],
+      error: null
+    })),
+    getPublicUrl: jest.fn((caminho: string) => ({
+      data: { publicUrl: `https://projeto.supabase.co/storage/v1/object/public/avatars/${caminho}` }
+    }))
+  };
+
   const client = {
     from: (table: string) => builder(table),
+    storage: { from: jest.fn(() => storage) },
     // Funcoes do banco: registradas com table = nome da funcao e action = "rpc".
     rpc: async (funcao: string, args?: unknown) => {
       const op: Operacao = { table: funcao, action: "rpc", payload: args, filtros: [], single: false };
@@ -79,7 +97,7 @@ export function criarSupabaseMock(responder: (op: Operacao) => Resposta = () => 
     auth: { getUser: jest.fn(), admin: { deleteUser: jest.fn(async () => ({ data: {}, error: null })) } }
   };
 
-  return { client, chamadas };
+  return { client, chamadas, storage };
 }
 
 // SupabaseService falso: resolverUserId devolve o proprio id.
