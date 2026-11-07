@@ -42,6 +42,18 @@ select {
   border: 0;
 }
 
+/* Foco de teclado visivel em todo elemento interativo. :where() zera a especificidade,
+   entao um componente pode trocar o estilo do foco, mas nunca fica sem nenhum. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* O cartao do modal recebe foco ao abrir so para leitores de tela anunciarem o titulo. */
+[role="dialog"]:focus {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
