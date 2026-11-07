@@ -288,8 +288,26 @@ export type CommentEntry = {
   isOwn: boolean;
 };
 
-export const getComments = (mediaItemId: string) =>
-  request<CommentEntry[]>(`/comentarios?mediaItemId=${encodeURIComponent(mediaItemId)}`);
+// Uma pagina de uma lista longa (feed, comentarios, seguidores): os itens e o cursor da
+// proxima, ou null quando acabou.
+export type Pagina<T> = { items: T[]; proximo: string | null };
+
+// Tambem aceita a resposta antiga (lista simples), para o site nao quebrar se for publicado
+// antes da API.
+export function comoPagina<T>(resposta: T[] | Pagina<T>): Pagina<T> {
+  return Array.isArray(resposta) ? { items: resposta, proximo: null } : { items: resposta.items ?? [], proximo: resposta.proximo ?? null };
+}
+
+export function comCursor(caminho: string, cursor?: string | null) {
+  return cursor ? `${caminho}${caminho.includes("?") ? "&" : "?"}cursor=${encodeURIComponent(cursor)}` : caminho;
+}
+
+export const getComments = async (mediaItemId: string, cursor?: string | null) =>
+  comoPagina(
+    await request<CommentEntry[] | Pagina<CommentEntry>>(
+      comCursor(`/comentarios?mediaItemId=${encodeURIComponent(mediaItemId)}`, cursor)
+    )
+  );
 
 export const createComment = (mediaItemId: string, content: string) =>
   request<CommentEntry>("/comentarios", { method: "POST", body: json({ mediaItemId, content }) });
@@ -431,13 +449,22 @@ export type FollowUser = {
   isMe?: boolean;
 };
 
-export const getFollowers = (username: string) =>
-  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguidores`);
+export const getFollowers = async (username: string, cursor?: string | null) =>
+  comoPagina(
+    await request<FollowUser[] | Pagina<FollowUser>>(comCursor(`/perfis/${encodeURIComponent(username)}/seguidores`, cursor))
+  );
 
-export const getFollowing = (username: string) =>
-  request<FollowUser[]>(`/perfis/${encodeURIComponent(username)}/seguindo`);
+export const getFollowing = async (username: string, cursor?: string | null) =>
+  comoPagina(
+    await request<FollowUser[] | Pagina<FollowUser>>(comCursor(`/perfis/${encodeURIComponent(username)}/seguindo`, cursor))
+  );
 
-export const getFeed = () => request<{ followingCount: number; items: Activity[] }>("/feed");
+export type Feed = { followingCount: number; items: Activity[]; proximo: string | null };
+
+export const getFeed = async (cursor?: string | null): Promise<Feed> => {
+  const feed = await request<Omit<Feed, "proximo"> & { proximo?: string | null }>(comCursor("/feed", cursor));
+  return { ...feed, proximo: feed.proximo ?? null };
+};
 
 // Recomendacoes e alertas
 

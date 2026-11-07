@@ -1561,6 +1561,12 @@
   font-size: 0.95rem;
 }
 
+.follow-modal-mais {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 16px;
+}
+
 .follow-modal-error {
   padding: 16px;
   text-align: center;
@@ -2278,4 +2284,11 @@
 .profile-switch:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* "Ver atividades mais antigas" no fim do feed. */
+.feed-mais {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
 }

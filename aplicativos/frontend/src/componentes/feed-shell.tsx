@@ -12,8 +12,8 @@ import { UiButton } from "./ui-button";
 import { UiCard } from "./ui-card";
 import { useAuth } from "../contextos/auth-context";
 import {
-  Activity,
   ehUsernameProvisorio,
+  Feed,
   errorMessage,
   getFeed,
   getPublicProfile,
@@ -24,7 +24,8 @@ import { MediaType } from "../lib/catalogo-api";
 
 export function FeedShell() {
   const { profile } = useAuth();
-  const [feed, setFeed] = useState<{ followingCount: number; items: Activity[] } | null>(null);
+  const [feed, setFeed] = useState<Feed | null>(null);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const [myPublicProfile, setMyPublicProfile] = useState<PublicProfile | null>(null);
   const [followModalTab, setFollowModalTab] = useState<"followers" | "following" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +66,28 @@ export function FeedShell() {
       active = false;
     };
   }, [profile?.username]);
+
+  // Proxima pagina do feed, a partir da ultima atividade recebida.
+  async function carregarMais() {
+    if (!feed?.proximo) {
+      return;
+    }
+    setCarregandoMais(true);
+    try {
+      const proxima = await getFeed(feed.proximo);
+      setFeed((atual) => {
+        if (!atual) {
+          return proxima;
+        }
+        const vistos = new Set(atual.items.map((a) => a.id));
+        return { ...proxima, items: [...atual.items, ...proxima.items.filter((a) => !vistos.has(a.id))] };
+      });
+    } catch (err) {
+      setError(errorMessage(err, "Não foi possível carregar mais atividades."));
+    } finally {
+      setCarregandoMais(false);
+    }
+  }
 
   async function handleSearch(event: React.FormEvent) {
     event.preventDefault();
@@ -242,6 +265,14 @@ export function FeedShell() {
             )}
 
             {filteredItems.length > 0 && <ActivityList items={filteredItems} showAuthor={true} />}
+
+            {feed?.proximo && (
+              <div className="feed-mais">
+                <UiButton variant="secondary" disabled={carregandoMais} onClick={() => void carregarMais()}>
+                  {carregandoMais ? "Carregando…" : "Ver atividades mais antigas"}
+                </UiButton>
+              </div>
+            )}
           </section>
         </div>
 

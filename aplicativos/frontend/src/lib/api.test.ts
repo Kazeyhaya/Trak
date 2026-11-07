@@ -137,3 +137,18 @@ describe("notificacoes API", () => {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("/notificacoes/marcar-todas-lidas"), expect.objectContaining({ method: "POST" }));
   });
 });
+
+describe("paginacao", () => {
+  it("comoPagina aceita a resposta nova e a antiga (lista simples)", async () => {
+    const { comoPagina } = await import("./api");
+    expect(comoPagina({ items: [1, 2], proximo: "c" })).toEqual({ items: [1, 2], proximo: "c" });
+    expect(comoPagina([1, 2])).toEqual({ items: [1, 2], proximo: null });
+  });
+
+  it("comCursor acrescenta o cursor com ? ou &", async () => {
+    const { comCursor } = await import("./api");
+    expect(comCursor("/feed", null)).toBe("/feed");
+    expect(comCursor("/feed", "a+b")).toBe("/feed?cursor=a%2Bb");
+    expect(comCursor("/comentarios?mediaItemId=x", "c")).toBe("/comentarios?mediaItemId=x&cursor=c");
+  });
+});

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { FollowButton } from "./follow-button";
 import { UiModal } from "./ui-modal";
-import { FollowUser, getFollowers, getFollowing, errorMessage } from "../lib/api";
+import { FollowUser, getFollowers, getFollowing, errorMessage, Pagina } from "../lib/api";
 import { useAuth } from "../contextos/auth-context";
 
 type FollowListModalProps = {
@@ -26,8 +26,10 @@ export function FollowListModal({
 }: FollowListModalProps) {
   const { profile: myProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<"followers" | "following">(initialTab);
-  const [followers, setFollowers] = useState<FollowUser[] | null>(null);
-  const [following, setFollowing] = useState<FollowUser[] | null>(null);
+  // Cada aba guarda as pessoas ja carregadas e o cursor da proxima pagina.
+  const [followers, setFollowers] = useState<Pagina<FollowUser> | null>(null);
+  const [following, setFollowing] = useState<Pagina<FollowUser> | null>(null);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -69,7 +71,33 @@ export function FollowListModal({
     };
   }, [isOpen, activeTab, username, followers, following]);
 
-  const currentList = activeTab === "followers" ? followers : following;
+  const paginaAtual = activeTab === "followers" ? followers : following;
+  const currentList = paginaAtual?.items ?? null;
+
+  async function carregarMais() {
+    if (!paginaAtual?.proximo) {
+      return;
+    }
+    const aba = activeTab;
+    setCarregandoMais(true);
+    try {
+      const buscar = aba === "followers" ? getFollowers : getFollowing;
+      const proxima = await buscar(username, paginaAtual.proximo);
+      const juntar = (atual: Pagina<FollowUser> | null) => {
+        const vistos = new Set((atual?.items ?? []).map((u) => u.userId));
+        return { items: [...(atual?.items ?? []), ...proxima.items.filter((u) => !vistos.has(u.userId))], proximo: proxima.proximo };
+      };
+      if (aba === "followers") {
+        setFollowers(juntar);
+      } else {
+        setFollowing(juntar);
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setCarregandoMais(false);
+    }
+  }
 
   const filteredList = useMemo(() => {
     if (!currentList) return [];
@@ -213,6 +241,14 @@ export function FollowListModal({
               );
             })}
           </ul>
+        )}
+
+        {!loading && !error && paginaAtual?.proximo && (
+          <div className="follow-modal-mais">
+            <button type="button" className="secondary-button" disabled={carregandoMais} onClick={() => void carregarMais()}>
+              {carregandoMais ? "Carregando…" : "Carregar mais"}
+            </button>
+          </div>
         )}
       </div>
     </UiModal>

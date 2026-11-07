@@ -31,6 +31,9 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reporting, setReporting] = useState<string | null>(null);
+  // Cursor da proxima pagina de comentarios (null quando ja veio tudo).
+  const [proximo, setProximo] = useState<string | null>(null);
+  const [carregandoMais, setCarregandoMais] = useState(false);
 
   const userId = user?.id;
   useEffect(() => {
@@ -41,7 +44,12 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
     let active = true;
 
     getComments(mediaItemId)
-      .then((data) => active && setComments(data))
+      .then((pagina) => {
+        if (active) {
+          setComments(pagina.items);
+          setProximo(pagina.proximo);
+        }
+      })
       .catch((err) => active && setError(errorMessage(err)))
       .finally(() => active && setLoaded(true));
 
@@ -49,6 +57,25 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
       active = false;
     };
   }, [mediaItemId, authLoading, userId]);
+
+  async function carregarMais() {
+    if (!proximo) {
+      return;
+    }
+    setCarregandoMais(true);
+    try {
+      const pagina = await getComments(mediaItemId, proximo);
+      setComments((atuais) => {
+        const vistos = new Set(atuais.map((c) => c.id));
+        return [...atuais, ...pagina.items.filter((c) => !vistos.has(c.id))];
+      });
+      setProximo(pagina.proximo);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setCarregandoMais(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -205,6 +232,11 @@ export function CommentsSection({ mediaItemId }: { mediaItemId: string }) {
             )}
           </UiCard>
         ))}
+        {proximo && (
+          <UiButton variant="secondary" disabled={carregandoMais} onClick={() => void carregarMais()}>
+            {carregandoMais ? "Carregando…" : "Ver comentários mais antigos"}
+          </UiButton>
+        )}
       </div>
     </section>
   );
