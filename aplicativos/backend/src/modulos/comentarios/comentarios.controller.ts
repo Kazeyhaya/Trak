@@ -33,12 +33,14 @@ export class ComentariosController {
   }
 
   @UseGuards(SupabaseAuthGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post(":id/curtidas")
   curtir(@Param("id") id: string, @UsuarioLogado() usuario: UsuarioAuth) {
     return this.comentariosService.curtir(id, usuario.id);
   }
 
   @UseGuards(SupabaseAuthGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Delete(":id/curtidas")
   descurtir(@Param("id") id: string, @UsuarioLogado() usuario: UsuarioAuth) {
     return this.comentariosService.descurtir(id, usuario.id);

@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import { IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { EhUrlDeImagem } from "../../../comum/validacao-url";
 
 export class AvaliarEpisodioDto {
   @IsInt()
@@ -32,5 +33,6 @@ export class AvaliarEpisodioDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
   @IsString()
   @MaxLength(2000)
+  @EhUrlDeImagem()
   highlightCharacterAvatar?: string | null;
 }

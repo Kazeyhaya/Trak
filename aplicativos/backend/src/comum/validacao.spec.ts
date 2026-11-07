@@ -56,7 +56,21 @@ describe("SalvarTrackingDto", () => {
     expect(dto).toMatchObject({ pagesRead: 0, totalPages: 50000 });
   });
 
+  it("aceita URLs HTTPS validas para capa e avatar de personagem", async () => {
+    const dto = await validar(SalvarTrackingDto, {
+      customCoverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.png",
+      favoriteCharacterAvatar: "https://image.tmdb.org/t/p/w185/char.jpg"
+    });
+    expect(dto.customCoverUrl).toBe("https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.png");
+    expect(dto.favoriteCharacterAvatar).toBe("https://image.tmdb.org/t/p/w185/char.jpg");
+  });
+
   it.each([
+    { customCoverUrl: "javascript:alert(1)" },
+    { customCoverUrl: "http://inseguro.com/foto.jpg" },
+    { customCoverUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA" },
+    { favoriteCharacterAvatar: "javascript:void(0)" },
+    { favoriteCharacterAvatar: "http://site.com/avatar.png" },
     { status: "X" },
     { progress: 101 },
     { progress: 1.5 },
@@ -108,7 +122,8 @@ describe("AvaliarEpisodioDto", () => {
       season: 1,
       episode: 3,
       rating: 4.5,
-      highlightCharacterName: "Bill"
+      highlightCharacterName: "Bill",
+      highlightCharacterAvatar: "https://image.tmdb.org/t/p/w185/bill.jpg"
     });
   });
 
@@ -116,12 +131,40 @@ describe("AvaliarEpisodioDto", () => {
     expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 0 })).message.length).toBeGreaterThan(0);
     expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 1, rating: 6 })).message.length).toBeGreaterThan(0);
   });
+
+  it("rejeita URL insegura no avatar de personagem de episodio", async () => {
+    expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 1, highlightCharacterAvatar: "javascript:alert(1)" })).message.length).toBeGreaterThan(0);
+    expect((await erros(AvaliarEpisodioDto, { season: 1, episode: 1, highlightCharacterAvatar: "http://inseguro.com/foto.jpg" })).message.length).toBeGreaterThan(0);
+  });
 });
 
 describe("SalvarPerfilDto", () => {
   it("normaliza o nome de usuario para minusculas e aceita idioma valido", async () => {
     const dto = await validar(SalvarPerfilDto, { username: "  Ana_123 ", bio: " oi ", language: "en-US" });
     expect(dto).toMatchObject({ username: "ana_123", bio: "oi", language: "en-US" });
+  });
+
+  it("aceita avatar em HTTPS ou Data URI JPEG/PNG", async () => {
+    const dtoHttps = await validar(SalvarPerfilDto, { avatarUrl: "https://gravatar.com/avatar/123" });
+    expect(dtoHttps.avatarUrl).toBe("https://gravatar.com/avatar/123");
+
+    const dataUri = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
+    const dtoData = await validar(SalvarPerfilDto, { avatarUrl: dataUri });
+    expect(dtoData.avatarUrl).toBe(dataUri);
+  });
+
+  it("aceita banner em HTTPS mas recusa banner em Data URI", async () => {
+    const dtoBanner = await validar(SalvarPerfilDto, { bannerUrl: "https://images.unsplash.com/photo-1" });
+    expect(dtoBanner.bannerUrl).toBe("https://images.unsplash.com/photo-1");
+
+    expect((await erros(SalvarPerfilDto, { bannerUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRg==" })).message.length).toBeGreaterThan(0);
+  });
+
+  it("rejeita esquemas perigosos para avatar e banner (ex: javascript:, SVG)", async () => {
+    expect((await erros(SalvarPerfilDto, { avatarUrl: "javascript:alert(1)" })).message.length).toBeGreaterThan(0);
+    expect((await erros(SalvarPerfilDto, { avatarUrl: "data:image/svg+xml;base64,PHN2Zz4=" })).message.length).toBeGreaterThan(0);
+    expect((await erros(SalvarPerfilDto, { bannerUrl: "javascript:alert(1)" })).message.length).toBeGreaterThan(0);
+    expect((await erros(SalvarPerfilDto, { avatarUrl: "http://site.com/foto.png" })).message.length).toBeGreaterThan(0);
   });
 
   it.each(["ab", "nome com espaco", "a".repeat(21), "acentuação"])("rejeita username %p", async (username) => {

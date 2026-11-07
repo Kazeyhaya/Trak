@@ -100,19 +100,25 @@ export class ImportacaoService {
       .eq("id", userId);
 
     if (error) {
-      await db.from("Activity").delete().eq("id", userId);
-      await db.from("Activity").insert({
-        id: userId,
-        userId,
-        type: "STATUS",
-        mediaItemId: null,
-        data: {
-          ...metaLegado,
-          kind: "PROFILE_META",
-          importedSources: novasFontes,
-          hasImported: todasImportadas
-        }
+      const meta = {
+        ...metaLegado,
+        kind: "PROFILE_META",
+        importedSources: novasFontes,
+        hasImported: todasImportadas
+      };
+      const { error: rpcError } = await db.rpc("trak_salvar_meta", {
+        p_user_id: userId,
+        p_data: meta
       });
+      if (rpcError) {
+        await db.from("Activity").upsert({
+          id: userId,
+          userId,
+          type: "STATUS",
+          mediaItemId: null,
+          data: meta
+        });
+      }
     }
   }
 

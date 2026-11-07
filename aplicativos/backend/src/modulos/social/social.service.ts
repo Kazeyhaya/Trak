@@ -143,14 +143,20 @@ export class SocialService {
       importedSources: parcial.importedSources ?? atual.importedSources ?? [],
       hasImported: parcial.hasImported ?? atual.hasImported ?? false
     };
-    await this.db.from("Activity").delete().eq("id", userId);
-    await this.db.from("Activity").insert({
-      id: userId,
-      userId,
-      type: "STATUS",
-      mediaItemId: null,
-      data: novo
+    const { error: rpcError } = await this.db.rpc("trak_salvar_meta", {
+      p_user_id: userId,
+      p_data: novo
     });
+    if (rpcError) {
+      const { error: upsertError } = await this.db.from("Activity").upsert({
+        id: userId,
+        userId,
+        type: "STATUS",
+        mediaItemId: null,
+        data: novo
+      });
+      falha(upsertError);
+    }
     return novo;
   }
 
@@ -170,7 +176,7 @@ export class SocialService {
     const inicial = await this.db
       .from("User")
       .select(CAMPOS_PERFIL)
-      .ilike("username", limpo)
+      .ilike("username", usernameExato(limpo))
       .limit(10);
 
     let data: unknown = inicial.data;
@@ -182,7 +188,7 @@ export class SocialService {
       const legado = await this.db
         .from("User")
         .select(CAMPOS_PERFIL_LEGADO)
-        .ilike("username", limpo)
+        .ilike("username", usernameExato(limpo))
         .limit(10);
       data = legado.data;
       error = legado.error;
@@ -499,7 +505,7 @@ export class SocialService {
       .from("User")
       .select("username,displayName")
       .eq("isPublic", true)
-      .ilike("username", `%${termo}%`)
+      .ilike("username", `%${usernameExato(termo)}%`)
       .limit(10);
     falha(error);
     return data ?? [];
