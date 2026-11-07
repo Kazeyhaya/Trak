@@ -150,7 +150,7 @@ export function HomeShell({ destaques, vitrine, initialLoggedIn }: HomeShellProp
         )}
 
         {destaquesPersonalizados.length > 0 && (
-          <section className="roadmap-block">
+          <section className="home-destaques">
             <SectionHeading
               title="Em alta na semana"
               description="Obras populares no catálogo para adicionar à sua fila."

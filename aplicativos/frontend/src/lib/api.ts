@@ -97,7 +97,6 @@ export type TrackingPayload = Partial<Pick<TrackingEntry, "status" | "progress" 
 };
 
 // Limites compartilhados com a validacao da API (SalvarTrackingDto).
-export const TRACKING_NOTES_MAX_LENGTH = 1000;
 export const TRACKING_PAGES_MAX = 50000;
 
 export function getStatusLabel(status: TrackingStatus, type?: MediaType) {

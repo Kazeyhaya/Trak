@@ -842,7 +842,7 @@ function PersonalTracking({
           />
         </div>
 
-        {/* Panteão da Obra (Hall da Fama Pessoal - Coroação desbloqueada ao Concluir) */}
+        {/* Panteão: o personagem favorito, liberado quando a obra é concluída. */}
         {draft.status === "COMPLETED" ? (
           <div className="pantheon-block is-unlocked">
             <div className="pantheon-info">
