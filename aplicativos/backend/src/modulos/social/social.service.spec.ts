@@ -322,4 +322,46 @@ describe("configuracoes: salvamento por secao e exclusao de conta", () => {
     await expect(service.excluirConta("u1")).rejects.toThrow("falhou");
     expect(supabase.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
+
+  it("perfilPublico escapa curingas % e _ para impedir busca de qualquer usuario", async () => {
+    const { service, chamadas } = montar(() => ({ data: [] }));
+
+    await expect(service.perfilPublico("%")).rejects.toMatchObject({ status: 404 });
+
+    const ilikeFiltro = chamadas[0].filtros.find(([m]) => m === "ilike");
+    expect(ilikeFiltro).toEqual(["ilike", "username", "\\%"]);
+  });
+
+  it("buscarPerfis escapa curingas _", async () => {
+    const { service, chamadas } = montar(() => ({ data: [] }));
+
+    await service.buscarPerfis("ana_1");
+
+    const ilikeFiltro = chamadas[0].filtros.find(([m]) => m === "ilike");
+    expect(ilikeFiltro).toEqual(["ilike", "username", "%ana\\_1%"]);
+  });
+
+  it("salvarPerfil legado usa trak_salvar_meta via RPC e nao delete+insert", async () => {
+    let tentativa = 0;
+    const { service, chamadas } = montar((op) => {
+      if (op.table === "User" && op.action === "update") {
+        tentativa++;
+        if (tentativa === 1) {
+          return { error: { message: "column avatarUrl does not exist", code: "42703" } };
+        }
+        return { data: linhaUser, error: null };
+      }
+      if (op.action === "rpc" && op.table === "trak_salvar_meta") {
+        return { data: null, error: null };
+      }
+      return { data: null };
+    });
+
+    await service.salvarPerfil("u1", { avatarUrl: "https://example.com/foto.jpg" });
+
+    const rpcChamada = chamadas.find((c) => c.action === "rpc" && c.table === "trak_salvar_meta");
+    expect(rpcChamada).toBeDefined();
+    expect(chamadas.some((c) => c.action === "delete" && c.table === "Activity")).toBe(false);
+  });
 });
+

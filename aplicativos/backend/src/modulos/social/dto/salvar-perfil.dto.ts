@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { EhUrlDeImagem } from "../../../comum/validacao-url";
 
 const aparar = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim() : value);
 
@@ -33,12 +34,14 @@ export class SalvarPerfilDto {
   @Transform(aparar)
   @IsString()
   @MaxLength(60000)
+  @EhUrlDeImagem({ permitirDataUri: true })
   avatarUrl?: string;
 
   @IsOptional()
   @Transform(aparar)
   @IsString()
   @MaxLength(500)
+  @EhUrlDeImagem()
   bannerUrl?: string;
 
   @IsOptional()

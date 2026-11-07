@@ -6,6 +6,7 @@ dist
 .env.local
 .env.*.local
 next-env.d.ts
+.claude
 
 # Artefatos de compilacao do backend nunca devem ficar em src/
 aplicativos/backend/src/**/*.js

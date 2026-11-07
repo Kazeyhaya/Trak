@@ -60,12 +60,14 @@ export class SocialController {
   }
 
   @UseGuards(SupabaseAuthGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post("perfis/:username/seguir")
   seguir(@Param("username") username: string, @UsuarioLogado() usuario: UsuarioAuth) {
     return this.socialService.seguir(usuario.id, username);
   }
 
   @UseGuards(SupabaseAuthGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Delete("perfis/:username/seguir")
   deixarDeSeguir(@Param("username") username: string, @UsuarioLogado() usuario: UsuarioAuth) {
     return this.socialService.deixarDeSeguir(usuario.id, username);

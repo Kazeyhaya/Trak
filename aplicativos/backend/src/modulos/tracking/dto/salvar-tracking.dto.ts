@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { EhUrlDeImagem } from "../../../comum/validacao-url";
 
 export const STATUS_TRACKING = ["WANT", "WATCHING", "COMPLETED", "PAUSED", "DROPPED"] as const;
 
@@ -48,6 +49,7 @@ export class SalvarTrackingDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
   @IsString()
   @MaxLength(2000)
+  @EhUrlDeImagem()
   customCoverUrl?: string | null;
 
   // Coroação do personagem favorito da obra (Panteão pessoal - desbloqueado ao concluir)
@@ -61,6 +63,7 @@ export class SalvarTrackingDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() || null : value))
   @IsString()
   @MaxLength(2000)
+  @EhUrlDeImagem()
   favoriteCharacterAvatar?: string | null;
 
   // Vezes que a obra foi concluida (rewatch, rejogar, reler). So vale para obra concluida.

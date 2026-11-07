@@ -126,31 +126,37 @@ export class FavoritosService {
 
     const permitidos = new Set((atuais ?? []).map((f) => f.mediaItemId as string));
     const ordenados = unicos.filter((id) => permitidos.has(id));
+
+    if (ordenados.length === 0) {
+      return { ok: true };
+    }
+
     const baseMs = Date.now();
 
     // Favorite e ordenado por createdAt DESC; o primeiro da lista recebe o timestamp mais recente.
-    await Promise.all(
-      ordenados.map(async (mediaItemId, index) => {
-        const novoTimestamp = new Date(baseMs - index * 1000).toISOString();
-        const { error: delError } = await supabase
-          .from("Favorite")
-          .delete()
-          .eq("userId", userId)
-          .eq("mediaItemId", mediaItemId);
-        if (delError) {
-          throw new InternalServerErrorException(delError.message);
-        }
-        const { error: insError } = await supabase.from("Favorite").insert({
-          id: randomUUID(),
-          userId,
-          mediaItemId,
-          createdAt: novoTimestamp
-        });
-        if (insError) {
-          throw new InternalServerErrorException(insError.message);
-        }
-      })
-    );
+    // Tenta primeiro via RPC transacional trak_reordenar_favoritos (sem delete+insert).
+    const { error: rpcError } = await supabase.rpc("trak_reordenar_favoritos", {
+      p_user_id: userId,
+      p_media_item_ids: ordenados
+    });
+
+    if (rpcError) {
+      // Fallback seguro: se a RPC ainda não estiver criada, atualiza createdAt diretamente
+      // SEM apagar nenhum registro (evita perda de dados).
+      await Promise.all(
+        ordenados.map(async (mediaItemId, index) => {
+          const novoTimestamp = new Date(baseMs - index * 1000).toISOString();
+          const { error: updError } = await supabase
+            .from("Favorite")
+            .update({ createdAt: novoTimestamp })
+            .eq("userId", userId)
+            .eq("mediaItemId", mediaItemId);
+          if (updError) {
+            throw new InternalServerErrorException(updError.message);
+          }
+        })
+      );
+    }
 
     return { ok: true };
   }
