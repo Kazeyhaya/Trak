@@ -37,17 +37,33 @@ export function FeedShell() {
   const [authorFilter, setAuthorFilter] = useState<"ALL" | "FRIENDS" | "ME">("ALL");
 
   useEffect(() => {
+    let active = true;
     getFeed()
-      .then(setFeed)
-      .catch((err) => setError(errorMessage(err, "Não foi possível carregar o feed.")));
+      .then((resultado) => {
+        if (active) setFeed(resultado);
+      })
+      .catch((err) => {
+        if (active) setError(errorMessage(err, "Não foi possível carregar o feed."));
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (profile?.username && !ehUsernameProvisorio(profile.username)) {
-      getPublicProfile(profile.username)
-        .then(setMyPublicProfile)
-        .catch(() => {});
+    if (!profile?.username || ehUsernameProvisorio(profile.username)) {
+      return;
     }
+    let active = true;
+    getPublicProfile(profile.username)
+      .then((perfil) => {
+        if (active) setMyPublicProfile(perfil);
+      })
+      // So alimenta os contadores de seguidores do cartao lateral; sem eles, o cartao some.
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [profile?.username]);
 
   async function handleSearch(event: React.FormEvent) {

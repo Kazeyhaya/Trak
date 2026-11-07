@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Crown, User, X } from "lucide-react";
-import { EpisodeCharacter, getEpisodeCredits, getMediaCredits } from "../lib/api";
+import { UiModal } from "./ui-modal";
+import { EpisodeCharacter, errorMessage, getEpisodeCredits, getMediaCredits } from "../lib/api";
 
 type PantheonModalProps = {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export function PantheonModal({
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(currentFavoriteAvatar);
   const [customNameInput, setCustomNameInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tituloId = useId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -59,150 +62,151 @@ export function PantheonModal({
 
   if (!isOpen) return null;
 
-  async function handleConfirm() {
+  // Se salvar falhar, o modal continua aberto com a escolha feita e o motivo do erro.
+  async function salvar(name: string | null, avatarUrl: string | null) {
     setSaving(true);
+    setError(null);
     try {
-      const finalName = customNameInput.trim() || selectedName;
-      const finalAvatar = customNameInput.trim() ? null : selectedAvatar;
-      await onSave(finalName, finalAvatar);
+      await onSave(name, avatarUrl);
       onClose();
+    } catch (err) {
+      setError(errorMessage(err, "Não foi possível salvar no Panteão."));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleRemove() {
-    setSaving(true);
-    try {
-      await onSave(null, null);
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+  function handleConfirm() {
+    const nomeDigitado = customNameInput.trim();
+    void salvar(nomeDigitado || selectedName, nomeDigitado ? null : selectedAvatar);
   }
 
   return (
-    <div className="cover-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="cover-modal-card pantheon-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="cover-modal-header">
-          <div>
-            <h3 className="modal-title-with-icon">
-              <Crown size={18} className="pantheon-crown-icon" aria-hidden="true" />
-              Panteão da Obra: {itemTitle}
-            </h3>
-            <p>
-              Escolha o personagem que mais marcou a sua experiência para coroá-lo no seu perfil
-            </p>
-          </div>
-          <button type="button" className="cover-modal-close" onClick={onClose} aria-label="Fechar">
-            <X size={16} aria-hidden="true" />
-          </button>
+    <UiModal onClose={onClose} tituloId={tituloId} className="cover-modal-card pantheon-modal">
+      <div className="cover-modal-header">
+        <div>
+          <h3 id={tituloId} className="modal-title-with-icon">
+            <Crown size={18} className="pantheon-crown-icon" aria-hidden="true" />
+            Panteão da Obra: {itemTitle}
+          </h3>
+          <p>
+            Escolha o personagem que mais marcou a sua experiência para coroá-lo no seu perfil
+          </p>
         </div>
+        <button type="button" className="cover-modal-close" onClick={onClose} aria-label="Fechar">
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
 
-        <div className="cover-modal-body modal-section-stack">
-          {(selectedName || customNameInput) && (
-            <div className="pantheon-selected-banner">
-              <div className="pantheon-selected-avatar">
-                {selectedAvatar && !customNameInput ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={selectedAvatar} alt="" />
-                ) : (
-                  <Crown size={18} aria-hidden="true" />
-                )}
-              </div>
-              <div className="pantheon-selected-copy">
-                <span className="pantheon-selected-eyebrow">Escolhido para o Panteão</span>
-                <p className="pantheon-selected-name">
-                  {customNameInput.trim() || selectedName}
-                </p>
-              </div>
+      {error && (
+        <div className="cover-modal-error" role="alert">
+          {error}
+        </div>
+      )}
+
+      <div className="cover-modal-body modal-section-stack">
+        {(selectedName || customNameInput) && (
+          <div className="pantheon-selected-banner">
+            <div className="pantheon-selected-avatar">
+              {selectedAvatar && !customNameInput ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img loading="lazy" decoding="async" src={selectedAvatar} alt="" />
+              ) : (
+                <Crown size={18} aria-hidden="true" />
+              )}
             </div>
-          )}
-
-          {loading ? (
-            <p className="panel-note">Carregando personagens da obra…</p>
-          ) : characters.length > 0 ? (
-            <div className="modal-field-block">
-              <span className="modal-field-label">Personagens principais</span>
-              <div className="episode-characters-carousel episode-characters-carousel--modal">
-                {characters.map((char) => {
-                  const isSelected = selectedName?.toLowerCase() === char.character?.toLowerCase();
-                  return (
-                    <button
-                      key={char.id}
-                      type="button"
-                      className={`episode-char-card${isSelected ? " is-selected" : ""}`}
-                      onClick={() => {
-                        setSelectedName(char.character);
-                        setSelectedAvatar(char.avatarUrl);
-                        setCustomNameInput("");
-                      }}
-                      title={char.character}
-                    >
-                      <div className="episode-char-avatar-wrap episode-char-avatar-wrap--lg">
-                        {char.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img loading="lazy" decoding="async" src={char.avatarUrl} alt={char.character} />
-                        ) : (
-                          <User size={22} aria-hidden="true" />
-                        )}
-                      </div>
-                      <span className="episode-char-name">{char.character}</span>
-                      <span className="episode-char-actor">{char.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="pantheon-selected-copy">
+              <span className="pantheon-selected-eyebrow">Escolhido para o Panteão</span>
+              <p className="pantheon-selected-name">
+                {customNameInput.trim() || selectedName}
+              </p>
             </div>
-          ) : null}
+          </div>
+        )}
 
+        {loading ? (
+          <p className="panel-note">Carregando personagens da obra…</p>
+        ) : characters.length > 0 ? (
           <div className="modal-field-block">
-            <label htmlFor="pantheon-custom-input" className="modal-field-label">
-              Ou digite o nome de outro personagem
-            </label>
-            <input
-              id="pantheon-custom-input"
-              type="text"
-              className="episode-search-input pantheon-custom-input"
-              placeholder="Ex: Jesse, Céline, Joel, Ellie, Goku…"
-              value={customNameInput}
-              onChange={(e) => {
-                setCustomNameInput(e.target.value);
-                if (e.target.value) {
-                  setSelectedName(null);
-                  setSelectedAvatar(null);
-                }
-              }}
-            />
+            <span className="modal-field-label">Personagens principais</span>
+            <div className="episode-characters-carousel episode-characters-carousel--modal">
+              {characters.map((char) => {
+                const isSelected = selectedName?.toLowerCase() === char.character?.toLowerCase();
+                return (
+                  <button
+                    key={char.id}
+                    type="button"
+                    className={`episode-char-card${isSelected ? " is-selected" : ""}`}
+                    onClick={() => {
+                      setSelectedName(char.character);
+                      setSelectedAvatar(char.avatarUrl);
+                      setCustomNameInput("");
+                    }}
+                    title={char.character}
+                  >
+                    <div className="episode-char-avatar-wrap episode-char-avatar-wrap--lg">
+                      {char.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img loading="lazy" decoding="async" src={char.avatarUrl} alt={char.character} />
+                      ) : (
+                        <User size={22} aria-hidden="true" />
+                      )}
+                    </div>
+                    <span className="episode-char-name">{char.character}</span>
+                    <span className="episode-char-actor">{char.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className="cover-modal-footer">
-          {currentFavoriteName && (
-            <button
-              type="button"
-              className="cover-btn-reset"
-              disabled={saving}
-              onClick={handleRemove}
-            >
-              Remover do Panteão
-            </button>
-          )}
-          <div className="cover-modal-footer-actions">
-            <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={saving || (!selectedName && !customNameInput.trim())}
-              onClick={handleConfirm}
-            >
-              {saving ? "Salvando…" : "Confirmar coroação"}
-            </button>
-          </div>
+        <div className="modal-field-block">
+          <label htmlFor="pantheon-custom-input" className="modal-field-label">
+            Ou digite o nome de outro personagem
+          </label>
+          <input
+            id="pantheon-custom-input"
+            type="text"
+            className="episode-search-input pantheon-custom-input"
+            placeholder="Ex: Jesse, Céline, Joel, Ellie, Goku…"
+            value={customNameInput}
+            onChange={(e) => {
+              setCustomNameInput(e.target.value);
+              if (e.target.value) {
+                setSelectedName(null);
+                setSelectedAvatar(null);
+              }
+            }}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="cover-modal-footer">
+        {currentFavoriteName && (
+          <button
+            type="button"
+            className="cover-btn-reset"
+            disabled={saving}
+            onClick={() => void salvar(null, null)}
+          >
+            Remover do Panteão
+          </button>
+        )}
+        <div className="cover-modal-footer-actions">
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={saving || (!selectedName && !customNameInput.trim())}
+            onClick={handleConfirm}
+          >
+            {saving ? "Salvando…" : "Confirmar coroação"}
+          </button>
+        </div>
+      </div>
+    </UiModal>
   );
 }
