@@ -120,7 +120,7 @@ describe("CatalogoService series", () => {
 
   it("conta so os episodios ja exibidos", async () => {
     mockFetch({ "/tv/1": tv });
-    expect(await criarServico().totalEpisodiosExibidos("tmdb_series_1")).toBe(13);
+    expect((await criarServico().infoEpisodiosSerie("tmdb_series_1"))?.airedEpisodes).toBe(13);
   });
 
   it("temporadas de um filme dao 404", async () => {
@@ -384,7 +384,7 @@ describe("CatalogoService.extras", () => {
   describe("Hardcover integration", () => {
     it("carrega livro da Hardcover pelo id media_hardcover_", async () => {
       const mockHc = new HardcoverService();
-      jest.spyOn(mockHc, "getBookById").mockResolvedValueOnce({
+      jest.spyOn(mockHc, "buscarPorId").mockResolvedValueOnce({
         id: "media_hardcover_1803823",
         externalId: "1803823",
         source: "hardcover",
@@ -408,7 +408,7 @@ describe("CatalogoService.extras", () => {
 
     it("retorna extras com nota da Hardcover e generos", async () => {
       const mockHc = new HardcoverService();
-      jest.spyOn(mockHc, "getBookRaw").mockResolvedValueOnce({
+      jest.spyOn(mockHc, "livro").mockResolvedValueOnce({
         id: 1803823,
         title: "As 48 Leis do Poder",
         rating: 4.8,
@@ -430,7 +430,7 @@ describe("CatalogoService.extras", () => {
 
     it("calcula duracao em minutos com base nas paginas da Hardcover", async () => {
       const mockHc = new HardcoverService();
-      jest.spyOn(mockHc, "getBookRaw").mockResolvedValueOnce({
+      jest.spyOn(mockHc, "livro").mockResolvedValueOnce({
         id: 1803823,
         title: "As 48 Leis do Poder",
         pages: 400

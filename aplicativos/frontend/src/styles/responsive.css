@@ -2,8 +2,7 @@
   .hero-card,
   .auth-hero,
   .content-hero,
-  .item-hero,
-  .roadmap-grid {
+  .item-hero {
     grid-template-columns: 1fr;
   }
 

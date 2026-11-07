@@ -150,10 +150,6 @@ export class CatalogoService implements OnModuleInit {
   }
 
   // Episodios ja exibidos, sem especiais.
-  totalEpisodiosExibidos(id: string) {
-    return this.tmdb.totalEpisodiosExibidos(id);
-  }
-
   // Importacao
 
   buscarFilmePorTitulo(titulo: string, ano?: number | null) {
@@ -254,9 +250,7 @@ export class CatalogoService implements OnModuleInit {
     const item = itemConhecido ?? (await this.buscarPorId(id));
     const agora = new Date().toISOString();
     // pageCount e adult nao sao colunas de MediaItem.
-    const { pageCount: _pageCount, adult: _adult, ...campos } = item;
-    void _pageCount;
-    void _adult;
+    const { pageCount, adult, ...campos } = item;
 
     // O item acabou de vir da API, com subtipo e capa ja resolvidos: nao precisa de backfill.
     const { error: insertError } = await supabase

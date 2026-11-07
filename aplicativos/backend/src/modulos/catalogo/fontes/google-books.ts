@@ -100,7 +100,7 @@ export class FonteGoogleBooks implements Fonte<IdGoogleBooks> {
   }
 
   async extras(p: IdGoogleBooks, _id: string, notaTrak: Promise<NotaTrak>): Promise<ExtrasCatalogo> {
-    const [volume, trakRating] = await Promise.all([this.googleBooks.getVolumeRaw(p.externalId), notaTrak]);
+    const [volume, trakRating] = await Promise.all([this.googleBooks.volume(p.externalId), notaTrak]);
     const info = volume?.volumeInfo;
 
     const externalRatings: NotaExterna[] = [];
@@ -126,7 +126,7 @@ export class FonteGoogleBooks implements Fonte<IdGoogleBooks> {
   }
 
   async relacionados(_p: IdGoogleBooks, id: string) {
-    const volume = await this.googleBooks.getVolumeRaw(id);
+    const volume = await this.googleBooks.volume(id);
     const termo = volume?.volumeInfo?.categories?.[0] ?? volume?.volumeInfo?.title;
     if (!termo) {
       return [];
@@ -143,7 +143,7 @@ export class FonteGoogleBooks implements Fonte<IdGoogleBooks> {
   }
 
   async duracao(_p: IdGoogleBooks, id: string) {
-    const paginas = (await this.googleBooks.getVolumeRaw(id))?.volumeInfo?.pageCount;
+    const paginas = (await this.googleBooks.volume(id))?.volumeInfo?.pageCount;
     return paginas && paginas > 0 ? Math.round(paginas * MINUTOS_POR_PAGINA) : null;
   }
 

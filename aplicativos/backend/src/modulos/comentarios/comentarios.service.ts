@@ -10,9 +10,9 @@ import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
 import { NotificacoesService } from "../notificacoes/notificacoes.service";
 import { AtividadesService } from "../social/atividades.service";
+import { DenunciarComentarioDto } from "./dto/denunciar-comentario.dto";
 
 export const CONTEUDO_REMOVIDO = "[comentário removido]";
-import { DenunciarComentarioDto } from "./dto/denunciar-comentario.dto";
 
 @Injectable()
 export class ComentariosService {

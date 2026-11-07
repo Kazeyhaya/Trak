@@ -22,8 +22,7 @@
 }
 
 .hero-copy,
-.auth-panel,
-.roadmap-grid {
+.auth-panel {
   position: relative;
   z-index: 1;
 }
@@ -118,39 +117,8 @@
   background: rgba(13, 18, 27, 0.82);
 }
 
-.roadmap-block {
+.home-destaques {
   margin-top: 32px;
-}
-
-.roadmap-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 18px;
-}
-
-.roadmap-grid article {
-  padding: 18px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.roadmap-grid span {
-  display: inline-flex;
-  margin-bottom: 10px;
-}
-
-.roadmap-grid h2 {
-  margin: 0 0 8px;
-  font-family: var(--font-heading), "Segoe UI", sans-serif;
-  font-size: 1.2rem;
-}
-
-.roadmap-grid p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
 }
 
 /* Demonstracao da landing: a ficha de uma serie real, sem salvar nada */

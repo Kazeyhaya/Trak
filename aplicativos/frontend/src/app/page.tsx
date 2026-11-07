@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Trak | Acompanhe filmes, séries, jogos e livros",
   description:
-    "Organize o que você assiste, joga e lê. Marque episódios, dê notas, siga amigos e receba alertas de estreias. Grátis.",
+    "Organize o que você assiste, joga e lê. Marque episódios, dê notas, siga amigos e receba alertas de estreias.",
   openGraph: {
     title: "Trak | Acompanhe filmes, séries, jogos e livros",
     description: "Filmes, séries, jogos e livros num caderno só.",

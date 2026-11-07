@@ -27,7 +27,6 @@ function montar(responder: (op: Operacao) => Resposta, totalEpisodios = 10, isOn
   const catalogo = {
     garantirNoBanco: jest.fn(async () => undefined),
     buscarSalvos: jest.fn(async () => new Map()),
-    totalEpisodiosExibidos: jest.fn(async () => totalEpisodios),
     infoEpisodiosSerie: jest.fn(async () => ({
       totalEpisodes: totalEpisodios,
       airedEpisodes: totalEpisodios,

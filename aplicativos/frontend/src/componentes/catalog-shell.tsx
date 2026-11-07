@@ -57,7 +57,6 @@ export function CatalogShell({
   typeFilter = "",
   genreFilter = ""
 }: CatalogShellProps) {
-  void genreFilter;
   const { user } = useAuth();
   const [customCovers, setCustomCovers] = useState<Record<string, string>>({});
   const filterKey = `${query}:${typeFilter}:${genreFilter}`;

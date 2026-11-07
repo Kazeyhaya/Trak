@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { ehAdmin, esquecerUsuario } from "../../comum/autenticacao/supabase-auth.guard";
 import { falha } from "../../comum/erros";
+import { gravarMetaLegado } from "../../comum/meta-legado";
 import { UsuarioAuth } from "../../comum/autenticacao/usuario-auth.decorator";
 import { SupabaseService } from "../../comum/supabase/supabase.service";
 import { CatalogoService } from "../catalogo/catalogo.service";
@@ -137,20 +138,7 @@ export class SocialService {
       importedSources: parcial.importedSources ?? atual.importedSources ?? [],
       hasImported: parcial.hasImported ?? atual.hasImported ?? false
     };
-    const { error: rpcError } = await this.db.rpc("trak_salvar_meta", {
-      p_user_id: userId,
-      p_data: novo
-    });
-    if (rpcError) {
-      const { error: upsertError } = await this.db.from("Activity").upsert({
-        id: userId,
-        userId,
-        type: "STATUS",
-        mediaItemId: null,
-        data: novo
-      });
-      falha(upsertError);
-    }
+    await gravarMetaLegado(this.db, userId, novo);
     return novo;
   }
 
@@ -194,37 +182,7 @@ export class SocialService {
       : data && typeof (data as LinhaUser).id === "string"
         ? [data as LinhaUser]
         : [];
-    let match = linhas.find((l) => l.username?.toLowerCase() === limpo.toLowerCase()) ?? null;
-
-    if (!match) {
-      const campos = usarMetaLegado ? CAMPOS_PERFIL_LEGADO : CAMPOS_PERFIL;
-      try {
-        const exatoEq = await this.db
-          .from("User")
-          .select(campos)
-          .eq("username", limpo)
-          .limit(1)
-          .maybeSingle();
-
-        const dadosEq = exatoEq.data as unknown as LinhaUser | null;
-        if (dadosEq && typeof dadosEq === "object" && !Array.isArray(dadosEq) && typeof dadosEq.id === "string") {
-          match = dadosEq;
-        } else {
-          const exatoLower = await this.db
-            .from("User")
-            .select(campos)
-            .eq("username", limpo.toLowerCase())
-            .limit(1)
-            .maybeSingle();
-          const dadosLower = exatoLower.data as unknown as LinhaUser | null;
-          if (dadosLower && typeof dadosLower === "object" && !Array.isArray(dadosLower) && typeof dadosLower.id === "string") {
-            match = dadosLower;
-          }
-        }
-      } catch {
-        // Fallback silencioso se falhar
-      }
-    }
+    const match = linhas.find((l) => l.username?.toLowerCase() === limpo.toLowerCase()) ?? null;
 
     if (!match || !match.id) {
       throw new NotFoundException("Perfil nao encontrado.");
@@ -420,8 +378,8 @@ export class SocialService {
     let metaLegado: MetaPerfil | null = null;
 
     if (erroColunaAusente(error)) {
+      // language nao existe no schema legado: fica de fora.
       const { avatarUrl, bannerUrl, theme, language, ...camposLegados } = normalizado;
-      void language;
       const valoresLegados = Object.fromEntries(
         Object.entries(camposLegados).filter(([, valor]) => valor !== undefined)
       );
@@ -789,69 +747,16 @@ export class SocialService {
     };
   }
 
-  async listarSeguidores(username: string, visitante?: UsuarioAuth) {
-    const alvo = await this.perfilPorUsername(username);
-    const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
-    const isMe = visitanteId === alvo.userId;
-
-    if (!alvo.isPublic && !isMe) {
-      throw new ForbiddenException("Este perfil é privado.");
-    }
-
-    const { data: follows, error } = await this.db
-      .from("Follow")
-      .select("followerId,createdAt")
-      .eq("followingId", alvo.userId)
-      .order("createdAt", { ascending: false })
-      .limit(100);
-    falha(error);
-
-    const followerIds = (follows ?? []).map((f) => f.followerId as string);
-    if (followerIds.length === 0) {
-      return [];
-    }
-
-    const [perfisMap, seguidosPeloVisitante, seguemVisitante] = await Promise.all([
-      this.perfisPorIds(followerIds),
-      visitanteId
-        ? this.db
-            .from("Follow")
-            .select("followingId")
-            .eq("followerId", visitanteId)
-            .in("followingId", followerIds)
-            .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
-        : Promise.resolve(new Set<string>()),
-      visitanteId
-        ? this.db
-            .from("Follow")
-            .select("followerId")
-            .eq("followingId", visitanteId)
-            .in("followerId", followerIds)
-            .then((r) => new Set((r.data ?? []).map((row) => row.followerId as string)))
-        : Promise.resolve(new Set<string>())
-    ]);
-
-    return followerIds.flatMap((id) => {
-      const p = perfisMap.get(id);
-      if (!p) {
-        return [];
-      }
-      return [
-        {
-          userId: p.userId,
-          username: p.username,
-          displayName: p.displayName,
-          bio: p.bio,
-          avatarUrl: p.avatarUrl,
-          isFollowing: seguidosPeloVisitante.has(p.userId),
-          followsYou: seguemVisitante.has(p.userId),
-          isMe: visitanteId === p.userId
-        }
-      ];
-    });
+  listarSeguidores(username: string, visitante?: UsuarioAuth) {
+    return this.listarConexoes(username, "seguidores", visitante);
   }
 
-  async listarSeguindo(username: string, visitante?: UsuarioAuth) {
+  listarSeguindo(username: string, visitante?: UsuarioAuth) {
+    return this.listarConexoes(username, "seguindo", visitante);
+  }
+
+  // Ate 100 pessoas, das mais recentes, com o que o visitante tem em comum com cada uma.
+  private async listarConexoes(username: string, direcao: "seguidores" | "seguindo", visitante?: UsuarioAuth) {
     const alvo = await this.perfilPorUsername(username);
     const visitanteId = visitante ? await this.supabaseService.resolverUserId(visitante.id) : null;
     const isMe = visitanteId === alvo.userId;
@@ -860,27 +765,30 @@ export class SocialService {
       throw new ForbiddenException("Este perfil é privado.");
     }
 
+    // Seguidores: linhas em que o alvo e seguido. Seguindo: em que ele segue.
+    const [colunaAlvo, colunaOutro] =
+      direcao === "seguidores" ? (["followingId", "followerId"] as const) : (["followerId", "followingId"] as const);
     const { data: follows, error } = await this.db
       .from("Follow")
-      .select("followingId,createdAt")
-      .eq("followerId", alvo.userId)
+      .select(`${colunaOutro},createdAt`)
+      .eq(colunaAlvo, alvo.userId)
       .order("createdAt", { ascending: false })
       .limit(100);
     falha(error);
 
-    const followingIds = (follows ?? []).map((f) => f.followingId as string);
-    if (followingIds.length === 0) {
+    const ids = ((follows ?? []) as unknown as Array<Record<string, string>>).map((f) => f[colunaOutro]);
+    if (ids.length === 0) {
       return [];
     }
 
     const [perfisMap, seguidosPeloVisitante, seguemVisitante] = await Promise.all([
-      this.perfisPorIds(followingIds),
+      this.perfisPorIds(ids),
       visitanteId
         ? this.db
             .from("Follow")
             .select("followingId")
             .eq("followerId", visitanteId)
-            .in("followingId", followingIds)
+            .in("followingId", ids)
             .then((r) => new Set((r.data ?? []).map((row) => row.followingId as string)))
         : Promise.resolve(new Set<string>()),
       visitanteId
@@ -888,12 +796,12 @@ export class SocialService {
             .from("Follow")
             .select("followerId")
             .eq("followingId", visitanteId)
-            .in("followerId", followingIds)
+            .in("followerId", ids)
             .then((r) => new Set((r.data ?? []).map((row) => row.followerId as string)))
         : Promise.resolve(new Set<string>())
     ]);
 
-    return followingIds.flatMap((id) => {
+    return ids.flatMap((id) => {
       const p = perfisMap.get(id);
       if (!p) {
         return [];
