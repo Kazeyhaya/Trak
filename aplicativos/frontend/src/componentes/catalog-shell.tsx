@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { FilterBar } from "./filter-bar";
 import { MediaGrid } from "./media-grid";
@@ -20,6 +20,18 @@ type CatalogShellProps = {
 };
 
 const ITENS_POR_PAGINA = 24;
+const CHAVE_HERO_DISPENSADO = "trak:catalog:hero:dismissed";
+
+// O servidor nao enxerga o localStorage. useSyncExternalStore renderiza a versao do
+// servidor na hidratacao e so depois aplica a do navegador, sem erro de hidratacao.
+const semAssinatura = () => () => {};
+function heroDispensadoAntes() {
+  try {
+    return Boolean(window.localStorage.getItem(CHAVE_HERO_DISPENSADO));
+  } catch {
+    return false;
+  }
+}
 
 function CatalogEmptyState({ query }: { query: string }) {
   const { t } = useI18n();
@@ -71,23 +83,18 @@ export function CatalogShell({
       active = false;
     };
   }, [user]);
-  const [showHero, setShowHero] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return !window.localStorage.getItem("trak:catalog:hero:dismissed");
-    } catch {
-      return true;
-    }
-  });
+  const dispensadoAntes = useSyncExternalStore(semAssinatura, heroDispensadoAntes, () => false);
+  const [dispensadoAgora, setDispensadoAgora] = useState(false);
+  const showHero = !dispensadoAntes && !dispensadoAgora;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedType = typeFilter.toLowerCase();
 
   function handleDismissHero() {
-    setShowHero(false);
+    setDispensadoAgora(true);
     try {
-      window.localStorage.setItem("trak:catalog:hero:dismissed", "true");
+      window.localStorage.setItem(CHAVE_HERO_DISPENSADO, "true");
     } catch {
-      // Ignora
+      // Sem localStorage (aba anonima, bloqueio): o hero volta na proxima visita.
     }
   }
 

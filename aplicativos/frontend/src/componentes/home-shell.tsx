@@ -26,16 +26,25 @@ type HomeShellProps = {
 export function HomeShell({ destaques, vitrine, initialLoggedIn }: HomeShellProps) {
   const { user, profile, loading } = useAuth();
   const isLoggedIn = loading ? initialLoggedIn : Boolean(user);
-  const [library, setLibrary] = useState<TrackingEntry[]>([]);
+  // A estante carregada guarda de quem ela e: ao sair ou trocar de conta, a da conta
+  // anterior some na hora, sem esperar a nova chegar.
+  const [estante, setEstante] = useState<{ dono: string; itens: TrackingEntry[] } | null>(null);
+  const [erroEstante, setErroEstante] = useState<string | null>(null);
+  const library = user && estante?.dono === user.id ? estante.itens : [];
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     getTrackingItems()
-      .then((items) => {
-        if (active) setLibrary(items);
+      .then((itens) => {
+        if (active) {
+          setEstante({ dono: user.id, itens });
+          setErroEstante(null);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setErroEstante("Não foi possível carregar o que você está acompanhando agora.");
+      });
     return () => {
       active = false;
     };
@@ -78,6 +87,12 @@ export function HomeShell({ destaques, vitrine, initialLoggedIn }: HomeShellProp
             </UiButton>
           </div>
         </section>
+
+        {erroEstante && (
+          <p className="auth-error" role="alert">
+            {erroEstante}
+          </p>
+        )}
 
         {inProgress.length > 0 && (
           <section className="feed-in-progress-panel">

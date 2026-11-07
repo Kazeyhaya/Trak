@@ -22,11 +22,11 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  outline: none;
+  border-radius: 10px;
 }
 
-.brand-mark:focus,
-.brand-mark:focus-visible {
+/* Sem contorno ao clicar com o mouse; pelo teclado vale o foco global de base.css. */
+.brand-mark:focus:not(:focus-visible) {
   outline: none;
 }
 
